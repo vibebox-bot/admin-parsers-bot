@@ -127,22 +127,15 @@ def get_product_links(soup):
     links = []
     seen = set()
 
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
+    # 🔥 правильный селектор (главный фикс)
+    for a in soup.select(".product-thumb__name, .product-thumb__image a"):
+        href = a.get("href")
 
         if not href:
             continue
 
-        # делаем абсолютные ссылки
         if href.startswith("/"):
             href = BASE_URL + href
-
-        # фильтр товаров (НЕ ломает сайт)
-        if ".html" not in href:
-            continue
-
-        if "product" not in href and "top-kitchen.com.ua" not in href:
-            continue
 
         if href in seen:
             continue
@@ -151,6 +144,7 @@ def get_product_links(soup):
         links.append(href)
 
     print("🧩 FOUND LINKS:", len(links))
+
     return links
 
 
