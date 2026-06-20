@@ -1,7 +1,8 @@
 aiogram==3.*
 requests
-beautifulsoup4
 openpyxl
 psutil
 selenium
 webdriver-manager
+playwright
+beautifulsoup4
