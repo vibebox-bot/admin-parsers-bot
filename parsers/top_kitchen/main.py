@@ -117,23 +117,31 @@ def get_categories():
     return cats
 
 
+# =========================
+# PRODUCTS (FIXED)
+# =========================
+
 def get_product_links(soup):
     print("🔎 SEARCH PRODUCTS ON PAGE")
-
-    cards = soup.find_all("a", href=True)
 
     links = []
     seen = set()
 
-    for c in cards:
-        href = c["href"]
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
 
+        if not href:
+            continue
+
+        # делаем абсолютные ссылки
+        if href.startswith("/"):
+            href = BASE_URL + href
+
+        # фильтр товаров (НЕ ломает сайт)
         if ".html" not in href:
             continue
 
-        if "product" in href or "top-kitchen" in href:
-            pass
-        else:
+        if "product" not in href and "top-kitchen.com.ua" not in href:
             continue
 
         if href in seen:
@@ -143,7 +151,6 @@ def get_product_links(soup):
         links.append(href)
 
     print("🧩 FOUND LINKS:", len(links))
-
     return links
 
 
@@ -172,7 +179,8 @@ def parse_product(url):
         sku = ""
 
     try:
-        price = soup.select_one(".product-page__price.price").get_text(strip=True)
+        price_el = soup.select_one(".product-page__price.price")
+        price = price_el.get_text(strip=True) if price_el else ""
     except:
         price = ""
 
@@ -218,6 +226,9 @@ def parse_category(url):
             break
 
         for link in new_links:
+
+            print("➡️ PARSING:", link)
+
             try:
                 name, model, sku, price, qty = parse_product(link)
 
@@ -244,6 +255,7 @@ def parse_category(url):
 # =========================
 
 def run_parser():
+
     print("🚀 RUN_PARSER STARTED")
 
     global wb, ws
