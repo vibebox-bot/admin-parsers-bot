@@ -118,18 +118,22 @@ def get_categories():
 
 
 def get_product_links(soup):
-    cards = soup.select(".product-thumb a[href], .product-layout a[href]")
+    print("🔎 SEARCH PRODUCTS ON PAGE")
+
+    cards = soup.find_all("a", href=True)
 
     links = []
     seen = set()
 
     for c in cards:
-        href = c.get("href")
+        href = c["href"]
 
-        if not href:
+        if ".html" not in href:
             continue
 
-        if not href.endswith(".html"):
+        if "product" in href or "top-kitchen" in href:
+            pass
+        else:
             continue
 
         if href in seen:
@@ -137,6 +141,8 @@ def get_product_links(soup):
 
         seen.add(href)
         links.append(href)
+
+    print("🧩 FOUND LINKS:", len(links))
 
     return links
 
