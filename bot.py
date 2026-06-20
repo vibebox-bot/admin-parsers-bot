@@ -293,28 +293,30 @@ async def start(message: types.Message):
 async def run_parser(key):
     s = SUPPLIERS[key]
 
+    import sys
+
     proc = await asyncio.create_subprocess_exec(
-        "python",
+        sys.executable,
         s["script"],
         stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        # creationflags=0x00000200  # Windows: CREATE_NEW_PROCESS_GROUP
+        stderr=asyncio.subprocess.PIPE
     )
 
     RUNNING_PROCESSES[key] = proc
 
+    print(f"🚀 STARTED {key}")
+    print(f"📄 SCRIPT: {s['script']}")
+
     try:
         while True:
-            # проверяем статус cancel
+            # читаем статус отмены
             st = load_json(s["status"])
 
             if st and st.get("canceled"):
                 try:
                     import psutil
-
                     parent = psutil.Process(proc.pid)
 
-                    # убиваем всё дерево (chrome, chromedriver, python child)
                     for child in parent.children(recursive=True):
                         try:
                             child.kill()
@@ -327,16 +329,24 @@ async def run_parser(key):
                         pass
 
                 except Exception as e:
-                    pass
+                    print("KILL ERROR:", e)
 
                 RUNNING_PROCESSES.pop(key, None)
                 return "canceled"
 
-            # проверяем жив ли процесс
+            # если процесс умер
             if proc.returncode is not None:
                 break
 
             await asyncio.sleep(1)
+
+        stdout, stderr = await proc.communicate()
+
+        if stdout:
+            print(stdout.decode(errors="ignore"))
+
+        if stderr:
+            print(stderr.decode(errors="ignore"))
 
         RUNNING_PROCESSES.pop(key, None)
         return proc.returncode
