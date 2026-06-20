@@ -13,7 +13,7 @@ print("🔥 TOP-KITCHEN PARSER LOADED")
 BASE_URL = "https://www.top-kitchen.com.ua"
 
 OUTPUT_DIR = os.path.abspath("output/top_kitchen")
-FILE_PATH = os.path.join(OUTPUT_DIR, "top_kitchen_TEST.xlsx")
+FILE_PATH = os.path.join(OUTPUT_DIR, "top_kitchen_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
