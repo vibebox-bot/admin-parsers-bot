@@ -4,66 +4,36 @@ import requests
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
-from datetime import datetime
-
-print("🔥 TOP-KITCHEN FIXED PARSER STARTED")
 
 BASE_URL = "https://www.top-kitchen.com.ua"
 
 OUTPUT_DIR = os.path.abspath("output/top_kitchen")
-FILE_PATH = os.path.join(OUTPUT_DIR, "top_kitchen_LIVE.xlsx")
-STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
-LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
+FILE_PATH = os.path.join(OUTPUT_DIR, "top_kitchen.xlsx")
 
-HEADERS = {"User-Agent": "Mozilla/5.0"}
+HEADERS = {
+    "User-Agent": "Mozilla/5.0"
+}
+
+print("🔥 TOP-KITCHEN FIXED PARSER STARTED")
 
 
 # =========================
-# HTTP
+# REQUEST
 # =========================
 def get_soup(url):
-    url = urljoin(BASE_URL, url)
-
     r = requests.get(url, headers=HEADERS, timeout=30)
-
     print("🌐", url)
-    print("📡 STATUS:", r.status_code)
-
+    print("📡", r.status_code)
     return BeautifulSoup(r.text, "html.parser")
 
 
 # =========================
-# CATEGORIES
+# CATEGORY LINKS (with pagination)
 # =========================
-def get_categories():
-    soup = get_soup(BASE_URL)
+def get_category_pages(cat_url):
+    soup = get_soup(cat_url)
 
-    links = []
-    seen = set()
-
-    for a in soup.select(".list-group__a, .list-group__children-a"):
-        href = a.get("href")
-        if not href:
-            continue
-
-        full = urljoin(BASE_URL, href)
-
-        if full not in seen:
-            seen.add(full)
-            links.append(full)
-
-    print("📦 CATEGORIES:", len(links))
-    return links
-
-
-# =========================
-# PAGINATION (ВАЖНО)
-# =========================
-def get_all_pages(category_url):
-    pages = set()
-    pages.add(category_url)
-
-    soup = get_soup(category_url)
+    pages = {cat_url}
 
     for a in soup.select(".pagination a"):
         href = a.get("href")
@@ -74,48 +44,39 @@ def get_all_pages(category_url):
 
 
 # =========================
-# PRODUCTS LINKS
+# PRODUCT LINKS
 # =========================
-def get_product_links(soup):
+def get_products(soup):
     links = set()
 
     for a in soup.select(".product-thumb__name, .product-thumb__image a"):
         href = a.get("href")
-        if href:
-            links.add(urljoin(BASE_URL, href))
+        if not href:
+            continue
+
+        full = urljoin(BASE_URL, href)
+        links.add(full)
 
     return list(links)
 
 
 # =========================
-# PRODUCT PARSER (FIXED)
+# PRODUCT PARSE
 # =========================
 def parse_product(url):
     soup = get_soup(url)
 
-    # NAME
-    name = ""
-    el = soup.select_one("h1, .heading-h1")
-    if el:
-        name = el.get_text(strip=True)
+    name = soup.select_one(".heading-h1")
+    name = name.get_text(strip=True) if name else ""
 
-    # PRODUCT CODE
-    code = ""
-    el = soup.select_one(".product-data")
-    if el:
-        code = el.get_text(" ", strip=True)
+    code = soup.select_one(".product-data")
+    code = code.get_text(strip=True) if code else ""
 
-    # PRICE
-    price = ""
-    el = soup.select_one(".product-page__price, .price")
-    if el:
-        price = el.get_text(strip=True)
+    price = soup.select_one(".product-page__price.price")
+    price = price.get_text(strip=True) if price else ""
 
-    # AVAILABILITY
-    qty = ""
-    el = soup.select_one(".qty-indicator__bar")
-    if el:
-        qty = el.get("data-original-title", "").strip()
+    qty = soup.select_one(".qty-indicator__bar")
+    qty = qty.get("data-original-title", "") if qty else ""
 
     return name, code, price, qty
 
@@ -123,26 +84,25 @@ def parse_product(url):
 # =========================
 # CATEGORY PARSER
 # =========================
-def parse_category(cat_url):
-    pages = get_all_pages(cat_url)
+def parse_category(ws, cat_url):
+    print("\n====================")
+    print("📂 CATEGORY:", cat_url)
+    print("====================")
 
-    seen_products = set()
+    pages = get_category_pages(cat_url)
 
     for page in pages:
         soup = get_soup(page)
 
-        product_links = get_product_links(soup)
+        products = get_products(soup)
 
-        for link in product_links:
-            if link in seen_products:
-                continue
+        print("🧩 PRODUCTS:", len(products))
 
-            seen_products.add(link)
-
-            print("➡️ PARSING:", link)
+        for p in products:
+            print("➡️ PARSING:", p)
 
             try:
-                name, code, price, qty = parse_product(link)
+                name, code, price, qty = parse_product(p)
 
                 ws.append([
                     cat_url,
@@ -150,9 +110,8 @@ def parse_category(cat_url):
                     code,
                     price,
                     qty,
-                    link
+                    p
                 ])
-
             except Exception as e:
                 print("❌ ERROR:", e)
 
@@ -160,32 +119,42 @@ def parse_category(cat_url):
 # =========================
 # MAIN
 # =========================
-wb = Workbook()
-ws = wb.active
-ws.title = "top_kitchen"
+def run_parser():
 
-ws.append([
-    "Category",
-    "Name",
-    "Code",
-    "Price",
-    "Availability",
-    "URL"
-])
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "top_kitchen"
 
-def run():
-    cats = get_categories()
+    ws.append([
+        "Category",
+        "Name",
+        "Code",
+        "Price",
+        "Availability",
+        "URL"
+    ])
 
-    # 🔥 TEST MODE (1 category)
-    test_cat = cats[0]
-    print("🧪 TEST CATEGORY:", test_cat)
+    soup = get_soup(BASE_URL)
 
-    parse_category(test_cat)
+    categories = []
+
+    for a in soup.select(".list-group__a"):
+        href = a.get("href")
+        if href:
+            categories.append(urljoin(BASE_URL, href))
+
+    print("📦 CATEGORIES:", len(categories))
+
+    TEST_MODE = True  # ← сначала тест
+
+    for cat in categories[:1] if TEST_MODE else categories:
+        parse_category(ws, cat)
 
     wb.save(FILE_PATH)
     print("✅ SAVED:", FILE_PATH)
 
 
 if __name__ == "__main__":
-    run()
+    run_parser()
