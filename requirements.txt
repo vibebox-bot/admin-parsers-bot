@@ -1,8 +1,4 @@
 aiogram==3.*
 requests
-openpyxl
-psutil
-selenium
-webdriver-manager
-playwright
 beautifulsoup4
+openpyxl
