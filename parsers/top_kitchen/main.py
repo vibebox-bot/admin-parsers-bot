@@ -1,16 +1,12 @@
 import os
 import json
-from datetime import datetime
-
 import requests
+from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
+from datetime import datetime
 
-print("🔥 TOP-KITCHEN PARSER LOADED")
-
-# =========================
-# CONFIG
-# =========================
+print("🔥 TOP-KITCHEN FIXED PARSER STARTED")
 
 BASE_URL = "https://www.top-kitchen.com.ua"
 
@@ -19,72 +15,19 @@ FILE_PATH = os.path.join(OUTPUT_DIR, "top_kitchen_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0"
-}
-
-# =========================
-# STATUS
-# =========================
-
-def set_status(running: bool):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    with open(STATUS_PATH, "w", encoding="utf-8") as f:
-        json.dump({
-            "running": running,
-            "progress": 0,
-            "time": datetime.now().strftime("%Y-%m-%d %H:%M")
-        }, f, ensure_ascii=False, indent=2)
-
-
-def update_progress(percent):
-    if not os.path.exists(STATUS_PATH):
-        return
-
-    try:
-        with open(STATUS_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        data["progress"] = percent
-
-        with open(STATUS_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except:
-        pass
-
-
-def set_lock(state: bool):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    if state:
-        with open(LOCK_FILE, "w") as f:
-            f.write("running")
-    else:
-        if os.path.exists(LOCK_FILE):
-            os.remove(LOCK_FILE)
-
-
-def is_locked():
-    return os.path.exists(LOCK_FILE)
+HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 
 # =========================
-# REQUEST
+# HTTP
 # =========================
-
 def get_soup(url):
-    if url.startswith("/"):
-        url = BASE_URL + url
-
-    if not url.startswith("http"):
-        url = "https://" + url
+    url = urljoin(BASE_URL, url)
 
     r = requests.get(url, headers=HEADERS, timeout=30)
 
-    print("🌐 URL:", url)
+    print("🌐", url)
     print("📡 STATUS:", r.status_code)
-    print("📦 LEN:", len(r.text))
 
     return BeautifulSoup(r.text, "html.parser")
 
@@ -92,86 +35,79 @@ def get_soup(url):
 # =========================
 # CATEGORIES
 # =========================
-
 def get_categories():
     soup = get_soup(BASE_URL)
 
-    cats = []
+    links = []
     seen = set()
 
-    for el in soup.select(".list-group__a, .list-group__children-a"):
-        href = el.get("href")
+    for a in soup.select(".list-group__a, .list-group__children-a"):
+        href = a.get("href")
         if not href:
             continue
 
-        if "top-kitchen.com.ua" not in href:
-            continue
+        full = urljoin(BASE_URL, href)
 
-        if href in seen:
-            continue
+        if full not in seen:
+            seen.add(full)
+            links.append(full)
 
-        seen.add(href)
-        cats.append(href)
+    print("📦 CATEGORIES:", len(links))
+    return links
 
-    print("📦 CATEGORIES FOUND:", len(cats))
-    return cats
+
+# =========================
+# PAGINATION (ВАЖНО)
+# =========================
+def get_all_pages(category_url):
+    pages = set()
+    pages.add(category_url)
+
+    soup = get_soup(category_url)
+
+    for a in soup.select(".pagination a"):
+        href = a.get("href")
+        if href:
+            pages.add(urljoin(BASE_URL, href))
+
+    return list(pages)
 
 
 # =========================
 # PRODUCTS LINKS
 # =========================
-
 def get_product_links(soup):
-    print("🔎 SEARCH PRODUCTS ON PAGE")
+    links = set()
 
-    links = []
-    seen = set()
-
-    # 🔥 ГЛАВНЫЙ ФИКС (РАБОТАЕТ НА ТВОЁМ HTML)
-    for a in soup.select(".product-thumb__name"):
+    for a in soup.select(".product-thumb__name, .product-thumb__image a"):
         href = a.get("href")
+        if href:
+            links.add(urljoin(BASE_URL, href))
 
-        if not href:
-            continue
-
-        if href in seen:
-            continue
-
-        seen.add(href)
-        links.append(href)
-
-    print("🧩 FOUND LINKS:", len(links))
-    return links
+    return list(links)
 
 
 # =========================
-# PRODUCT PARSER
+# PRODUCT PARSER (FIXED)
 # =========================
-
 def parse_product(url):
     soup = get_soup(url)
 
     # NAME
     name = ""
-    el = soup.select_one(".heading-h1 h1")
+    el = soup.select_one("h1, .heading-h1")
     if el:
         name = el.get_text(strip=True)
 
-    # MODEL / CODE
-    model = ""
-    el = soup.select_one(".product-data__item.model")
+    # PRODUCT CODE
+    code = ""
+    el = soup.select_one(".product-data")
     if el:
-        model = el.get_text(strip=True).replace("Код Товара:", "").strip()
-
-    # SKU
-    sku = ""
-    el = soup.select_one(".product-data__item.sku")
-    if el:
-        sku = el.get_text(strip=True).replace("Артикул:", "").strip()
+        code = el.get_text(" ", strip=True)
 
     # PRICE
     price = ""
-    el = soup.select_one(".product-page__price.price")
+    el = soup.select_one(".product-page__price, .price")
     if el:
         price = el.get_text(strip=True)
 
@@ -179,132 +115,77 @@ def parse_product(url):
     qty = ""
     el = soup.select_one(".qty-indicator__bar")
     if el:
-        qty = el.get("data-original-title", "") or ""
-    else:
-        el = soup.select_one(".qty-indicator")
-        if el:
-            qty = el.get_text(strip=True)
+        qty = el.get("data-original-title", "").strip()
 
-    return name, model, sku, price, qty
+    return name, code, price, qty
 
 
 # =========================
-# CATEGORY PARSER (WITH PAGINATION)
+# CATEGORY PARSER
 # =========================
+def parse_category(cat_url):
+    pages = get_all_pages(cat_url)
 
-def parse_category(url):
-    seen = set()
-    page = 1
+    seen_products = set()
 
-    while True:
-        current_url = url if page == 1 else f"{url}?page={page}"
+    for page in pages:
+        soup = get_soup(page)
 
-        soup = get_soup(current_url)
+        product_links = get_product_links(soup)
 
-        links = get_product_links(soup)
+        for link in product_links:
+            if link in seen_products:
+                continue
 
-        if not links:
-            break
+            seen_products.add(link)
 
-        new_links = []
-
-        for link in links:
-            if link not in seen:
-                seen.add(link)
-                new_links.append(link)
-
-        if not new_links:
-            break
-
-        for link in new_links:
             print("➡️ PARSING:", link)
 
             try:
-                name, model, sku, price, qty = parse_product(link)
+                name, code, price, qty = parse_product(link)
 
                 ws.append([
-                    url,
+                    cat_url,
                     name,
-                    model,
-                    sku,
+                    code,
                     price,
                     qty,
                     link
                 ])
+
             except Exception as e:
                 print("❌ ERROR:", e)
-
-        page += 1
-
-        if page > 50:
-            break
 
 
 # =========================
 # MAIN
 # =========================
+wb = Workbook()
+ws = wb.active
+ws.title = "top_kitchen"
 
-def run_parser():
-    print("🚀 RUN PARSER STARTED")
-
-    global wb, ws
-
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    if is_locked():
-        print("ALREADY RUNNING")
-        return
-
-    set_lock(True)
-    set_status(True)
-
-    try:
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "top-kitchen"
-
-        ws.append([
-            "Category",
-            "Name",
-            "Model",
-            "SKU",
-            "Price",
-            "Availability",
-            "URL"
-        ])
-
-        categories = get_categories()
-
-        # 🔥 TEST MODE (1 категория сначала)
-        categories = categories[:1]
-
-        total = len(categories)
-
-        print("🧪 TEST CATEGORIES:", categories)
-
-        for i, cat in enumerate(categories, 1):
-            percent = int(i / total * 100)
-            update_progress(percent)
-
-            print("====================")
-            print("📂 CATEGORY:", cat)
-            print("====================")
-
-            parse_category(cat)
-
-        update_progress(100)
-
-        wb.save(FILE_PATH)
-        print("✅ DONE:", FILE_PATH)
-
-    finally:
-        set_status(False)
-        set_lock(False)
+ws.append([
+    "Category",
+    "Name",
+    "Code",
+    "Price",
+    "Availability",
+    "URL"
+])
 
 
-# =========================
-# START
-# =========================
+def run():
+    cats = get_categories()
+
+    # 🔥 TEST MODE (1 category)
+    test_cat = cats[0]
+    print("🧪 TEST CATEGORY:", test_cat)
+
+    parse_category(test_cat)
+
+    wb.save(FILE_PATH)
+    print("✅ SAVED:", FILE_PATH)
+
 
 if __name__ == "__main__":
-    run_parser()
+    run()
