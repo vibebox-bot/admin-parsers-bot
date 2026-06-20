@@ -298,7 +298,7 @@ async def run_parser(key):
         s["script"],
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        creationflags=0x00000200  # Windows: CREATE_NEW_PROCESS_GROUP
+        # creationflags=0x00000200  # Windows: CREATE_NEW_PROCESS_GROUP
     )
 
     RUNNING_PROCESSES[key] = proc
