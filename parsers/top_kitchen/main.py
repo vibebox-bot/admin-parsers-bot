@@ -3,14 +3,13 @@ import json
 import time
 from datetime import datetime
 
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
+import requests
+from bs4 import BeautifulSoup
 
 from openpyxl import Workbook
 
 print("🔥 TOP-KITCHEN PARSER LOADED")
+
 # =========================
 # PATHS
 # =========================
@@ -22,6 +21,10 @@ FILE_PATH = os.path.join(OUTPUT_DIR, "top_kitchen_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
+HEADERS = {
+    "User-Agent": "Mozilla/5.0"
+}
+
 # =========================
 # STATUS
 # =========================
@@ -30,17 +33,11 @@ def set_status(running: bool):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "running": running,
-                "progress": 0,
-                "time": datetime.now().strftime("%Y-%m-%d %H:%M")
-            },
-            f,
-            ensure_ascii=False,
-            indent=2
-        )
-
+        json.dump({
+            "running": running,
+            "progress": 0,
+            "time": datetime.now().strftime("%Y-%m-%d %H:%M")
+        }, f, ensure_ascii=False, indent=2)
 
 
 def set_lock(state: bool):
@@ -53,8 +50,10 @@ def set_lock(state: bool):
         if os.path.exists(LOCK_FILE):
             os.remove(LOCK_FILE)
 
+
 def is_locked():
     return os.path.exists(LOCK_FILE)
+
 
 def update_progress(percent):
     try:
@@ -64,43 +63,38 @@ def update_progress(percent):
         with open(STATUS_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        if not isinstance(data, dict):
-            data = {}
-
         data["progress"] = percent
 
         with open(STATUS_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-
     except:
         pass
 
-# =========================
-# DRIVER
-# =========================
-
-driver = None
-wait = None
 
 # =========================
-# CATEGORIES (НЕ ТРОГАЮ ЛОГИКУ)
+# HTTP
+# =========================
+
+def get_soup(url):
+    r = requests.get(url, headers=HEADERS, timeout=30)
+    return BeautifulSoup(r.text, "html.parser")
+
+
+# =========================
+# CATEGORIES
 # =========================
 
 def get_categories():
-    driver.get(BASE_URL)
-    time.sleep(3)
-
-    print("🌐 OPENED BASE URL")
-    print("URL:", driver.current_url)
+    soup = get_soup(BASE_URL)
 
     cats = []
     seen = set()
 
-    main = driver.find_elements(By.CSS_SELECTOR, ".list-group__a")
-    sub = driver.find_elements(By.CSS_SELECTOR, ".list-group__children-a")
+    main = soup.select(".list-group__a")
+    sub = soup.select(".list-group__children-a")
 
     for el in main + sub:
-        href = el.get_attribute("href")
+        href = el.get("href")
 
         if not href:
             continue
@@ -118,20 +112,14 @@ def get_categories():
     return cats
 
 
-
-def get_product_links():
-    time.sleep(2)
-
-    cards = driver.find_elements(
-        By.CSS_SELECTOR,
-        ".product-thumb a[href], .product-layout a[href]"
-    )
+def get_product_links(soup):
+    cards = soup.select(".product-thumb a[href], .product-layout a[href]")
 
     links = []
     seen = set()
 
     for c in cards:
-        href = c.get_attribute("href")
+        href = c.get("href")
 
         if not href:
             continue
@@ -147,81 +135,52 @@ def get_product_links():
 
     return links
 
+
+# =========================
+# PRODUCT
+# =========================
+
 def parse_product(url):
-    driver.get(url)
-
-    wait.until(
-        lambda d: d.execute_script(
-            "return document.readyState"
-        ) == "complete"
-    )
-
-    time.sleep(1.5)
+    soup = get_soup(url)
 
     try:
-        name = driver.find_element(
-            By.CSS_SELECTOR,
-            ".heading-h1 h1"
-        ).text.strip()
+        name = soup.select_one(".heading-h1 h1").get_text(strip=True)
     except:
         name = ""
 
     try:
-        model = driver.find_element(
-            By.CSS_SELECTOR,
-            ".product-data__item.model"
-        ).text
-
-        model = model.replace(
-            "Код Товара:",
-            ""
-        ).strip()
+        model = soup.select_one(".product-data__item.model").get_text(strip=True)
+        model = model.replace("Код Товара:", "").strip()
     except:
         model = ""
 
     try:
-        sku = driver.find_element(
-            By.CSS_SELECTOR,
-            ".product-data__item.sku"
-        ).text
-
-        sku = sku.replace(
-            "Артикул:",
-            ""
-        ).strip()
+        sku = soup.select_one(".product-data__item.sku").get_text(strip=True)
+        sku = sku.replace("Артикул:", "").strip()
     except:
         sku = ""
 
     try:
-        price = driver.find_element(
-            By.CSS_SELECTOR,
-            ".product-page__price.price"
-        ).text.strip()
+        price = soup.select_one(".product-page__price.price").get_text(strip=True)
     except:
         price = ""
 
     qty = ""
+    el = soup.select_one(".qty-indicator__bar")
 
-    try:
-        el = driver.find_element(
-            By.CSS_SELECTOR,
-            ".qty-indicator__bar"
-        )
-
-        qty = el.get_attribute(
-            "data-original-title"
-        ) or ""
-
-    except:
-        try:
-            qty = driver.find_element(
-                By.CSS_SELECTOR,
-                ".qty-indicator"
-            ).text.strip()
-        except:
-            qty = ""
+    if el:
+        qty = el.get("data-original-title", "") or ""
+    else:
+        el2 = soup.select_one(".qty-indicator")
+        if el2:
+            qty = el2.get_text(strip=True)
 
     return name, model, sku, price, qty
+
+
+# =========================
+# CATEGORY
+# =========================
 
 def parse_category(url):
     seen = set()
@@ -229,16 +188,10 @@ def parse_category(url):
 
     while True:
 
-        current_url = (
-            url
-            if page == 1
-            else f"{url}?page={page}"
-        )
+        current_url = url if page == 1 else f"{url}?page={page}"
+        soup = get_soup(current_url)
 
-        driver.get(current_url)
-        time.sleep(3)
-
-        links = get_product_links()
+        links = get_product_links(soup)
 
         if not links:
             break
@@ -257,18 +210,15 @@ def parse_category(url):
             try:
                 name, model, sku, price, qty = parse_product(link)
 
-                ws.append(
-                    [
-                        url,
-                        name,
-                        model,
-                        sku,
-                        price,
-                        qty,
-                        link
-                    ]
-                )
-
+                ws.append([
+                    url,
+                    name,
+                    model,
+                    sku,
+                    price,
+                    qty,
+                    link
+                ])
             except:
                 pass
 
@@ -277,18 +227,18 @@ def parse_category(url):
         if page > 50:
             break
 
+
 # =========================
 # MAIN
 # =========================
 
 def run_parser():
     print("🚀 RUN_PARSER STARTED")
-    global driver, wait, wb, ws
-    
+
+    global wb, ws
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # защита от дубля
     if is_locked():
         print("ALREADY RUNNING")
         return
@@ -297,32 +247,25 @@ def run_parser():
     set_status(True)
 
     try:
-        options = Options()
-        options.add_argument("--start-maximized")
-
-        driver = webdriver.Chrome(options=options)
-        wait = WebDriverWait(driver, 20)
 
         wb = Workbook()
         ws = wb.active
         ws.title = "top-kitchen"
 
-        ws.append(
-            [
-                "Category",
-                "Name",
-                "Model",
-                "SKU",
-                "Price",
-                "Availability",
-                "URL"
-            ]
-        )
+        ws.append([
+            "Category",
+            "Name",
+            "Model",
+            "SKU",
+            "Price",
+            "Availability",
+            "URL"
+        ])
 
-        categories = get_categories()  # [:1]
-        print("CATEGORIES:", categories)
-        
+        categories = get_categories()
         total = len(categories)
+
+        print("CATEGORIES:", categories)
 
         for i, cat in enumerate(categories, 1):
 
@@ -332,17 +275,12 @@ def run_parser():
             parse_category(cat)
 
         update_progress(100)
-
         wb.save(FILE_PATH)
 
     finally:
         set_status(False)
         set_lock(False)
 
-        try:
-            driver.quit()
-        except:
-            pass
 
 if __name__ == "__main__":
     run_parser()
