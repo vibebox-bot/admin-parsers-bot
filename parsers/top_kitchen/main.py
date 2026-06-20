@@ -77,6 +77,11 @@ def update_progress(percent):
 
 def get_soup(url):
     r = requests.get(url, headers=HEADERS, timeout=30)
+
+    print("🌐 URL:", url)
+    print("📡 STATUS:", r.status_code)
+    print("📦 LEN:", len(r.text))
+
     return BeautifulSoup(r.text, "html.parser")
 
 
