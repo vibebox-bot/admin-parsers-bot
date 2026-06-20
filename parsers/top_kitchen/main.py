@@ -2,6 +2,7 @@ import os
 import json
 import time
 from datetime import datetime
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
@@ -13,11 +14,10 @@ print("🔥 TOP-KITCHEN PARSER LOADED")
 BASE_URL = "https://www.top-kitchen.com.ua"
 
 OUTPUT_DIR = os.path.abspath("output/top_kitchen")
-FILE_PATH = os.path.join(OUTPUT_DIR, "top_kitchen_LIVE.xlsx")
-STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
-LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
+FILE_PATH = os.path.join(OUTPUT_DIR, "top_kitchen_FINAL.xlsx")
 
 HEADERS = {"User-Agent": "Mozilla/5.0"}
+
 # =========================
 
 
@@ -40,34 +40,49 @@ def get_categories():
     cats = []
     for el in soup.select(".list-group__a"):
         href = el.get("href")
-        if href and "top-kitchen.com.ua" in href:
-            cats.append(href)
+
+        if href:
+            cats.append(urljoin(BASE_URL, href))
 
     print("📦 CATEGORIES:", len(cats))
     return cats
 
 
 # =========================
-# ТОВАРЫ В КАТЕГОРИИ
+# ПАГИНАЦИЯ КАТЕГОРИЙ
+# =========================
+
+def get_all_pages(category_url):
+    pages = set()
+
+    soup = get_soup(category_url)
+
+    pages.add(category_url)
+
+    # 🔥 берем все ссылки из пагинации
+    for a in soup.select(".pagination a"):
+        href = a.get("href")
+
+        if href:
+            pages.add(urljoin(BASE_URL, href))
+
+    return sorted(list(pages))
+
+
+# =========================
+# ТОВАРЫ НА СТРАНИЦЕ
 # =========================
 
 def get_product_links(soup):
-    links = []
+    links = set()
 
-    # 🔥 ВАЖНЫЙ ФИКС САЙТА
     for a in soup.select(".product-thumb__name, .product-thumb__image a"):
         href = a.get("href")
 
-        if not href:
-            continue
+        if href:
+            links.add(urljoin(BASE_URL, href))
 
-        if href.startswith("/"):
-            href = BASE_URL + href
-
-        if href.endswith(".html"):
-            links.append(href)
-
-    return list(set(links))
+    return list(links)
 
 
 # =========================
@@ -77,19 +92,15 @@ def get_product_links(soup):
 def parse_product(url):
     soup = get_soup(url)
 
-    # NAME
     name = soup.select_one(".heading-h1 h1")
     name = name.get_text(strip=True) if name else ""
 
-    # MODEL / DATA BLOCK
     model = soup.select_one(".product-data")
     model = model.get_text(" ", strip=True) if model else ""
 
-    # PRICE
     price = soup.select_one(".product-page__price.price")
     price = price.get_text(strip=True) if price else ""
 
-    # AVAILABILITY
     qty = soup.select_one(".qty-indicator__bar")
     qty = qty.get("data-original-title", "") if qty else ""
 
@@ -97,55 +108,70 @@ def parse_product(url):
 
 
 # =========================
-# ОСНОВНОЙ ПАРСИНГ
+# MAIN
 # =========================
 
 def run_parser():
 
-    print("🚀 RUN TEST MODE (1 CATEGORY ONLY)")
+    print("🚀 START PARSER")
 
     wb = Workbook()
     ws = wb.active
     ws.title = "top-kitchen"
 
-    ws.append(["Category", "Name", "Model", "Price", "Availability", "URL"])
+    ws.append([
+        "Category",
+        "Name",
+        "Model",
+        "Price",
+        "Availability",
+        "URL"
+    ])
 
     categories = get_categories()
 
-    # 🔥 ТЕСТ: берем только 1 категорию
+    # 🔥 TEST MODE (можешь убрать [:1] потом)
     categories = categories[:1]
-
-    print("🧪 TEST CATEGORY:", categories)
 
     for cat in categories:
 
-        soup = get_soup(cat)
+        print("\n====================")
+        print("📂 CATEGORY:", cat)
+        print("====================\n")
 
-        links = get_product_links(soup)
+        pages = get_all_pages(cat)
 
-        print("🧩 PRODUCTS FOUND:", len(links))
+        print("📄 PAGES FOUND:", len(pages))
 
-        for link in links[:20]:  # 🔥 ограничение для теста
+        for page in pages:
 
-            print("➡️ PARSING:", link)
+            soup = get_soup(page)
 
-            try:
-                name, model, price, qty = parse_product(link)
+            links = get_product_links(soup)
 
-                ws.append([
-                    cat,
-                    name,
-                    model,
-                    price,
-                    qty,
-                    link
-                ])
+            print("🧩 PRODUCTS:", len(links))
 
-            except Exception as e:
-                print("❌ ERROR:", e)
+            for link in links:
+
+                print("➡️ PARSING:", link)
+
+                try:
+                    name, model, price, qty = parse_product(link)
+
+                    ws.append([
+                        cat,
+                        name,
+                        model,
+                        price,
+                        qty,
+                        link
+                    ])
+
+                except Exception as e:
+                    print("❌ ERROR:", e)
 
     wb.save(FILE_PATH)
-    print("✅ DONE:", FILE_PATH)
+    print("\n✅ DONE:", FILE_PATH)
 
 
 if __name__ == "__main__":
