@@ -115,23 +115,52 @@ def get_product_links(soup):
 def parse_product(url):
     soup = get_soup(url)
 
-    # NAME
+    # =========================
+    # НАЗВАНИЕ
+    # =========================
     name_el = soup.select_one(".heading-h1")
     name = name_el.get_text(strip=True) if name_el else ""
 
-    # ARTICLE / CODE
-    code_el = soup.select_one(".product-data")
-    code = code_el.get_text(" ", strip=True) if code_el else ""
+    # =========================
+    # КОД ТОВАРА (MODEL)
+    # =========================
+    model = ""
 
-    # PRICE
+    model_el = soup.select_one(".product-data__item.model")
+    if model_el:
+        model = model_el.get_text(" ", strip=True)
+        model = model.replace("Код Товара:", "").strip()
+
+    # =========================
+    # АРТИКУЛ (SKU)
+    # =========================
+    sku = ""
+
+    sku_el = soup.select_one(".product-data__item.sku")
+    if sku_el:
+        sku = sku_el.get_text(" ", strip=True)
+        sku = sku.replace("Артикул:", "").strip()
+
+    # =========================
+    # ЦЕНА
+    # =========================
     price_el = soup.select_one(".product-page__price")
     price = price_el.get_text(strip=True) if price_el else ""
 
-    # AVAILABILITY
-    qty_el = soup.select_one(".qty-indicator__bar")
-    availability = qty_el.get("data-original-title", "").strip() if qty_el else ""
+    # =========================
+    # НАЛИЧИЕ
+    # =========================
+    qty = ""
 
-    return name, code, availability, price, url
+    qty_el = soup.select_one(".qty-indicator__bar")
+    if qty_el:
+        qty = qty_el.get_text(strip=True)
+
+        # иногда текст пустой → пробуем tooltip
+        if not qty:
+            qty = qty_el.get("data-original-title", "").strip()
+
+    return name, model, sku, price, qty, url
 
 
 # =========================
@@ -166,11 +195,13 @@ def parse_category(category_url, ws):
 
                 ws.append([
                     name,
-                    code,
-                    availability,
+                    model,
+                    sku,
+                    qty,
                     price,
                     url
                 ])
+                
 
             except Exception as e:
                 print("❌ ERROR:", e)
