@@ -10,6 +10,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from openpyxl import Workbook
 
+print("🔥 TOP-KITCHEN PARSER LOADED")
 # =========================
 # PATHS
 # =========================
@@ -89,6 +90,9 @@ def get_categories():
     driver.get(BASE_URL)
     time.sleep(3)
 
+    print("🌐 OPENED BASE URL")
+    print("URL:", driver.current_url)
+
     cats = []
     seen = set()
 
@@ -110,7 +114,10 @@ def get_categories():
         seen.add(href)
         cats.append(href)
 
+    print("📦 CATEGORIES FOUND:", len(cats))
     return cats
+
+
 
 def get_product_links():
     time.sleep(2)
@@ -275,7 +282,9 @@ def parse_category(url):
 # =========================
 
 def run_parser():
+    print("🚀 RUN_PARSER STARTED")
     global driver, wait, wb, ws
+    
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
