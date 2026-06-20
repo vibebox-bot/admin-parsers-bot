@@ -311,6 +311,8 @@ def run_parser():
         )
 
         categories = get_categories()  # [:1]
+        print("CATEGORIES:", categories)
+        
         total = len(categories)
 
         for i, cat in enumerate(categories, 1):
