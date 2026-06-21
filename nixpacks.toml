@@ -8,7 +8,8 @@ cmds = [
 
 [phases.build]
 cmds = [
-  "python -m playwright install --with-deps chromium"
+  "chmod +x postinstall.sh",
+  "./postinstall.sh"
 ]
 
 [start]
