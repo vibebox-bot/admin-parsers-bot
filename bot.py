@@ -111,6 +111,31 @@ def get_progress(st):
     return int(st.get("progress", 0))
 
 
+async def card_updater(chat_id, msg_id, key):
+    while chat_id in DASHBOARD_OPENED:
+        s = SUPPLIERS[key]
+        st = load_json(s["status"])
+
+        stt = display_status(st, s["file"])[0]
+        p = int(st.get("progress", 0)) if st else 0
+
+        text = f"{s['name']}\n\n"
+        text += f"📌 {stt} {p}%\n\n"
+        text += bar(p)
+
+        try:
+            await bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=msg_id,
+                text=text,
+                reply_markup=kb_supplier(key, True)
+            )
+        except:
+            pass
+
+        await asyncio.sleep(2)
+
+
 def status(st):
     if not st:
         return "⚪ НЕТ ДАННЫХ", 0
@@ -397,7 +422,10 @@ async def cb(call: types.CallbackQuery):
 
         DASHBOARD_OPENED.add(call.message.chat.id)
 
-        stt, p = display_status(st, s["file"])
+
+        stt = display_status(st, s["file"])[0]
+        p = int(st.get("progress", 0)) if st else 0
+
 
         running = st.get("running") if st else False
 
