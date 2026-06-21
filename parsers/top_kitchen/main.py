@@ -258,5 +258,8 @@ def run_parser():
         set_status(False, 100)
 
 
-if __name__ == "__main__":
-    run_parser()
+# =========================
+# ENTRY
+# =========================
+def main():
+    run()
