@@ -7,13 +7,12 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import BOT_TOKEN, ALLOWED_USERS
 
-import pytz
 from datetime import datetime
-
-KYIV_TZ = pytz.timezone("Europe/Kyiv")
+import pytz
 
 def now():
-    return datetime.now(KYIV_TZ)
+    return datetime.now()
+    
 
 print("🔥 BOT STARTED")
 
@@ -75,6 +74,9 @@ RUNNING_PROCESSES = {}
 DASHBOARD_MESSAGES = {}
 DASHBOARD_OPENED = set()
 
+def file_time(ts):
+    return datetime.fromtimestamp(ts, KYIV)
+    
 # =========================
 # ACCESS
 # =========================
@@ -208,8 +210,9 @@ def display_status(st, file_path):
         if not st.get("running"):
             return "🟢 ГОТОВО", 100
 
-        age_days_val = int((now().timestamp() - os.path.getmtime(file_path)) / 86400)
-
+        
+        age_days_val = int((datetime.now().timestamp() - os.path.getmtime(file_path)) / 86400)
+        
         if age_days_val >= 3:
             return "⚠️ УСТАРЕЛО", 100
 
