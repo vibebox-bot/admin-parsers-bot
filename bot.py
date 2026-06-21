@@ -417,7 +417,8 @@ async def cb(call: types.CallbackQuery):
             file_age_days = (datetime.now() - datetime.fromtimestamp(file_time_raw)).days
 
             file_old = file_age_days >= 3
-            file_time = get_file_time(s["file"])
+            file_time = st.get("time", "-")
+         #   file_time = get_file_time(s["file"])
 
         # 🔥 1) ЕСЛИ БЫЛ ОТМЕНЁН ПАРСИНГ
         if st and st.get("canceled"):
@@ -437,6 +438,7 @@ async def cb(call: types.CallbackQuery):
         # 🔥 3) НОРМАЛЬНЫЙ ФАЙЛ
         elif file_exists:
             size_mb = round(os.path.getsize(s["file"]) / 1024 / 1024, 2)
+            file_time = st.get("time", "-")
 
             text += (
                 f"\n\n📄 Excel готов\n"
