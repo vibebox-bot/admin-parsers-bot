@@ -138,8 +138,27 @@ def parse_product(url):
 
     title = soup.select_one(".product_title")
     sku = soup.select_one(".sku")
-    price = soup.select_one(".woocommerce-Price-amount")
 
+    # =========================
+    # 💥 ЦЕНА (ВАЖНО)
+    # =========================
+
+    price = None
+
+    # 1. сначала берем актуальную цену (ins)
+    ins = soup.select_one("p.price ins .woocommerce-Price-amount")
+
+    if ins:
+        price = ins.get_text(strip=True)
+
+    else:
+        # 2. если скидки нет — обычная цена
+        normal = soup.select_one("p.price .woocommerce-Price-amount")
+        price = normal.get_text(strip=True) if normal else "-"
+
+    # =========================
+    # STOCK
+    # =========================
     stock = "В наличии"
     if soup.select_one(".out-of-stock"):
         stock = "Нет в наличии"
@@ -147,7 +166,7 @@ def parse_product(url):
     return {
         "title": title.text.strip() if title else "-",
         "sku": sku.text.strip() if sku else "-",
-        "price": price.text.strip() if price else "-",
+        "price": price,
         "stock": stock,
         "url": url
     }
