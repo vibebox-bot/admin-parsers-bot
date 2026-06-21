@@ -1,1 +1,11 @@
+[phases.setup]
+nixPkgs = ["python311"]
 
+cmds = [
+  "pip install -r requirements.txt",
+  "playwright install chromium",
+  "playwright install-deps"
+]
+
+[start]
+cmd = "python parsers/4399-4400/run.py"
