@@ -228,5 +228,5 @@ def run():
         remove_lock()
 
 
-def run_parser():
+def main():
     run()
