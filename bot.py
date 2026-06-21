@@ -9,6 +9,13 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import BOT_TOKEN, ALLOWED_USERS
 
+from datetime import datetime
+import pytz
+
+def now():
+    return datetime.now(pytz.timezone("Europe/Kyiv"))
+
+
 print("🔥 BOT STARTED")
 
 bot = Bot(token=BOT_TOKEN)
@@ -417,8 +424,7 @@ async def cb(call: types.CallbackQuery):
             file_age_days = (datetime.now() - datetime.fromtimestamp(file_time_raw)).days
 
             file_old = file_age_days >= 3
-            file_time = st.get("time", "-")
-         #   file_time = get_file_time(s["file"])
+            file_time = get_file_time(s["file"])
 
         # 🔥 1) ЕСЛИ БЫЛ ОТМЕНЁН ПАРСИНГ
         if st and st.get("canceled"):
@@ -482,7 +488,7 @@ async def cb(call: types.CallbackQuery):
             "running": True,
             "canceled": False,
             "user": call.from_user.full_name,
-            "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "time": now().strftime("%Y-%m-%d %H:%M"),
             "progress": 0,
             "file_path": s["file"]   # 👈 важно для "устарело"
         })
@@ -505,7 +511,7 @@ async def cb(call: types.CallbackQuery):
                 "running": False,
                 "canceled": False,
                 "user": call.from_user.full_name,
-                "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "time": now().strftime("%Y-%m-%d %H:%M"),
                 "progress": 100,
                 "file_path": s["file"]
             })
@@ -521,7 +527,7 @@ async def cb(call: types.CallbackQuery):
                 "running": False,
                 "canceled": False,
                 "user": call.from_user.full_name,
-                "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "time": now().strftime("%Y-%m-%d %H:%M"),
                 "progress": 0,
                 "file_path": s["file"]
             })
@@ -579,7 +585,7 @@ async def cb(call: types.CallbackQuery):
             "running": False,
             "canceled": True,
             "user": call.from_user.full_name,
-            "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "time": now().strftime("%Y-%m-%d %H:%M"),
             "progress": 0,
             "file_path": s["file"]
         })
