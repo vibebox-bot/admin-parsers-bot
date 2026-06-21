@@ -156,7 +156,7 @@ def parse_product(url):
 # =========================
 # RUN ALL
 # =========================
-def run():
+def run_parser():
 
     print("🚀 START ALL CATEGORIES PARSER")
 
