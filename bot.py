@@ -11,8 +11,7 @@ from datetime import datetime
 import pytz
 
 def now():
-    tz = pytz.timezone("Europe/Kyiv")
-    return datetime.now(tz)
+    return datetime.now(pytz.timezone("Europe/Kyiv"))
 
 print("🔥 BOT STARTED")
 
@@ -210,13 +209,12 @@ def display_status(st, file_path):
 
     # проверка файла
     if os.path.exists(file_path):
-        age_days_val = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(file_path))).days
-
+        age_days_val = (now() - datetime.fromtimestamp(os.path.getmtime(file_path))).days
         # ⚠️ УСТАРЕЛО
         if age_days_val >= 3:
             return "⚠️ УСТАРЕЛО", 100
 
-        return "🟢 ГОТОВО", 100
+        return "🟢 ГОТОВО", int(st.get("progress", 100) if st else 100)
 
     return "⚪ НЕТ ФАЙЛА", 0
 
@@ -424,13 +422,7 @@ async def cb(call: types.CallbackQuery):
 
         DASHBOARD_OPENED.add(call.message.chat.id)
 
-
-        stt = display_status(st, s["file"])[0]
-
-        if os.path.exists(s["file"]):
-            p = 100
-        else:
-            p = int(st.get("progress", 0)) if st else 0
+        stt, p = display_status(st, s["file"])
 
         running = st.get("running") if st else False
 
@@ -517,7 +509,7 @@ async def cb(call: types.CallbackQuery):
             "running": True,
             "canceled": False,
             "user": call.from_user.full_name,
-            "time": now().strftime("%Y-%m-%d %H:%M"),
+            "time": now().isoformat()
             "progress": 0,
             "file_path": s["file"]   # 👈 важно для "устарело"
         })
@@ -540,7 +532,7 @@ async def cb(call: types.CallbackQuery):
                 "running": False,
                 "canceled": False,
                 "user": call.from_user.full_name,
-                "time": now().strftime("%Y-%m-%d %H:%M"),
+                "time": now().isoformat()
                 "progress": 100,
                 "file_path": s["file"]
             })
@@ -556,7 +548,7 @@ async def cb(call: types.CallbackQuery):
                 "running": False,
                 "canceled": False,
                 "user": call.from_user.full_name,
-                "time": now().strftime("%Y-%m-%d %H:%M"),
+                "time": now().isoformat()
                 "progress": 0,
                 "file_path": s["file"]
             })
@@ -614,7 +606,7 @@ async def cb(call: types.CallbackQuery):
             "running": False,
             "canceled": True,
             "user": call.from_user.full_name,
-            "time": now().strftime("%Y-%m-%d %H:%M"),
+            "time": now().isoformat()
             "progress": 0,
             "file_path": s["file"]
         })
