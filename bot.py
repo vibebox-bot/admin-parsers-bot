@@ -509,7 +509,7 @@ async def cb(call: types.CallbackQuery):
             "running": True,
             "canceled": False,
             "user": call.from_user.full_name,
-            "time": now().isoformat()
+            "time": now().isoformat(),
             "progress": 0,
             "file_path": s["file"]   # 👈 важно для "устарело"
         })
@@ -532,7 +532,7 @@ async def cb(call: types.CallbackQuery):
                 "running": False,
                 "canceled": False,
                 "user": call.from_user.full_name,
-                "time": now().isoformat()
+                "time": now().isoformat(),
                 "progress": 100,
                 "file_path": s["file"]
             })
@@ -548,7 +548,7 @@ async def cb(call: types.CallbackQuery):
                 "running": False,
                 "canceled": False,
                 "user": call.from_user.full_name,
-                "time": now().isoformat()
+                "time": now().isoformat(),
                 "progress": 0,
                 "file_path": s["file"]
             })
@@ -606,7 +606,7 @@ async def cb(call: types.CallbackQuery):
             "running": False,
             "canceled": True,
             "user": call.from_user.full_name,
-            "time": now().isoformat()
+            "time": now().isoformat(),
             "progress": 0,
             "file_path": s["file"]
         })
