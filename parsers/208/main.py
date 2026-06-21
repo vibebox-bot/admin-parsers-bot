@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 from openpyxl import Workbook
 
 # =========================
-# OUTPUT
+# TEST OUTPUT
 # =========================
 OUTPUT_DIR = os.path.abspath("output/208")
 
@@ -30,27 +30,43 @@ def save_status(data):
 
 
 # =========================
-# LOCK
+# LOCK (FIXED)
 # =========================
-def create_lock():
-    if os.path.exists(LOCK_FILE):
-        age = time.time() - os.path.getmtime(LOCK_FILE)
-        if age > 300:
-            os.remove(LOCK_FILE)
-        else:
-            return False
+def acquire_lock():
+    """
+    ЖЕЛЕЗНЫЙ lock:
+    - если процесс завис → удаляем старый
+    - если жив → не даём старт
+    """
 
-    open(LOCK_FILE, "w").close()
+    if os.path.exists(LOCK_FILE):
+        try:
+            age = time.time() - os.path.getmtime(LOCK_FILE)
+
+            # если старше 10 минут — считаем зависшим
+            if age > 600:
+                os.remove(LOCK_FILE)
+            else:
+                return False
+        except:
+            pass
+
+    with open(LOCK_FILE, "w") as f:
+        f.write(str(time.time()))
+
     return True
 
 
-def remove_lock():
-    if os.path.exists(LOCK_FILE):
-        os.remove(LOCK_FILE)
+def release_lock():
+    try:
+        if os.path.exists(LOCK_FILE):
+            os.remove(LOCK_FILE)
+    except:
+        pass
 
 
 # =========================
-# LOAD PAGE
+# REQUEST
 # =========================
 def load_page(url):
     r = requests.get(url, headers=HEADERS, timeout=30)
@@ -58,7 +74,7 @@ def load_page(url):
 
 
 # =========================
-# GET PRODUCTS
+# GET CATEGORY PRODUCTS
 # =========================
 def get_products():
     links = []
@@ -68,7 +84,7 @@ def get_products():
         url = CATEGORY_URL + f"&paged={page}"
         soup = load_page(url)
 
-        items = soup.select("ul.products li.product a")
+        items = soup.select("ul.products li.product-category a")
 
         if not items:
             break
@@ -83,7 +99,7 @@ def get_products():
         if page > 50:
             break
 
-    return list(set(links))
+    return links
 
 
 # =========================
@@ -115,12 +131,12 @@ def parse_product(url):
 
 
 # =========================
-# RUN
+# MAIN PARSER
 # =========================
-def run():
+def run_parser():
     print("🚀 START PARSER HI-TECH TEST")
 
-    if not create_lock():
+    if not acquire_lock():
         print("⛔ ALREADY RUNNING")
         return
 
@@ -129,12 +145,10 @@ def run():
         ws = wb.active
         ws.append(["Название", "SKU", "Цена", "Наличие", "URL"])
 
-        products = get_products()
-        total = len(products)
+        product_links = get_products()
+        total = len(product_links)
 
         print(f"📦 FOUND PRODUCTS: {total}")
-
-        done = 0
 
         save_status({
             "running": True,
@@ -143,7 +157,9 @@ def run():
             "total": total
         })
 
-        for url in products:
+        done = 0
+
+        for url in product_links:
             data = parse_product(url)
 
             ws.append([
@@ -182,14 +198,19 @@ def run():
 
     except Exception as e:
         print("❌ ERROR:", e)
+
         save_status({
             "running": False,
+            "progress": 0,
             "error": str(e)
         })
 
     finally:
-        remove_lock()
+        release_lock()
 
 
-# экспорт для run.py
-run_parser = run
+# =========================
+# ENTRY POINT (ВАЖНО)
+# =========================
+if __name__ == "__main__":
+    run_parser()
