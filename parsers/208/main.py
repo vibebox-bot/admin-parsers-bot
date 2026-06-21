@@ -164,8 +164,8 @@ def run_parser():
         print("⛔ ALREADY RUNNING")
         return
 
-set_lock(True)
-    
+    set_lock(True)
+
     try:
         wb = Workbook()
         ws = wb.active
@@ -250,4 +250,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
