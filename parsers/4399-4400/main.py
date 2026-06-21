@@ -10,19 +10,18 @@ from openpyxl import Workbook
 # =========================
 # CONFIG
 # =========================
-print("🔥 NEW VERSION LOADED - NO PLAYWRIGHT")
 
 BASE = "https://jumpex.com.ua"
-CATEGORY_ONLY = 1  # 👈 ВАЖНО: пока тест 1 категория
+CATEGORY_ONLY = 1  # 👈 ТЕСТ: 1 категория
 
 OUTPUT_DIR = os.path.abspath("output/4399-4400")
 FILE_PATH = os.path.join(OUTPUT_DIR, "Харьковская_4399-4400_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
-LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
+
 
 # =========================
 # STATUS
@@ -30,6 +29,7 @@ HEADERS = {
 
 def set_status(running: bool):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
         json.dump({
             "running": running,
@@ -42,6 +42,7 @@ def update_progress(percent):
     try:
         if not os.path.exists(STATUS_PATH):
             return
+
         with open(STATUS_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -49,6 +50,7 @@ def update_progress(percent):
 
         with open(STATUS_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+
     except:
         pass
 
@@ -67,7 +69,7 @@ def get_soup(url):
 
 
 # =========================
-# CATEGORIES
+# CATEGORIES (ВАЖНО ИСПРАВЛЕНО)
 # =========================
 
 def get_categories():
@@ -75,40 +77,55 @@ def get_categories():
 
     cats = set()
 
-    # 1. основной сайт (jumpex OpenCart структура)
+    # 👉 ОСНОВНОЙ МЕНЮ САЙТА (ВАШ СЛУЧАЙ)
+    for a in soup.select(".menu-wrapper a[href]"):
+        href = a.get("href")
+        if not href:
+            continue
+        if "category" in href or "instrumenty" in href:
+            if href.startswith("http"):
+                cats.add(href)
+            else:
+                cats.add(BASE + href)
+
+    # fallback
     for a in soup.select("a[href*='route=product/category']"):
         href = a.get("href")
         if href:
-            cats.add(href)
-
-    # 2. меню (дополнительный источник)
-    for a in soup.select(".menu-wrapper a[href]"):
-        href = a.get("href")
-        if href and "javascript" not in href:
-            cats.add(href)
+            cats.add(BASE + "/" + href.lstrip("/"))
 
     return list(cats)
 
 
 # =========================
-# LOAD ALL PRODUCTS (ВАЖНО)
+# LOAD ALL PRODUCTS
 # =========================
 
 def load_all_products(category_url):
     print("CATEGORY:", category_url)
 
     all_links = set()
-
     page = 1
+
     while True:
 
-        url = f"{category_url}?page={page}"
-        soup = get_soup(url)
+        url = f"{category_url}&page={page}" if "?" in category_url else f"{category_url}?page={page}"
+
+        r = requests.get(url, headers=HEADERS, timeout=30)
+        soup = BeautifulSoup(r.text, "html.parser")
 
         links = set()
 
+        # 👉 ПРАВИЛЬНЫЙ СЕЛЕКТОР ТОВАРОВ
         for a in soup.select("a[href*='product_id']"):
-            links.add(a["href"] if a["href"].startswith("http") else BASE + a["href"])
+            href = a.get("href")
+            if not href:
+                continue
+
+            if href.startswith("http"):
+                links.add(href)
+            else:
+                links.add(BASE + href)
 
         print(f"PAGE {page} OK -> {len(links)}")
 
@@ -117,33 +134,36 @@ def load_all_products(category_url):
 
         all_links.update(links)
 
-        # если меньше 48 — значит конец
+        # конец пагинации
         if len(links) < 48:
             break
 
         page += 1
-        time.sleep(0.5)
+        time.sleep(0.3)
 
     return list(all_links)
 
 
 # =========================
-# PARSE PRODUCT
+# PARSE PRODUCT (ВАШ HTML)
 # =========================
 
 def parse_product(url):
-    soup = get_soup(url)
+    r = requests.get(url, headers=HEADERS, timeout=30)
+    soup = BeautifulSoup(r.text, "html.parser")
 
-    title = clean(soup.select_one("h1.ttl").text if soup.select_one("h1.ttl") else "")
+    title = clean(soup.select_one("h1.ttl.md.mb25").get_text() if soup.select_one("h1.ttl.md.mb25") else "")
 
-    sku = clean(soup.select_one(".prod-ean").text if soup.select_one(".prod-ean") else "")
-    sku = sku.replace("Артикул:", "").strip()
+    sku = ""
+    sku_el = soup.select_one(".prod-ean")
+    if sku_el:
+        sku = clean(sku_el.get_text()).replace("Артикул:", "").strip()
 
-    price = clean(soup.select_one(".prod_price").text if soup.select_one(".prod_price") else "")
+    price = clean(soup.select_one(".prod_price").get_text() if soup.select_one(".prod_price") else "")
 
     status = ""
     if soup.select_one(".avail"):
-        status = clean(soup.select_one(".avail").text)
+        status = clean(soup.select_one(".avail").get_text())
     elif soup.select_one(".prod-not-avail"):
         status = "Розпродано"
 
@@ -164,17 +184,17 @@ def run_parser():
 
     categories = get_categories()
 
-    print("CATEGORIES:", len(categories))
+    print("CATEGORIES FOUND:", len(categories))
 
-    categories = categories[:CATEGORY_ONLY]  # 👈 TEST MODE
+    # 👇 ТЕСТ 1 КАТЕГОРИЯ
+    categories = categories[:CATEGORY_ONLY]
 
-    total = len(categories)
     seen = set()
-    count = 0
+    total_items = 0
 
     for i, cat in enumerate(categories, 1):
 
-        update_progress(int(i / total * 100))
+        update_progress(int(i / len(categories) * 100))
 
         products = load_all_products(cat)
 
@@ -183,19 +203,18 @@ def run_parser():
             try:
                 data = parse_product(url)
 
-                if data[0] and data[0] in seen:
+                if not data[0]:
                     continue
 
-                if data[0]:
-                    seen.add(data[0])
-
-                if not data[1]:
+                if data[0] in seen:
                     continue
+
+                seen.add(data[0])
 
                 ws.append(data)
-                count += 1
+                total_items += 1
 
-                print(f"[{count}] {data[1]} | {data[2]}")
+                print(f"[{total_items}] {data[1]} | {data[2]}")
 
             except Exception as e:
                 print("ERROR:", e)
@@ -205,7 +224,8 @@ def run_parser():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     wb.save(FILE_PATH)
 
-    print("DONE:", count)
+    print("DONE:", total_items)
+
     set_status(False)
 
 
