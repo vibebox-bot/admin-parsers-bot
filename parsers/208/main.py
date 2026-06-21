@@ -1,380 +1,196 @@
-import requests
-from bs4 import BeautifulSoup
-from openpyxl import Workbook
-import time
-import random
 import os
 import json
+import time
+import requests
+from bs4 import BeautifulSoup
 from datetime import datetime
+
+from openpyxl import Workbook
+
 
 BASE = "https://hi-tech-odessa.com.ua"
 
-# =========================
-# PATHS
-# =========================
+OUTPUT_DIR = os.path.abspath("output/hi_tech_test")
 
-OUTPUT_DIR = os.path.abspath("output/208")
-
-FILE_PATH = os.path.join(
-    OUTPUT_DIR,
-    "Харьковская_208_LIVE.xlsx"
-)
-
-STATUS_PATH = os.path.join(
-    OUTPUT_DIR,
-    "status.json"
-)
-
-LOCK_FILE = os.path.join(
-    OUTPUT_DIR,
-    "lock.txt"
-)
-
-
+FILE_PATH = os.path.join(OUTPUT_DIR, "hi_tech_test.xlsx")
+STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
+LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-    "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
-    "Connection": "keep-alive",
+    "User-Agent": "Mozilla/5.0"
 }
+
 
 # =========================
 # STATUS
 # =========================
-
-def set_status(running: bool):
+def save_status(data):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "running": running,
-                "progress": 0,
-                "time": datetime.now().strftime("%Y-%m-%d %H:%M")
-            },
-            f,
-            ensure_ascii=False,
-            indent=2
-        )
-
-def set_lock(state: bool):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    if state:
-        with open(LOCK_FILE, "w") as f:
-            f.write("running")
-    else:
-        if os.path.exists(LOCK_FILE):
-            os.remove(LOCK_FILE)
-
-def is_locked():
-    return os.path.exists(LOCK_FILE)
-
-def update_progress(percent):
-    try:
-
-        if not os.path.exists(STATUS_PATH):
-            return
-
-        with open(
-            STATUS_PATH,
-            "r",
-            encoding="utf-8"
-        ) as f:
-            data = json.load(f)
-
-        data["progress"] = percent
-
-        with open(
-            STATUS_PATH,
-            "w",
-            encoding="utf-8"
-        ) as f:
-            json.dump(
-                data,
-                f,
-                ensure_ascii=False,
-                indent=2
-            )
-
-    except:
-        pass
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-session = requests.Session()
-session.headers.update(HEADERS)
+# =========================
+# REQUEST
+# =========================
+def get_soup(url):
+    r = requests.get(url, headers=HEADERS, timeout=30)
+    return BeautifulSoup(r.text, "html.parser")
 
 
-# -------------------------
-# SAFE REQUEST
-# -------------------------
-def get(url):
-    global session
+# =========================
+# CATEGORY (TEST ONLY 1)
+# =========================
+def get_test_category():
+    soup = get_soup(BASE)
 
-    for i in range(5):
-
-        try:
-            r = session.get(
-                url,
-                timeout=30,
-                allow_redirects=True
-            )
-
-            if r.status_code == 200:
-                return r
-
-            if r.status_code == 404:
-                return r
-
-            print("HTTP", r.status_code, url)
-
-            if r.status_code in [400, 403, 429, 500, 502]:
-                session.close()
-
-                session = requests.Session()
-                session.headers.update(HEADERS)
-
-                time.sleep(3)
-                continue
-
-        except Exception as e:
-            print("ERROR:", url)
-            print(e)
-
-        time.sleep(2)
-
-    return None
-
-
-def get_categories():
-    url = f"{BASE}/?post_type=product"
-    r = get(url)
-    if not r:
-        return []
-
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    cats = []
-
-    for a in soup.select("li.product-category a"):
-        href = a.get("href")
-
-        if not href:
-            continue
-
-        cats.append(href)
-
-    return list(set(cats))
-
-
-# -------------------------
-# PRODUCT PAGE
-# -------------------------
-def parse_product(url):
-    r = get(url)
-    if not r:
-        return None
-
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    # TITLE
-    title = soup.select_one("h1")
-    title = title.get_text(strip=True) if title else ""
-
-    # SKU
-    sku = soup.select_one(".sku")
-    sku = sku.get_text(strip=True) if sku else ""
-
-    # ЦЕНА (правильно WooCommerce)
-    price = ""
-
-    price_block = soup.select_one("p.price")
-
-    if price_block:
-        # берем ВСЕ цены внутри блока
-        amounts = price_block.select("span.woocommerce-Price-amount bdi")
-
-    clean_prices = []
-
-    for a in amounts:
-        txt = a.get_text(strip=True)
-
-        # оставляем только норм цены вида $7.20
-        if "$" in txt:
-            clean_prices.append(txt)
-
-    # берем последнюю актуальную (обычно она и есть текущая)
-    if clean_prices:
-        price = clean_prices[-1]
-
-    # STOCK
-    stock = "В наличии" if soup.select_one("button.single_add_to_cart_button") else "Нет в наличии"
+    first = soup.select_one("li.product-category a")
 
     return {
-        "title": title,
-        "sku": sku,
-        "price": price,
-        "stock": stock,
-        "url": url
+        "name": first.get_text(strip=True),
+        "url": first["href"]
     }
 
-# -------------------------
-# CATEGORY PAGINATION
-# -------------------------
-def parse_category(cat_url):
-    page = 1
+
+# =========================
+# PRODUCTS LIST (PAGINATION)
+# =========================
+def get_products(category_url):
     products = []
+    page = 1
 
     while True:
+        url = f"{category_url}&paged={page}"
+        soup = get_soup(url)
 
-        if page == 1:
-            url = cat_url
-        else:
-            if "?" in cat_url:
-                url = cat_url + f"&paged={page}"
-            else:
-                url = cat_url + f"?paged={page}"
+        items = soup.select("ul.products li a")
 
-        print("PAGE:", url)
-
-        r = get(url)
-
-        if not r:
-            print("STOP: request failed")
+        if not items:
             break
 
-        soup = BeautifulSoup(r.text, "html.parser")
+        found = 0
 
-        # ИЩЕМ ПОДКАТЕГОРИИ
-        subcats = []
-
-        for a in soup.select("li.product-category a"):
+        for a in items:
             href = a.get("href")
+            if href and "product" in href:
+                products.append(href)
+                found += 1
 
-            if href:
-                subcats.append(href)
-
-        subcats = list(set(subcats))
-
-        # ЕСЛИ ЕСТЬ ПОДКАТЕГОРИИ → ИДЕМ ВНУТРЬ НИХ
-        if subcats:
-
-            print("SUBCATEGORIES FOUND:", len(subcats))
-
-            for subcat in subcats:
-
-                print("ENTER SUBCATEGORY:", subcat)
-
-                try:
-                    products.extend(parse_category(subcat))
-                except Exception as e:
-                    print("SUBCAT ERROR:", e)
-
-            return products
-
-        # ИЩЕМ ТОВАРЫ
-        links = []
-
-        for a in soup.select(
-            "a.woocommerce-LoopProduct-link, a.woocommerce-loop-product__link"
-        ):
-            href = a.get("href")
-
-            if href:
-                links.append(href)
-
-        links = list(set(links))
-
-        if not links:
-            print("STOP EMPTY PAGE")
+        if found == 0:
             break
-
-        print("FOUND:", len(links))
-
-        for link in links:
-
-            try:
-                p = parse_product(link)
-
-                if p:
-                    products.append(p)
-
-            except Exception as e:
-                print("ERR:", e)
 
         page += 1
-        time.sleep(0.5)
+        time.sleep(0.3)
 
     return products
 
 
-# -------------------------
-# MAIN (TEST 1 CAT)
-# -------------------------
-def main():
+# =========================
+# PRODUCT PARSER
+# =========================
+def parse_product(url):
+    soup = get_soup(url)
 
-    if is_locked():
-        print("ALREADY RUNNING")
-        return
+    name = soup.select_one("h1.product_title")
+    name = name.get_text(strip=True) if name else ""
 
-    set_lock(True)
-    set_status(True)
+    sku = soup.select_one("span.sku")
+    sku = sku.get_text(strip=True) if sku else ""
 
-    try:
+    price = soup.select_one("span.woocommerce-Price-amount")
+    price = price.get_text(strip=True) if price else ""
 
-        wb = Workbook()
-        ws = wb.active
+    in_stock = True
+    if soup.select_one("p.stock.out-of-stock"):
+        in_stock = False
 
+    return {
+        "name": name,
+        "sku": sku,
+        "price": price,
+        "in_stock": in_stock,
+        "url": url
+    }
+
+
+# =========================
+# EXCEL SAVE
+# =========================
+def save_excel(data):
+    wb = Workbook()
+    ws = wb.active
+
+    ws.append(["Название", "Артикул", "Цена", "Наличие", "Ссылка"])
+
+    for item in data:
         ws.append([
-            "Название",
-            "SKU",
-            "Цена",
-            "Наличие",
-            "URL"
+            item["name"],
+            item["sku"],
+            item["price"],
+            "YES" if item["in_stock"] else "NO",
+            item["url"]
         ])
 
-        cats = get_categories()
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    wb.save(FILE_PATH)
 
-        print("CATEGORIES:", len(cats))
 
-        all_products = []
+# =========================
+# MAIN
+# =========================
+def run():
 
-        total = len(cats)
+    save_status({
+        "running": True,
+        "progress": 0,
+        "time": str(datetime.now())
+    })
 
-        for i, cat in enumerate(cats, 1):
+    print("🚀 START HI-TECH TEST PARSER")
 
-            percent = int(i / total * 100)
-            update_progress(percent)
+    cat = get_test_category()
+    print("📂 CATEGORY:", cat["name"])
 
-            print("CAT:", cat)
+    products = get_products(cat["url"])
+    total = len(products)
 
-            items = parse_category(cat)
-            all_products.extend(items)
+    print("📦 PRODUCTS:", total)
 
-        print("TOTAL PRODUCTS:", len(all_products))
+    data = []
 
-        for p in all_products:
+    for i, url in enumerate(products, start=1):
 
-            ws.append([
-                p["title"],
-                p["sku"],
-                p["price"],
-                p["stock"],
-                p["url"]
-            ])
+        try:
+            item = parse_product(url)
+            item["category"] = cat["name"]
+            data.append(item)
 
-        update_progress(100)
+            progress = int((i / total) * 100)
 
-        wb.save(FILE_PATH)
+            save_status({
+                "running": True,
+                "progress": progress,
+                "time": str(datetime.now())
+            })
 
-        print("SAVED:", FILE_PATH)
+            print(f"{progress}% {url}")
 
-    finally:
+        except Exception as e:
+            print("ERROR:", e)
 
-        set_status(False)
-        set_lock(False)
+        time.sleep(0.2)
+
+    save_excel(data)
+
+    save_status({
+        "running": False,
+        "progress": 100,
+        "time": str(datetime.now()),
+        "file_path": FILE_PATH
+    })
+
+    print("✅ DONE")
 
 
 if __name__ == "__main__":
-    main()
+    run()
