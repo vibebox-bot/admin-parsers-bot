@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 from openpyxl import Workbook
 
 # =========================
-# OUTPUT (TEST MODE)
+# OUTPUT
 # =========================
 OUTPUT_DIR = os.path.abspath("output/208")
 
@@ -16,12 +16,14 @@ LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-
-CATEGORY_URL = "https://hi-tech-odessa.com.ua/?product_cat=bluetooth-%d0%b0%d0%ba%d1%83%d1%81%d1%82%d0%b8%d0%ba%d0%b0-%d0%b0%d0%ba%d0%ba%d1%83%d0%bc%d1%83%d0%bb%d1%8f%d1%82%d0%be%d1%80%d0%bd%d0%b0%d1%8f"
+BASE_URL = "https://hi-tech-odessa.com.ua"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
+
+session = requests.Session()
+session.headers.update(HEADERS)
 
 # =========================
 # STATUS
@@ -31,10 +33,17 @@ def save_status(data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+# =========================
+# LOAD PAGE (SAFE)
+# =========================
 def load_page(url):
-    r = requests.get(url, headers=HEADERS, timeout=30)
-    r.raise_for_status()
-    return BeautifulSoup(r.text, "html.parser")
+    try:
+        r = session.get(url, timeout=(5, 20))
+        if r.status_code != 200:
+            return None
+        return BeautifulSoup(r.text, "html.parser")
+    except:
+        return None
 
 
 # =========================
@@ -42,11 +51,9 @@ def load_page(url):
 # =========================
 def create_lock():
     if os.path.exists(LOCK_FILE):
-        age = time.time() - os.path.getmtime(LOCK_FILE)
-        if age > 300:
-            os.remove(LOCK_FILE)
-        else:
+        if time.time() - os.path.getmtime(LOCK_FILE) < 300:
             return False
+        os.remove(LOCK_FILE)
 
     open(LOCK_FILE, "w").close()
     return True
@@ -58,49 +65,57 @@ def remove_lock():
 
 
 # =========================
-# GET PRODUCT LINKS (ВАЖНО)
+# GET ALL CATEGORIES
 # =========================
-def get_products():
+def get_categories():
+    url = BASE_URL
+    soup = load_page(url)
+
+    if not soup:
+        return []
+
+    cats = []
+
+    items = soup.select("ul.products li.product-category a")
+
+    for i in items:
+        href = i.get("href")
+        if href:
+            cats.append(href)
+
+    return cats
+
+
+# =========================
+# GET PRODUCT LINKS (with pagination)
+# =========================
+def get_products_from_category(cat_url):
     links = []
     page = 1
 
     while True:
-        url = CATEGORY_URL + f"&paged={page}"
+        url = f"{cat_url}&paged={page}"
+        soup = load_page(url)
 
-        try:
-            r = requests.get(url, headers=HEADERS, timeout=20)
-
-            # 🔥 СТОП НА 404
-            if r.status_code == 404:
-                break
-
-            soup = BeautifulSoup(r.text, "html.parser")
-
-            items = soup.select("ul.products li.product a")
-
-            # 🔥 если товаров нет — стоп
-            if not items:
-                break
-
-            for i in items:
-                href = i.get("href")
-
-                # берем только товары
-                if href and "?product=" in href:
-                    links.append(href)
-
-            print(f"📄 PAGE {page} OK - {len(items)} items")
-
-        except Exception as e:
-            print("PAGE ERROR:", e)
+        if not soup:
             break
+
+        items = soup.select("ul.products li.product a")
+
+        if not items:
+            break
+
+        for i in items:
+            href = i.get("href")
+            if href and "?product=" in href:
+                links.append(href)
 
         page += 1
 
-        if page > 100:
+        if page > 50:
             break
 
-    return list(set(links))
+    return links
 
 
 # =========================
@@ -109,7 +124,10 @@ def get_products():
 def parse_product(url):
     soup = load_page(url)
 
-    title = soup.select_one(".product_title.entry-title")
+    if not soup:
+        return None
+
+    title = soup.select_one(".product_title")
     title = title.text.strip() if title else "-"
 
     sku = soup.select_one(".sku")
@@ -132,11 +150,11 @@ def parse_product(url):
 
 
 # =========================
-# MAIN RUN
+# RUN
 # =========================
-def run_parser():
+def run():
 
-    print("🚀 START PARSER HI-TECH TEST")
+    print("🚀 START PARSER HI-TECH ALL CATEGORIES")
 
     if not create_lock():
         print("⛔ ALREADY RUNNING")
@@ -145,42 +163,53 @@ def run_parser():
     try:
         wb = Workbook()
         ws = wb.active
+        ws.title = "products"
+
         ws.append(["Название", "SKU", "Цена", "Наличие", "URL"])
 
-        links = get_products()
-        total = len(links)
+        categories = get_categories()
 
-        print(f"📦 FOUND PRODUCTS: {total}")
+        print(f"📂 CATEGORIES: {len(categories)}")
+
+        all_products = []
+
+        # =========================
+        # COLLECT ALL PRODUCTS
+        # =========================
+        for cat in categories:
+            print("📁 CAT:", cat)
+            prods = get_products_from_category(cat)
+            all_products.extend(prods)
+
+        all_products = list(set(all_products))
+
+        total = len(all_products)
+
+        print(f"📦 TOTAL PRODUCTS: {total}")
 
         if total == 0:
-            save_status({"running": False, "progress": 0, "error": "NO PRODUCTS FOUND"})
+            save_status({"running": False, "progress": 100, "done": 0, "total": 0})
             return
 
         done = 0
 
-        save_status({
-            "running": True,
-            "progress": 0,
-            "done": 0,
-            "total": total
-        })
-
-        for url in links:
+        for url in all_products:
 
             data = parse_product(url)
 
-            ws.append([
-                data["title"],
-                data["sku"],
-                data["price"],
-                data["stock"],
-                data["url"]
-            ])
+            if data:
+                ws.append([
+                    data["title"],
+                    data["sku"],
+                    data["price"],
+                    data["stock"],
+                    data["url"]
+                ])
 
             done += 1
-            progress = int(done / total * 100)
+            progress = round(done / total * 100, 2)
 
-            print(f"[{progress}%] {data['title']}")
+            print(f"[{progress}%] {url}")
 
             save_status({
                 "running": True,
@@ -189,8 +218,11 @@ def run_parser():
                 "total": total
             })
 
-            wb.save(FILE_PATH)
-            time.sleep(0.3)
+            # save periodically
+            if done % 10 == 0:
+                wb.save(FILE_PATH)
+
+            time.sleep(0.2)
 
         wb.save(FILE_PATH)
 
@@ -203,14 +235,12 @@ def run_parser():
 
         print("✅ DONE")
 
-    except Exception as e:
-        print("❌ ERROR:", e)
-
-        save_status({
-            "running": False,
-            "progress": 0,
-            "error": str(e)
-        })
-
     finally:
         remove_lock()
+
+
+# =========================
+# ENTRY
+# =========================
+def main():
+    run()
