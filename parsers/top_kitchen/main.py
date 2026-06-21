@@ -183,26 +183,26 @@ def parse_category(category_url, ws):
 
         for link in links:
 
-    if link in seen:
-        continue
-
-    seen.add(link)
-
-    print("➡️ PARSING:", link)
-
-    try:
-        name, model, sku, price, qty, url = parse_product(link)
-
-        ws.append([
-            name,
-            sku,
-            qty,
-            price,
-            url
-        ])
-
-    except Exception as e:
-        print("❌ ERROR:", e)
+            if link in seen:
+                continue
+        
+            seen.add(link)
+        
+            print("➡️ PARSING:", link)
+        
+            try:
+                name, model, sku, price, qty, url = parse_product(link)
+        
+                ws.append([
+                    name,
+                    sku,
+                    qty,
+                    price,
+                    url
+                ])
+        
+            except Exception as e:
+                print("❌ ERROR:", e)
 
 
 # =========================
