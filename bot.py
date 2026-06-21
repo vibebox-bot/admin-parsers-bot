@@ -209,7 +209,7 @@ def display_status(st, file_path):
 
     # проверка файла
     if os.path.exists(file_path):
-        age_days_val = (now() - datetime.fromtimestamp(os.path.getmtime(file_path))).days
+        age_days_val = (now() - datetime.fromtimestamp(os.path.getmtime(file_path), tz=now().tzinfo)).days
         # ⚠️ УСТАРЕЛО
         if age_days_val >= 3:
             return "⚠️ УСТАРЕЛО", 100
