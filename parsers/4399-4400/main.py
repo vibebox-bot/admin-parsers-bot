@@ -1,11 +1,18 @@
 import os
-import time
 import json
+import time
+import random
+from datetime import datetime
+
 import requests
 from bs4 import BeautifulSoup
+
+from playwright.sync_api import sync_playwright
 from openpyxl import Workbook
-from urllib.parse import urljoin
-from datetime import datetime
+
+# =========================
+# CONFIG
+# =========================
 
 BASE = "https://jumpex.com.ua"
 
@@ -13,43 +20,54 @@ LOGIN = "angelinatitor@gmail.com"
 PASSWORD = "380931937922"
 
 OUTPUT_DIR = os.path.abspath("output/4399-4400")
-FILE_PATH = os.path.join(OUTPUT_DIR, "Харьковская_4399-4400_LIVE.xlsx")
+
+FILE_PATH = os.path.join(
+    OUTPUT_DIR,
+    "Харьковская_4399-4400_LIVE.xlsx"
+)
+
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
-
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-session = requests.Session()
-session.headers.update({"User-Agent": "Mozilla/5.0"})
 
 
 # =========================
 # STATUS
 # =========================
-def set_status(running):
+
+def set_status(running: bool):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
         json.dump({
             "running": running,
             "progress": 0,
-            "time": str(datetime.now())
+            "time": datetime.now().strftime("%d.%m %H:%M")
         }, f, ensure_ascii=False, indent=2)
 
 
-def update_progress(p):
+def update_progress(percent):
     if not os.path.exists(STATUS_PATH):
         return
-    with open(STATUS_PATH, "r", encoding="utf-8") as f:
-        data = json.load(f)
 
-    data["progress"] = p
+    try:
+        with open(STATUS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-    with open(STATUS_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        data["progress"] = percent
+
+        with open(STATUS_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    except:
+        pass
 
 
-def set_lock(state):
+def set_lock(state: bool):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
     if state:
-        open(LOCK_FILE, "w").write("1")
+        with open(LOCK_FILE, "w") as f:
+            f.write("running")
     else:
         if os.path.exists(LOCK_FILE):
             os.remove(LOCK_FILE)
@@ -60,97 +78,149 @@ def is_locked():
 
 
 # =========================
-# LOGIN
+# LOGIN (requests)
 # =========================
-def login():
-    r = session.get(BASE + "/login")
-    soup = BeautifulSoup(r.text, "html.parser")
 
-    data = {
+def login_session():
+    s = requests.Session()
+
+    s.headers.update({
+        "User-Agent": "Mozilla/5.0"
+    })
+
+    s.get(BASE + "/login")
+
+    payload = {
         "username": LOGIN,
         "passwd": PASSWORD
     }
 
-    hidden = soup.select("input[type=hidden]")
-    for h in hidden:
-        if h.get("name"):
-            data[h["name"]] = h.get("value", "1")
+    s.post(BASE + "/user/loginsave", data=payload)
 
-    r = session.post(BASE + "/user/loginsave", data=data)
-
-    print("LOGIN:", r.status_code)
+    print("LOGIN: OK")
+    return s
 
 
 # =========================
-# CATEGORY (1 TEST)
+# CATEGORIES (1 LEVEL ONLY)
 # =========================
-def get_category():
-    r = session.get(BASE)
+
+def get_categories(session):
+    r = session.get(BASE + "/")
     soup = BeautifulSoup(r.text, "html.parser")
 
-    a = soup.select_one("li.nav-item.parent a[href]")
+    cats = []
 
-    if not a:
-        raise Exception("NO CATEGORY")
+    for a in soup.select("li.nav-item.parent > a"):
+        href = a.get("href")
 
-    return urljoin(BASE, a["href"])
+        if not href or not href.startswith("/"):
+            continue
+
+        parts = href.strip("/").split("/")
+
+        # только главные категории
+        if len(parts) != 1:
+            continue
+
+        cats.append(BASE + href)
+
+    return cats
 
 
 # =========================
-# PRODUCTS FROM CATEGORY
+# PLAYWRIGHT LOAD MORE
 # =========================
-def get_products(cat_url):
 
-    r = session.get(cat_url)
-    soup = BeautifulSoup(r.text, "html.parser")
+def load_full_category_html(url):
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
 
-    products = set()
+        page.goto(url, timeout=60000)
+        time.sleep(2)
 
-    # 🔥 ВАЖНЫЙ jSHOP вариант
-    blocks = soup.select(".jshop_product, .product, .product-item")
+        while True:
+            try:
+                btn = page.query_selector("button.autoScrollBtn")
+                if not btn:
+                    break
+
+                btn.click()
+                time.sleep(1)
+
+            except:
+                break
+
+        html = page.content()
+        browser.close()
+
+        return html
+
+
+# =========================
+# PARSE PRODUCTS FROM LIST
+# =========================
+
+def parse_category_products(html):
+    soup = BeautifulSoup(html, "html.parser")
+
+    products = []
+
+    blocks = soup.select(".product, .product-item, .jshop_product")
 
     print("BLOCKS:", len(blocks))
 
     for b in blocks:
         a = b.find("a", href=True)
-        if a:
-            products.add(urljoin(BASE, a["href"]))
 
-    # 🔥 fallback (иногда jShop кладёт иначе)
-    if not products:
-        for a in soup.select("a[href*='product']"):
-            products.add(urljoin(BASE, a["href"]))
+        if not a:
+            continue
 
-    return list(products)
+        href = a["href"]
+
+        if href.startswith("/"):
+            href = BASE + href
+
+        products.append(href)
+
+    return list(set(products))
 
 
 # =========================
-# PRODUCT PARSE
+# PARSE PRODUCT PAGE
 # =========================
-def parse_product(url):
 
+def parse_product(session, url):
     r = session.get(url)
     soup = BeautifulSoup(r.text, "html.parser")
 
-    title = soup.select_one(".ttl.md.mb25")
-    title = title.text.strip() if title else "-"
+    try:
+        title = soup.select_one("h1.ttl.md.mb25").get_text(strip=True)
+    except:
+        return None
 
-    art = soup.select_one(".prod-ean")
-    art = art.text.replace("Артикул:", "").strip() if art else "-"
+    try:
+        art = soup.select_one(".prod-ean").get_text(strip=True).replace("Артикул:", "").strip()
+    except:
+        art = "NO ART"
 
-    # 🔥 ВАЖНО: правильная цена (INS + block_price)
-    price = soup.select_one("#block_price, .prod_price, ins .woocommerce-Price-amount")
-    price = price.text.strip() if price else "-"
+    try:
+        price = soup.select_one(".prod_price").get_text(strip=True)
+    except:
+        price = "NO PRICE"
 
-    stock = soup.select_one(".avail, .prod-not-avail")
-    stock = stock.text.strip() if stock else "-"
+    status_el = soup.select_one(".avail, .prod-not-avail")
 
-    return art, title, price, stock, url
+    status = status_el.get_text(strip=True) if status_el else "NO STATUS"
+
+    return art, title, price, status, url
 
 
 # =========================
-# RUN
+# MAIN
 # =========================
+
 def run_parser():
 
     if is_locked():
@@ -161,46 +231,65 @@ def run_parser():
     set_status(True)
 
     try:
-        login()
+        session = login_session()
 
-        cat = get_category()
-        print("CATEGORY:", cat)
+        cats = get_categories(session)
+
+        print("CATEGORIES:", len(cats))
+
+        # =========================
+        # TEST MODE :1
+        # =========================
+        cats = cats[:1]
 
         wb = Workbook()
         ws = wb.active
-        ws.append(["Артикул", "Название", "Цена", "Статус", "URL"])
 
-        products = get_products(cat)
+        ws.append(["Артикул", "Название", "Цена", "Статус", "Ссылка"])
 
-        print("PRODUCTS:", len(products))
-
-        total = len(products)
         seen = set()
+        total = 0
 
-        for i, p in enumerate(products, 1):
+        for i, cat in enumerate(cats, 1):
 
-            if p in seen:
-                continue
-            seen.add(p)
-
-            art, title, price, stock, url = parse_product(p)
-
-            if title == "-" or price == "-":
-                continue
-
-            ws.append([art, title, price, stock, url])
-
-            percent = int(i / total * 100) if total else 100
+            percent = int(i / len(cats) * 100)
             update_progress(percent)
 
-            print(f"[{percent}%] {title} | {price}")
+            print(f"\nCATEGORY: {cat}")
 
-            time.sleep(0.3)
+            html = load_full_category_html(cat)
+            products = parse_category_products(html)
 
+            print("PRODUCTS:", len(products))
+
+            for p in products:
+
+                if p in seen:
+                    continue
+
+                seen.add(p)
+
+                data = parse_product(session, p)
+
+                if not data:
+                    continue
+
+                art, title, price, status, url = data
+
+                ws.append([art, title, price, status, url])
+
+                total += 1
+
+                print(f"[{percent}%] {title} | {price}")
+
+                time.sleep(random.uniform(0.1, 0.3))
+
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
         wb.save(FILE_PATH)
 
         update_progress(100)
-        print("DONE")
+
+        print("\nDONE:", total)
 
     finally:
         set_status(False)
