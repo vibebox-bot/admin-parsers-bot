@@ -214,7 +214,7 @@ def get_categories():
 # =========================
 # MAIN
 # =========================
-def run_parser():
+def run():
 
     if is_locked():
         return
