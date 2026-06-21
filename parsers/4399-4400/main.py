@@ -186,27 +186,38 @@ def run_parser():
 
     total = len(cats)
 
+    all_count = 0
+
     for i, cat in enumerate(cats, 1):
 
         update_progress(int(i / total * 100))
 
         products = load_products(cat)
 
+        print("TOTAL LINKS:", len(products))
+
         for url in products:
 
             try:
                 data = parse_product(url)
 
-                if data[0] and data[0] in seen:
+                # =========================
+                # FIXED DEDUP LOGIC
+                # =========================
+                key = data[0] if data[0] else data[3]  # SKU или URL
+
+                if key in seen:
                     continue
 
-                if data[0]:
-                    seen.add(data[0])
+                seen.add(key)
 
+                # пропуск пустых названий
                 if not data[1]:
                     continue
 
                 ws.append(data)
+
+                all_count += 1
 
                 print("ADDED:", data[1])
 
@@ -218,8 +229,7 @@ def run_parser():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     wb.save(FILE_PATH)
 
-    print("DONE")
-
+    print("DONE:", all_count)
 
 if __name__ == "__main__":
     run_parser()
