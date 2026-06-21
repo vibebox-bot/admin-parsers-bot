@@ -6,18 +6,21 @@ from playwright.sync_api import sync_playwright
 # ⚙️ CONFIG
 # =========================
 
-ONLY_ONE_CATEGORY = True  # 👈 :1 режим (потом False уберём)
+ONLY_ONE_CATEGORY = True  # 👈 :1 режим (потом уберём)
 
 BASE_URL = "https://jumpex.com.ua"
 
 LOGIN_URL = BASE_URL + "/login"
-CATALOG_URL = BASE_URL + "/instrumenty-i-oborudovanie"
+CATEGORY_URL = BASE_URL + "/instrumenty-i-oborudovanie"
 
 
 # =========================
-# 🔥 FIX PLAYWRIGHT (ВАЖНО)
+# 🔥 PLAYWRIGHT FIX (RAILWAY SAFE)
 # =========================
-os.system("python -m playwright install --with-deps chromium")
+def ensure_playwright():
+    os.system("python -m playwright install --with-deps chromium")
+
+ensure_playwright()
 
 
 # =========================
@@ -26,6 +29,7 @@ os.system("python -m playwright install --with-deps chromium")
 def login(page):
     page.goto(LOGIN_URL)
 
+    # ⚠️ поставь свои данные
     page.fill("#jlusername", "angelinatitor@gmail.com")
     page.fill("#jlpassword", "380931937922")
 
@@ -36,23 +40,26 @@ def login(page):
 
 
 # =========================
-# LOAD FULL CATEGORY (AUTO SCROLL)
+# LOAD FULL CATEGORY (AUTO SCROLL + BUTTON)
 # =========================
-def load_full_category_html(page, url):
+def load_full_category(page, url):
     page.goto(url)
-
     print(f"CATEGORY: {url}")
 
     last_height = 0
 
     while True:
+        # scroll вниз
         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         time.sleep(2)
 
+        # нажать "Показати ще"
         try:
-            page.click("button.autoScrollBtn", timeout=2000)
-            print("CLICK: Показати ще")
-            time.sleep(2)
+            btn = page.query_selector("button.autoScrollBtn")
+            if btn:
+                btn.click()
+                print("CLICK: Показати ще")
+                time.sleep(2)
         except:
             pass
 
@@ -63,23 +70,23 @@ def load_full_category_html(page, url):
 
         last_height = new_height
 
-    return page.content()
+    return page
 
 
 # =========================
-# PARSE PRODUCTS
+# PARSE PRODUCT CARD
 # =========================
 def parse_products(page):
-    products = page.query_selector_all(".product")
+    items = page.query_selector_all(".product, .product-item, .jshop_list_product")
 
     result = []
 
-    for p in products:
+    for item in items:
         try:
-            title = p.query_selector(".ttl.md.mb25")
-            price = p.query_selector(".prod_price")
-            sku = p.query_selector(".prod-ean.mb60")
-            avail = p.query_selector(".avail, .prod-not-avail")
+            title = item.query_selector(".ttl, .product-title, h1")
+            price = item.query_selector(".prod_price, .price")
+            sku = item.query_selector(".prod-ean")
+            avail = item.query_selector(".avail, .prod-not-avail")
 
             data = {
                 "title": title.inner_text().strip() if title else "",
@@ -88,7 +95,8 @@ def parse_products(page):
                 "avail": avail.inner_text().strip() if avail else "",
             }
 
-            result.append(data)
+            if data["title"]:
+                result.append(data)
 
         except:
             continue
@@ -97,7 +105,7 @@ def parse_products(page):
 
 
 # =========================
-# MAIN PARSER
+# MAIN
 # =========================
 def run_parser():
     with sync_playwright() as p:
@@ -114,9 +122,7 @@ def run_parser():
 
         login(page)
 
-        categories = [
-            CATALOG_URL
-        ]
+        categories = [CATEGORY_URL]
 
         # 👇 :1 режим
         if ONLY_ONE_CATEGORY:
@@ -125,10 +131,8 @@ def run_parser():
         all_products = []
 
         for cat in categories:
-            html = load_full_category_html(page, cat)
 
-            page.goto(cat)
-            page.wait_for_timeout(2000)
+            page = load_full_category(page, cat)
 
             products = parse_products(page)
 
