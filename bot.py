@@ -426,8 +426,11 @@ async def cb(call: types.CallbackQuery):
 
 
         stt = display_status(st, s["file"])[0]
-        p = int(st.get("progress", 0)) if st else 0
 
+        if os.path.exists(s["file"]):
+            p = 100
+        else:
+            p = int(st.get("progress", 0)) if st else 0
 
         running = st.get("running") if st else False
 
