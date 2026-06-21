@@ -147,19 +147,21 @@ def parse_product(url):
     price_el = soup.select_one(".product-page__price")
     price = price_el.get_text(strip=True) if price_el else ""
 
-    # =========================
-    # НАЛИЧИЕ
-    # =========================
+
+# =========================
+# НАЛИЧИЕ
+# =========================
     qty = ""
-
+    
     qty_el = soup.select_one(".qty-indicator__bar")
+    
     if qty_el:
-        qty = qty_el.get_text(strip=True)
-
-        # иногда текст пустой → пробуем tooltip
+        qty = qty_el.get("data-original-title", "").strip()
+    
         if not qty:
-            qty = qty_el.get("data-original-title", "").strip()
-
+            qty = qty_el.get("title", "").strip()
+        
+    
     return name, model, sku, price, qty, url
 
 
