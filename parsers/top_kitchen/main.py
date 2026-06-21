@@ -192,9 +192,11 @@ def parse_category(category_url, ws):
         
             try:
                 name, model, sku, price, qty, url = parse_product(link)
-        
+
+
                 ws.append([
                     name,
+                    model,
                     sku,
                     qty,
                     price,
