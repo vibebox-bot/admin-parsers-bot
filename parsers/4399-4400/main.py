@@ -10,6 +10,7 @@ from openpyxl import Workbook
 # =========================
 # CONFIG
 # =========================
+print("🔥 NEW VERSION LOADED - NO PLAYWRIGHT")
 
 BASE = "https://jumpex.com.ua"
 CATEGORY_ONLY = 1  # 👈 ВАЖНО: пока тест 1 категория
