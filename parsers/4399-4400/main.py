@@ -148,63 +148,91 @@ def parse_product(page, url):
 
 def run_parser():
 
-    with sync_playwright() as p:
+    if is_locked():
+        print("ALREADY RUNNING")
+        return
 
-        browser = p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox"]
-        )
+    set_lock(True)
+    set_status(True)
 
-        page = browser.new_page()
+    try:
+        with sync_playwright() as p:
 
-        wb = Workbook()
-        ws = wb.active
-        ws.append(["SKU", "Title", "Price", "Status", "URL"])
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage"
+                ]
+            )
 
-        login(page)
+            page = browser.new_page()
 
-        categories = get_categories(page)
+            wb = Workbook()
+            ws = wb.active
+            ws.append(["SKU", "Title", "Price", "Status", "URL"])
 
-        print("CATEGORIES:", len(categories))
+            login(page)
 
-        seen = set()
-        total = 0
+            categories = get_categories(page)
 
-        for cat in categories:
+            print("CATEGORIES:", len(categories))
 
-            products = crawl_category(page, cat)
+            # =========================
+            # 🔥 TEST MODE :1 CATEGORY
+            # =========================
+            categories = categories[:1]
 
-            for url in products:
+            seen = set()
+            total = 0
 
-                try:
-                    data = parse_product(page, url)
+            for i, cat in enumerate(categories, 1):
 
-                    if data[0] and data[0] in seen:
-                        continue
+                print("TEST CATEGORY:", cat)
 
-                    if data[0]:
-                        seen.add(data[0])
+                update_progress(0)
 
-                    if not data[1]:
-                        continue
+                products = crawl_category(page, cat)
 
-                    ws.append(data)
-                    total += 1
+                print("PRODUCTS FOUND:", len(products))
 
-                    print(f"[OK] {data[1]} | {data[2]}")
+                for url in products:
 
-                except Exception as e:
-                    print("ERROR:", e)
+                    try:
+                        data = parse_product(page, url)
 
-                time.sleep(0.2)
+                        if data[0] and data[0] in seen:
+                            continue
 
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-        wb.save(FILE_PATH)
+                        if data[0]:
+                            seen.add(data[0])
 
-        print("DONE:", total)
+                        if not data[1]:
+                            continue
 
-        browser.close()
+                        ws.append(data)
+                        total += 1
 
+                        print(f"PRODUCT: {data[0]} | {data[2]}")
+
+                    except Exception as e:
+                        print("ERROR PRODUCT:", e)
+
+                    time.sleep(0.2)
+
+            os.makedirs(OUTPUT_DIR, exist_ok=True)
+            wb.save(FILE_PATH)
+
+            update_progress(100)
+
+            print("DONE:", total)
+
+            browser.close()
+
+    finally:
+        set_status(False)
+        set_lock(False)
 
 if __name__ == "__main__":
     run_parser()
