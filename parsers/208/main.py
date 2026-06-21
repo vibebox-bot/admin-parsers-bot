@@ -114,33 +114,40 @@ def run():
 
     print("🚀 START PARSER HI-TECH TEST")
 
-    save_status({
-        "running": True,
-        "progress": 0,
-        "total": 0,
-        "done": 0
-    })
+    # ⚠️ защита от дубля
+    if os.path.exists(LOCK_FILE):
+        print("⛔ ALREADY RUNNING")
+        return
 
-    # 1. берем товары
-    product_links = get_products_from_category(category_url, max_pages=2)
-
-    total = len(product_links)
-    save_status({"running": True, "progress": 0, "total": total, "done": 0})
-
-    print(f"📦 FOUND PRODUCTS: {total}")
+    open(LOCK_FILE, "w").close()
 
     wb = Workbook()
     ws = wb.active
     ws.append(["Название", "SKU", "Цена", "Наличие", "URL"])
 
+    save_status({
+        "running": True,
+        "progress": 0,
+        "done": 0,
+        "total": 0
+    })
+
+    product_links = get_products_from_category(category_url, max_pages=2)
+
+    total = len(product_links)
+
+    save_status({
+        "running": True,
+        "progress": 0,
+        "done": 0,
+        "total": total
+    })
+
     done = 0
 
-    # 2. парсим карточки
     for item in product_links:
 
-        # stop if lock
-        if os.path.exists(LOCK_FILE):
-            print("⛔ STOPPED BY LOCK")
+        if os.path.exists(LOCK_FILE) is False:
             break
 
         try:
@@ -160,24 +167,30 @@ def run():
             save_status({
                 "running": True,
                 "progress": progress,
-                "total": total,
-                "done": done
+                "done": done,
+                "total": total
             })
 
             print(f"[{progress}%] {data['title']}")
 
-            time.sleep(0.5)
+            # 💾 ВАЖНО — сохраняем ПОСТОЯННО
+            wb.save(FILE_PATH)
+
+            time.sleep(0.3)
 
         except Exception as e:
             print("ERROR:", e)
 
     wb.save(FILE_PATH)
 
+    if os.path.exists(LOCK_FILE):
+        os.remove(LOCK_FILE)
+
     save_status({
         "running": False,
         "progress": 100,
-        "total": total,
-        "done": done
+        "done": done,
+        "total": total
     })
 
     print("✅ DONE")
