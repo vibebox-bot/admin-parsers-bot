@@ -184,10 +184,11 @@ def parse_product(url):
     if s:
         sku = clean(s.get_text()).replace("Артикул:", "").strip()
 
-    price = ""
-    p = soup.select_one(".prod_price")
-    if p:
-        price = clean(p.get_text())
+    # =========================
+    # FIX PRICE (ВАЖНО)
+    # =========================
+    price_tag = soup.select_one("#block_price")
+    price = clean(price_tag.get_text()) if price_tag else ""
 
     return [sku, title, price, url]
 
