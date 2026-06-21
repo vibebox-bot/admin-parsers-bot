@@ -71,16 +71,27 @@ def get_soup(url):
 # =========================
 
 def get_categories():
+    cats = set()
+
+    # 1. пробуем главную
     soup = get_soup(BASE)
 
-    cats = []
-    for a in soup.select("a[href*='category']"):
+    for a in soup.select("a[href*='route=product/category']"):
         href = a.get("href")
-        if href and href.startswith("http"):
-            cats.append(href)
+        if href:
+            cats.add(href)
 
-    # уник
-    return list(dict.fromkeys(cats))
+    # 2. fallback через sitemap (ВАЖНО)
+    try:
+        sm = get_soup(BASE + "/sitemap.xml")
+        for loc in sm.find_all("loc"):
+            url = loc.text
+            if "category" in url or "instrumenty" in url:
+                cats.add(url)
+    except:
+        pass
+
+    return list(cats)
 
 
 # =========================
