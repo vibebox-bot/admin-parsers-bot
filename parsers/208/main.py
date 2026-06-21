@@ -161,8 +161,8 @@ def run_parser():
     print("🚀 START ALL CATEGORIES PARSER")
 
     if is_locked():
-    print("⛔ ALREADY RUNNING")
-    return
+        print("⛔ ALREADY RUNNING")
+        return
 
 set_lock(True)
     
