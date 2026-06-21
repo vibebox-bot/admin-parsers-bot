@@ -230,7 +230,7 @@ def get_categories():
 # =========================
 # MAIN
 # =========================
-def run():
+def run_parser():
 
     if is_locked():
         return
