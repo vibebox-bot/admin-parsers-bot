@@ -8,9 +8,9 @@ from openpyxl import Workbook
 # =========================
 # OUTPUT (TEST MODE)
 # =========================
-OUTPUT_DIR = os.path.abspath("output/hi_tech_test")
+OUTPUT_DIR = os.path.abspath("output/208")
 
-FILE_PATH = os.path.join(OUTPUT_DIR, "hi_tech_LIVE.xlsx")
+FILE_PATH = os.path.join(OUTPUT_DIR, "Харьковская_208_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
