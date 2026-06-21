@@ -14,104 +14,92 @@ from selenium.webdriver.common.keys import Keys
 
 from openpyxl import Workbook
 
+
 BASE = "https://jumpex.com.ua"
-seen_categories = set()
 
 LOGIN = "angelinatitor@gmail.com"
 PASSWORD = "380931937922"
 
+
 # =========================
-# MAIN.RU
+# OUTPUT
 # =========================
 
 OUTPUT_DIR = os.path.abspath("output/4399-4400")
 
-FILE_PATH = os.path.join(
-    OUTPUT_DIR,
-    "Харьковская_4399-4400_LIVE.xlsx"
-)
-
-STATUS_PATH = os.path.join(
-    OUTPUT_DIR,
-    "status.json"
-)
-
-LOCK_FILE = os.path.join(
-    OUTPUT_DIR,
-    "lock.txt"
-)
+FILE_PATH = os.path.join(OUTPUT_DIR, "Харьковская_4399-4400_LIVE.xlsx")
+STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
+LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
 
-def set_status(running: bool):
+# =========================
+# STATUS
+# =========================
+
+def set_status(running=True, progress=0, done=0, total=0):
+
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "running": running,
-                "progress": 0,
-                "time": datetime.now().strftime("%d.%m %H:%M")
-            },
-            f,
-            ensure_ascii=False,
-            indent=2
-        )
+        json.dump({
+            "running": running,
+            "progress": progress,
+            "done": done,
+            "total": total,
+            "time": datetime.now().strftime("%H:%M:%S")
+        }, f, ensure_ascii=False, indent=2)
+
+
+# =========================
+# LOCK (СТАБИЛЬНЫЙ)
+# =========================
+
+def is_locked():
+    if not os.path.exists(LOCK_FILE):
+        return False
+
+    age = time.time() - os.path.getmtime(LOCK_FILE)
+
+    if age > 3600:
+        os.remove(LOCK_FILE)
+        return False
+
+    return True
 
 
 def set_lock(state: bool):
-
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
     if state:
         with open(LOCK_FILE, "w") as f:
-            f.write("running")
+            f.write(str(time.time()))
     else:
         if os.path.exists(LOCK_FILE):
             os.remove(LOCK_FILE)
 
 
-def is_locked():
-    return os.path.exists(LOCK_FILE)
-
-def update_progress(percent):
-
-    try:
-
-        if not os.path.exists(STATUS_PATH):
-            return
-
-        with open(STATUS_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        data["progress"] = percent
-
-        with open(STATUS_PATH, "w", encoding="utf-8") as f:
-            json.dump(
-                data,
-                f,
-                ensure_ascii=False,
-                indent=2
-            )
-
-    except:
-        pass
-
 # =========================
-# DRIVER
+# DRIVER (ВАЖНО: НЕ ГЛОБАЛЬНЫЙ)
 # =========================
-options = Options()
-options.add_argument("--headless=new")
-options.add_argument("--disable-gpu")
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
 
-driver = webdriver.Chrome(options=options)
-driver.set_page_load_timeout(30)
+def get_driver():
+
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+
+    driver = webdriver.Chrome(options=options)
+    driver.set_page_load_timeout(30)
+
+    return driver
+
 
 # =========================
 # LOGIN
 # =========================
-def login():
+
+def login(driver):
+
     driver.get(BASE + "/login")
     time.sleep(3)
 
@@ -120,110 +108,46 @@ def login():
     driver.find_element(By.ID, "jlpassword").send_keys(Keys.RETURN)
 
     time.sleep(5)
-    print("LOGIN OK")
+
 
 # =========================
-# ONLY MAIN CATEGORIES
+# CATEGORIES
 # =========================
-def get_categories():
 
-    url = BASE + "/"
+def get_categories(driver):
 
-    r = requests.get(
-        url,
-        headers={"User-Agent": "Mozilla/5.0"},
-        timeout=30
-    )
-
+    r = requests.get(BASE + "/", headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
     soup = BeautifulSoup(r.text, "html.parser")
 
     cats = set()
 
     for li in soup.select("li.nav-item.parent"):
-
         a = li.find("a", href=True)
-
         if not a:
             continue
 
         href = a.get("href")
 
-        if not href:
-            continue
+        if href and href.startswith("/"):
+            parts = href.strip("/").split("/")
+            if len(parts) == 1:
+                cats.add(BASE + href)
 
-        if not href.startswith("/"):
-            continue
+    return list(cats)
 
-        # только категории первого уровня
-        parts = [p for p in href.strip("/").split("/") if p]
-
-        if len(parts) != 1:
-            continue
-
-        cats.add(BASE + href)
-
-    return sorted(cats)
-# =========================
-# USD SWITCH
-# =========================
-def switch_to_usd():
-
-    try:
-        driver.get(
-            BASE +
-            "/ru/component/jshopping/?id_currency=2&back=/ru/"
-        )
-
-        time.sleep(2)
-
-    except:
-        pass
 
 # =========================
-# LOAD MORE
+# PRODUCTS
 # =========================
-def click_load_more():
 
-    while True:
-
-        try:
-            buttons = driver.find_elements(By.CSS_SELECTOR, "button.autoScrollBtn")
-
-            if not buttons:
-                break
-
-            btn = buttons[0]
-
-            driver.execute_script("arguments[0].scrollIntoView(true);", btn)
-            time.sleep(1)
-
-            driver.execute_script("arguments[0].click();", btn)
-            time.sleep(2)
-
-        except:
-            break
-
-# =========================
-# PRODUCT LINKS
-# =========================
-def get_products_from_category(cat_url):
+def get_products_from_category(driver, cat_url):
 
     driver.get(cat_url)
-    time.sleep(4)
-
-    switch_to_usd()
-
-    driver.get(cat_url)
-    time.sleep(4)
-
-    click_load_more()
+    time.sleep(3)
 
     links = set()
 
-    # берем ТОЛЬКО реальные товарные ссылки внутри карточек
     cards = driver.find_elements(By.CSS_SELECTOR, ".product, .product-item, .jshop_product")
-
-    print("PRODUCT BLOCKS FOUND:", len(cards))
 
     for c in cards:
         try:
@@ -233,33 +157,7 @@ def get_products_from_category(cat_url):
             if not href:
                 continue
 
-            if BASE not in href:
-                continue
-
-            if href.rstrip("/") == cat_url.rstrip("/"):
-                continue
-
-            # ❌ мусор
-            if any(x in href for x in [
-                "/cart/",
-                "/wishlist/",
-                "/login",
-                "#",
-                "javascript",
-                "?id_currency",
-                "/filter",
-                "/search",
-                "/component/",
-                "/tag",
-                "/page"
-            ]):
-                continue
-
-            # 💥 ГЛАВНЫЙ ФИЛЬТР: убираем категории и подкатегории
-            slug = href.replace(BASE, "").strip("/")
-
-            # категории НЕ имеют "-" как товар
-            if "-" not in slug:
+            if "/product" not in href:
                 continue
 
             links.add(href)
@@ -268,153 +166,134 @@ def get_products_from_category(cat_url):
             continue
 
     return list(links)
+
+
 # =========================
-# PRODUCT
+# PRODUCT PARSE
 # =========================
-def parse_product(url):
+
+def parse_product(driver, url):
 
     driver.get(url)
-
-    time.sleep(2.5)
+    time.sleep(2)
 
     try:
         title = driver.find_element(By.TAG_NAME, "h1").text.strip()
     except:
-        return None, None, None, None, url
+        return None
 
     try:
-        art = driver.find_element(By.CSS_SELECTOR, ".prod-ean").text.strip()
+        sku = driver.find_element(By.CSS_SELECTOR, ".prod-ean").text.strip()
     except:
-        art = "NO ART"
+        sku = "-"
 
     try:
         price = driver.find_element(By.ID, "block_price").text.strip()
     except:
-        price = "NO PRICE"
-
-    # 🔥 пропускаем категории и мусор
-    if art == "NO ART" and price == "NO PRICE":
-        return None, None, None, None, url
+        price = "-"
 
     try:
-        status = driver.find_element(
-            By.CSS_SELECTOR,
-            ".avail, .prod-not-avail"
-        ).text.strip()
+        status = driver.find_element(By.CSS_SELECTOR, ".avail, .prod-not-avail").text.strip()
     except:
-        status = "NO STATUS"
+        status = "-"
 
-    return art, title, price, status, url
+    return {
+        "title": title,
+        "sku": sku,
+        "price": price,
+        "status": status,
+        "url": url
+    }
+
 
 # =========================
 # MAIN
 # =========================
+
 def run_parser():
 
+    print("🚀 START PARSER")
+
     if is_locked():
-        print("ALREADY RUNNING")
+        print("⛔ ALREADY RUNNING")
         return
 
     set_lock(True)
-    set_status(True)
+    set_status(True, 0)
+
+    driver = get_driver()
 
     try:
 
-        login()
+        login(driver)
 
-        cats = get_categories()
+        categories = get_categories(driver)
 
-        print("CATEGORIES:", len(cats))
-
-        for c in cats:
-            print(c)
+        print("📂 CATEGORIES:", len(categories))
 
         wb = Workbook()
         ws = wb.active
 
-        ws.append([
-            "Артикул",
-            "Название",
-            "Цена",
-            "Статус",
-            "Ссылка"
-        ])
+        ws.append(["Название", "SKU", "Цена", "Статус", "URL"])
 
-        seen = set()
-        total = 0
+        all_products = []
 
-        for i, cat in enumerate(cats, 1):
+        # 🔥 TEMP TEST = 1 CATEGORY
+        categories = categories[:1]
 
-            percent = int(i / len(cats) * 100)
-            update_progress(percent)
+        for cat in categories:
 
-            print(f"\n[CAT {i}/{len(cats)}]")
-            print("CATEGORY:", cat)
-
-            try:
-                products = get_products_from_category(cat)
-            except Exception as e:
-                print("CATEGORY ERROR:", e)
-                continue
-
-            print("PRODUCTS:", len(products))
-            print("SAMPLE:", list(products)[:5])
+            products = get_products_from_category(driver, cat)
 
             for p in products:
+                all_products.append(p)
 
-                if p in seen:
-                    continue
+        total = len(all_products)
 
-                seen.add(p)
+        print("📦 TOTAL:", total)
 
-                try:
+        done = 0
 
-                    art, title, price, status, url = parse_product(p)
+        for url in all_products:
 
-                    if not title:
-                        continue
+            data = parse_product(driver, url)
 
-                    if not title or not price:
-                        continue
+            if not data:
+                continue
 
-                    ws.append([
-                        art,
-                        title,
-                        price,
-                        status,
-                        url
-                    ])
+            ws.append([
+                data["title"],
+                data["sku"],
+                data["price"],
+                data["status"],
+                data["url"]
+            ])
 
-                    total += 1
+            done += 1
+            progress = int(done / total * 100) if total else 100
 
-                    print(
-                        total,
-                        art,
-                        price,
-                        status
-                    )
+            set_status(True, progress, done, total)
 
-                except:
-                    pass
+            if done % 10 == 0:
+                wb.save(FILE_PATH)
 
-                time.sleep(
-                    random.uniform(0.2, 0.5)
-                )
+            time.sleep(random.uniform(0.2, 0.4))
 
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
         wb.save(FILE_PATH)
 
-        update_progress(100)
+        set_status(False, 100, done, total)
 
-        driver.quit()
-
-        print("\nDONE")
-        print("TOTAL:", total)
+        print("✅ DONE")
 
     finally:
-        set_status(False)
         set_lock(False)
+        set_status(False, 100)
+        driver.quit()
+
+
+def main():
+    run_parser()
 
 
 if __name__ == "__main__":
-    run_parser()
+    main()
