@@ -1,301 +1,153 @@
 import os
-os.system("python -m playwright install --with-deps chromium")
-import json
 import time
-import random
-from datetime import datetime
-
-import requests
-from bs4 import BeautifulSoup
-
 from playwright.sync_api import sync_playwright
-from openpyxl import Workbook
 
 # =========================
-# CONFIG
+# ⚙️ CONFIG
 # =========================
 
-BASE = "https://jumpex.com.ua"
+ONLY_ONE_CATEGORY = True  # 👈 :1 режим (потом False уберём)
 
-LOGIN = "angelinatitor@gmail.com"
-PASSWORD = "380931937922"
+BASE_URL = "https://jumpex.com.ua"
 
-OUTPUT_DIR = os.path.abspath("output/4399-4400")
-
-FILE_PATH = os.path.join(
-    OUTPUT_DIR,
-    "Харьковская_4399-4400_LIVE.xlsx"
-)
-
-STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
-LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
+LOGIN_URL = BASE_URL + "/login"
+CATALOG_URL = BASE_URL + "/instrumenty-i-oborudovanie"
 
 
 # =========================
-# STATUS
+# 🔥 FIX PLAYWRIGHT (ВАЖНО)
 # =========================
-
-def set_status(running: bool):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    with open(STATUS_PATH, "w", encoding="utf-8") as f:
-        json.dump({
-            "running": running,
-            "progress": 0,
-            "time": datetime.now().strftime("%d.%m %H:%M")
-        }, f, ensure_ascii=False, indent=2)
-
-
-def update_progress(percent):
-    if not os.path.exists(STATUS_PATH):
-        return
-
-    try:
-        with open(STATUS_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        data["progress"] = percent
-
-        with open(STATUS_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-    except:
-        pass
-
-
-def set_lock(state: bool):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    if state:
-        with open(LOCK_FILE, "w") as f:
-            f.write("running")
-    else:
-        if os.path.exists(LOCK_FILE):
-            os.remove(LOCK_FILE)
-
-
-def is_locked():
-    return os.path.exists(LOCK_FILE)
+os.system("python -m playwright install --with-deps chromium")
 
 
 # =========================
-# LOGIN (requests)
+# LOGIN
 # =========================
+def login(page):
+    page.goto(LOGIN_URL)
 
-def login_session():
-    s = requests.Session()
+    page.fill("#jlusername", "angelinatitor@gmail.com")
+    page.fill("#jlpassword", "380931937922")
 
-    s.headers.update({
-        "User-Agent": "Mozilla/5.0"
-    })
+    page.click("button[type=submit]")
 
-    s.get(BASE + "/login")
-
-    payload = {
-        "username": LOGIN,
-        "passwd": PASSWORD
-    }
-
-    s.post(BASE + "/user/loginsave", data=payload)
-
+    page.wait_for_timeout(3000)
     print("LOGIN: OK")
-    return s
 
 
 # =========================
-# CATEGORIES (1 LEVEL ONLY)
+# LOAD FULL CATEGORY (AUTO SCROLL)
 # =========================
+def load_full_category_html(page, url):
+    page.goto(url)
 
-def get_categories(session):
-    r = session.get(BASE + "/")
-    soup = BeautifulSoup(r.text, "html.parser")
+    print(f"CATEGORY: {url}")
 
-    cats = []
+    last_height = 0
 
-    for a in soup.select("li.nav-item.parent > a"):
-        href = a.get("href")
-
-        if not href or not href.startswith("/"):
-            continue
-
-        parts = href.strip("/").split("/")
-
-        # только главные категории
-        if len(parts) != 1:
-            continue
-
-        cats.append(BASE + href)
-
-    return cats
-
-
-# =========================
-# PLAYWRIGHT LOAD MORE
-# =========================
-
-def load_full_category_html(url):
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-
-        page.goto(url, timeout=60000)
+    while True:
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         time.sleep(2)
 
-        while True:
-            try:
-                btn = page.query_selector("button.autoScrollBtn")
-                if not btn:
-                    break
+        try:
+            page.click("button.autoScrollBtn", timeout=2000)
+            print("CLICK: Показати ще")
+            time.sleep(2)
+        except:
+            pass
 
-                btn.click()
-                time.sleep(1)
+        new_height = page.evaluate("document.body.scrollHeight")
 
-            except:
-                break
+        if new_height == last_height:
+            break
 
-        html = page.content()
-        browser.close()
+        last_height = new_height
 
-        return html
+    return page.content()
 
 
 # =========================
-# PARSE PRODUCTS FROM LIST
+# PARSE PRODUCTS
 # =========================
+def parse_products(page):
+    products = page.query_selector_all(".product")
 
-def parse_category_products(html):
-    soup = BeautifulSoup(html, "html.parser")
+    result = []
 
-    products = []
+    for p in products:
+        try:
+            title = p.query_selector(".ttl.md.mb25")
+            price = p.query_selector(".prod_price")
+            sku = p.query_selector(".prod-ean.mb60")
+            avail = p.query_selector(".avail, .prod-not-avail")
 
-    blocks = soup.select(".product, .product-item, .jshop_product")
+            data = {
+                "title": title.inner_text().strip() if title else "",
+                "price": price.inner_text().strip() if price else "",
+                "sku": sku.inner_text().strip() if sku else "",
+                "avail": avail.inner_text().strip() if avail else "",
+            }
 
-    print("BLOCKS:", len(blocks))
+            result.append(data)
 
-    for b in blocks:
-        a = b.find("a", href=True)
-
-        if not a:
+        except:
             continue
 
-        href = a["href"]
-
-        if href.startswith("/"):
-            href = BASE + href
-
-        products.append(href)
-
-    return list(set(products))
+    return result
 
 
 # =========================
-# PARSE PRODUCT PAGE
+# MAIN PARSER
 # =========================
-
-def parse_product(session, url):
-    r = session.get(url)
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    try:
-        title = soup.select_one("h1.ttl.md.mb25").get_text(strip=True)
-    except:
-        return None
-
-    try:
-        art = soup.select_one(".prod-ean").get_text(strip=True).replace("Артикул:", "").strip()
-    except:
-        art = "NO ART"
-
-    try:
-        price = soup.select_one(".prod_price").get_text(strip=True)
-    except:
-        price = "NO PRICE"
-
-    status_el = soup.select_one(".avail, .prod-not-avail")
-
-    status = status_el.get_text(strip=True) if status_el else "NO STATUS"
-
-    return art, title, price, status, url
-
-
-# =========================
-# MAIN
-# =========================
-
 def run_parser():
+    with sync_playwright() as p:
 
-    if is_locked():
-        print("ALREADY RUNNING")
-        return
+        browser = p.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox"
+            ]
+        )
 
-    set_lock(True)
-    set_status(True)
+        page = browser.new_page()
 
-    try:
-        session = login_session()
+        login(page)
 
-        cats = get_categories(session)
+        categories = [
+            CATALOG_URL
+        ]
 
-        print("CATEGORIES:", len(cats))
+        # 👇 :1 режим
+        if ONLY_ONE_CATEGORY:
+            categories = categories[:1]
 
-        # =========================
-        # TEST MODE :1
-        # =========================
-        cats = cats[:1]
+        all_products = []
 
-        wb = Workbook()
-        ws = wb.active
+        for cat in categories:
+            html = load_full_category_html(page, cat)
 
-        ws.append(["Артикул", "Название", "Цена", "Статус", "Ссылка"])
+            page.goto(cat)
+            page.wait_for_timeout(2000)
 
-        seen = set()
-        total = 0
+            products = parse_products(page)
 
-        for i, cat in enumerate(cats, 1):
+            print(f"PRODUCTS: {len(products)}")
 
-            percent = int(i / len(cats) * 100)
-            update_progress(percent)
+            for i, pr in enumerate(products):
+                percent = int((i + 1) / len(products) * 100)
+                print(f"[{percent}%] {pr['title']} | {pr['price']}")
 
-            print(f"\nCATEGORY: {cat}")
+            all_products.extend(products)
 
-            html = load_full_category_html(cat)
-            products = parse_category_products(html)
+        print("DONE")
+        print("TOTAL:", len(all_products))
 
-            print("PRODUCTS:", len(products))
-
-            for p in products:
-
-                if p in seen:
-                    continue
-
-                seen.add(p)
-
-                data = parse_product(session, p)
-
-                if not data:
-                    continue
-
-                art, title, price, status, url = data
-
-                ws.append([art, title, price, status, url])
-
-                total += 1
-
-                print(f"[{percent}%] {title} | {price}")
-
-                time.sleep(random.uniform(0.1, 0.3))
-
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-        wb.save(FILE_PATH)
-
-        update_progress(100)
-
-        print("\nDONE:", total)
-
-    finally:
-        set_status(False)
-        set_lock(False)
+        browser.close()
 
 
+# =========================
+# ENTRY POINT
+# =========================
 if __name__ == "__main__":
     run_parser()
