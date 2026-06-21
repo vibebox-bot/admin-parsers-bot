@@ -173,47 +173,40 @@ def parse_category(category_url, ws):
     pages = get_all_pages(category_url)
 
     seen = set()
-    total_pages = len(pages)
 
-    for i, page in enumerate(pages, 1):
-
-        percent = int((i / total_pages) * 100)
-        update_progress(percent)
+    for page in pages:
 
         soup = get_soup(page)
+
         links = get_product_links(soup)
 
-        for link in links:
+        # ❗ ДОБАВЬ ЭТО
+        links = [l for l in links if "/product" in l or "/tv-shop" in l or "http" in l]
 
+        for link in links:
             if link in seen:
                 continue
-        
+
             seen.add(link)
-        
+
             print("➡️ PARSING:", link)
-        
+
             try:
                 name, model, sku, price, qty, url = parse_product(link)
 
+                ws.append([name, model, sku, price, qty, url])
 
-                ws.append([
-                    name,
-                    model,
-                    sku,
-                    qty,
-                    price,
-                    url
-                ])
-        
             except Exception as e:
                 print("❌ ERROR:", e)
+
+
 
 def get_categories():
     soup = get_soup(BASE_URL)
 
-    categories = set()
+    categories = []
 
-    for a in soup.select("a"):
+    for a in soup.select("#category-module a.list-group__a"):
         href = a.get("href")
 
         if not href:
@@ -221,14 +214,9 @@ def get_categories():
 
         full = urljoin(BASE_URL, href)
 
-        # фильтр только категорий
-        if "tv-shop" in full or ".html" in full:
-            continue
+        categories.append(full)
 
-        if BASE_URL in full:
-            categories.add(full)
-
-    return list(categories)
+    return categories
     
 # =========================
 # MAIN
