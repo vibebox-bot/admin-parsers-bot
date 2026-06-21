@@ -202,24 +202,32 @@ def run_parser():
                 data = parse_product(url)
 
                 # =========================
-                # FIXED DEDUP LOGIC
+                # SAFE NORMALIZATION
                 # =========================
-                key = data[0] if data[0] else data[3]  # SKU или URL
+                sku = data[0].strip() if data[0] else ""
+                title = data[1].strip() if data[1] else ""
+                price = data[2].strip() if data[2] else ""
+                clean_url = data[3].split("?")[0]
+
+                # =========================
+                # DEDUP KEY (MAIN FIX)
+                # =========================
+                key = sku if sku else clean_url
 
                 if key in seen:
                     continue
 
                 seen.add(key)
 
-                # пропуск пустых названий
-                if not data[1]:
+                # пропуск пустых товаров
+                if not title:
                     continue
 
-                ws.append(data)
+                ws.append([sku, title, price, data[3]])
 
                 all_count += 1
 
-                print("ADDED:", data[1])
+                print("ADDED:", title)
 
             except Exception as e:
                 print("ERROR:", e)
