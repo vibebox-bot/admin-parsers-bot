@@ -39,20 +39,34 @@ def load(url):
 # =========================
 # LOCK
 # =========================
-def create_lock():
-    if os.path.exists(LOCK_FILE):
-        if time.time() - os.path.getmtime(LOCK_FILE) < 300:
+def is_locked():
+
+    if not os.path.exists(LOCK_FILE):
+        return False
+
+    try:
+        age = time.time() - os.path.getmtime(LOCK_FILE)
+
+        # lock старше часа = считаем зависшим
+        if age > 3600:
+            os.remove(LOCK_FILE)
             return False
-        os.remove(LOCK_FILE)
 
-    open(LOCK_FILE, "w").close()
-    return True
+        return True
+
+    except:
+        return False
 
 
-def remove_lock():
-    if os.path.exists(LOCK_FILE):
-        os.remove(LOCK_FILE)
+def set_lock(state):
 
+    if state:
+        with open(LOCK_FILE, "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
+
+    else:
+        if os.path.exists(LOCK_FILE):
+            os.remove(LOCK_FILE)
 
 # =========================
 # GET CATEGORIES
@@ -146,10 +160,12 @@ def run():
 
     print("🚀 START ALL CATEGORIES PARSER")
 
-    if not create_lock():
-        print("⛔ ALREADY RUNNING")
-        return
+    if is_locked():
+    print("⛔ ALREADY RUNNING")
+    return
 
+set_lock(True)
+    
     try:
         wb = Workbook()
         ws = wb.active
@@ -225,8 +241,13 @@ def run():
         print("✅ DONE")
 
     finally:
-        remove_lock()
+        set_lock(False)
 
 
 def main():
-    run()
+    run_parser()
+
+
+if __name__ == "__main__":
+    main()
+
