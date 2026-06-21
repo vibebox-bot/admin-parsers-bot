@@ -191,6 +191,7 @@ def parse_category(category_url, ws):
                 ws.append([name, model, sku, price, qty, url])
 
             except Exception as e:
+                continue
 
 
 
