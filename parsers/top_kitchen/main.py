@@ -44,19 +44,34 @@ def update_progress(percent):
     set_status(True, percent)
 
 
-def set_lock(state: bool):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+def is_locked():
+
+    if not os.path.exists(LOCK_FILE):
+        return False
+
+    try:
+        age = time.time() - os.path.getmtime(LOCK_FILE)
+
+        # lock старше часа = считаем зависшим
+        if age > 3600:
+            os.remove(LOCK_FILE)
+            return False
+
+        return True
+
+    except:
+        return False
+
+
+def set_lock(state):
 
     if state:
-        with open(LOCK_FILE, "w") as f:
-            f.write("running")
+        with open(LOCK_FILE, "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
+
     else:
         if os.path.exists(LOCK_FILE):
             os.remove(LOCK_FILE)
-
-
-def is_locked():
-    return os.path.exists(LOCK_FILE)
 
 
 # =========================
@@ -263,4 +278,8 @@ def run():
 # ENTRY
 # =========================
 def main():
-    run()
+    run_parser()
+
+
+if __name__ == "__main__":
+    main()
