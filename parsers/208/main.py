@@ -5,13 +5,12 @@ import requests
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 
-
 # =========================
-# TEST OUTPUT
+# OUTPUT (TEST MODE)
 # =========================
-OUTPUT_DIR = os.path.abspath("output/208")
+OUTPUT_DIR = os.path.abspath("output/hi_tech_test")
 
-FILE_PATH = os.path.join(OUTPUT_DIR, "Харьковская_208_LIVE.xlsx")
+FILE_PATH = os.path.join(OUTPUT_DIR, "hi_tech_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
@@ -24,7 +23,6 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
-
 # =========================
 # STATUS
 # =========================
@@ -33,15 +31,22 @@ def save_status(data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def load_page(url):
+    r = requests.get(url, headers=HEADERS, timeout=30)
+    r.raise_for_status()
+    return BeautifulSoup(r.text, "html.parser")
+
+
 # =========================
 # LOCK
 # =========================
 def create_lock():
     if os.path.exists(LOCK_FILE):
         age = time.time() - os.path.getmtime(LOCK_FILE)
-        if age < 300:
+        if age > 300:
+            os.remove(LOCK_FILE)
+        else:
             return False
-        os.remove(LOCK_FILE)
 
     open(LOCK_FILE, "w").close()
     return True
@@ -53,40 +58,27 @@ def remove_lock():
 
 
 # =========================
-# LOAD PAGE
+# GET PRODUCT LINKS (ВАЖНО)
 # =========================
-def load(url):
-    r = requests.get(url, headers=HEADERS, timeout=30)
-    return BeautifulSoup(r.text, "html.parser")
-
-
-# =========================
-# GET PRODUCT LINKS
-# =========================
-def get_product_links():
+def get_products():
     links = []
     page = 1
 
     while True:
-        url = f"{CATEGORY_URL}&paged={page}"
-        soup = load(url)
+        url = CATEGORY_URL + f"&paged={page}"
+        soup = load_page(url)
 
+        # ВАЖНО: ТУТ ДОЛЖНЫ БЫТЬ ТОВАРЫ, НЕ КАТЕГОРИИ
         items = soup.select("li.product a.woocommerce-LoopProduct-link, li.product a")
 
-        page_links = []
-
-        for a in items:
-            href = a.get("href")
-            if href and "?product=" in href:
-                page_links.append(href)
-
-        # убираем дубли
-        page_links = list(set(page_links))
-
-        if not page_links:
+        if not items:
             break
 
-        links.extend(page_links)
+        for i in items:
+            href = i.get("href")
+            if href and "?product=" in href:
+                links.append(href)
+
         page += 1
 
         if page > 50:
@@ -99,7 +91,7 @@ def get_product_links():
 # PARSE PRODUCT
 # =========================
 def parse_product(url):
-    soup = load(url)
+    soup = load_page(url)
 
     title = soup.select_one(".product_title.entry-title")
     title = title.text.strip() if title else "-"
@@ -124,9 +116,10 @@ def parse_product(url):
 
 
 # =========================
-# RUN
+# MAIN RUN
 # =========================
-def run():
+def run_parser():
+
     print("🚀 START PARSER HI-TECH TEST")
 
     if not create_lock():
@@ -138,10 +131,16 @@ def run():
         ws = wb.active
         ws.append(["Название", "SKU", "Цена", "Наличие", "URL"])
 
-        product_links = get_product_links()
-        total = len(product_links)
+        links = get_products()
+        total = len(links)
 
         print(f"📦 FOUND PRODUCTS: {total}")
+
+        if total == 0:
+            save_status({"running": False, "progress": 0, "error": "NO PRODUCTS FOUND"})
+            return
+
+        done = 0
 
         save_status({
             "running": True,
@@ -150,9 +149,8 @@ def run():
             "total": total
         })
 
-        done = 0
+        for url in links:
 
-        for url in product_links:
             data = parse_product(url)
 
             ws.append([
@@ -176,7 +174,9 @@ def run():
             })
 
             wb.save(FILE_PATH)
-            time.sleep(0.2)
+            time.sleep(0.3)
+
+        wb.save(FILE_PATH)
 
         save_status({
             "running": False,
@@ -189,6 +189,7 @@ def run():
 
     except Exception as e:
         print("❌ ERROR:", e)
+
         save_status({
             "running": False,
             "progress": 0,
@@ -197,10 +198,3 @@ def run():
 
     finally:
         remove_lock()
-
-
-# =========================
-# ENTRY POINT (ВАЖНО!)
-# =========================
-if __name__ == "__main__":
-    run()
