@@ -1,4 +1,5 @@
 import os
+os.system("python -m playwright install --with-deps chromium")
 import json
 import time
 import random
