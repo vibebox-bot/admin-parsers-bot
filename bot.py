@@ -2,8 +2,6 @@ import os
 import json
 import asyncio
 
-from datetime import datetime
-
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -11,9 +9,8 @@ from config import BOT_TOKEN, ALLOWED_USERS
 
 from datetime import datetime, timedelta
 
-def now_ua():
+def now():
     return datetime.utcnow() + timedelta(hours=3)
-
 
 print("🔥 BOT STARTED")
 
