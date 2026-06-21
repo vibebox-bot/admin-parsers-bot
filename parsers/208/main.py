@@ -3,86 +3,79 @@ import json
 import time
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from urllib.parse import urljoin
 
-from openpyxl import Workbook
-
-
-BASE = "https://hi-tech-odessa.com.ua"
-
+# =========================
+# OUTPUT CONFIG (ТВОЙ ТЕСТ)
+# =========================
 OUTPUT_DIR = os.path.abspath("output/hi_tech_test")
 
-FILE_PATH = os.path.join(OUTPUT_DIR, "hi_tech_test.xlsx")
+FILE_PATH = os.path.join(OUTPUT_DIR, "hi_tech_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0"
-}
+
+BASE_URL = "https://hi-tech-odessa.com.ua"
+
+TEST_CATEGORY = "https://hi-tech-odessa.com.ua/?product_cat=bluetooth-%d0%ba%d0%be%d0%bb%d0%be%d0%bd%d0%ba%d0%b8-%d0%bf%d0%be%d1%80%d1%82%d0%b0%d1%82%d0%b8%d0%b2%d0%bd%d1%8b%d0%b5"
 
 
 # =========================
 # STATUS
 # =========================
-def save_status(data):
+def save_status(progress=0, running=True):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    data = {
+        "running": running,
+        "progress": progress,
+        "time": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 # =========================
-# REQUEST
+# HTTP
 # =========================
 def get_soup(url):
-    r = requests.get(url, headers=HEADERS, timeout=30)
+    r = requests.get(url, timeout=30)
     return BeautifulSoup(r.text, "html.parser")
 
 
 # =========================
-# CATEGORY (TEST ONLY 1)
+# CATEGORY PAGES
 # =========================
-def get_test_category():
-    soup = get_soup(BASE)
+def get_products_links(category_url):
+    links = []
 
-    first = soup.select_one("li.product-category a")
-
-    return {
-        "name": first.get_text(strip=True),
-        "url": first["href"]
-    }
-
-
-# =========================
-# PRODUCTS LIST (PAGINATION)
-# =========================
-def get_products(category_url):
-    products = []
     page = 1
 
     while True:
-        url = f"{category_url}&paged={page}"
+        url = category_url + f"&paged={page}" if "paged=" not in category_url else category_url
+
         soup = get_soup(url)
 
-        items = soup.select("ul.products li a")
+        items = soup.select("li.product a[href*='product=']")
 
         if not items:
             break
 
-        found = 0
+        for i in items:
+            href = i.get("href")
+            if href:
+                links.append(href)
 
-        for a in items:
-            href = a.get("href")
-            if href and "product" in href:
-                products.append(href)
-                found += 1
-
-        if found == 0:
+        # pagination check
+        next_btn = soup.select_one("a.next.page-numbers")
+        if not next_btn:
             break
 
         page += 1
-        time.sleep(0.3)
+        save_status(progress=min(page * 5, 90))
 
-    return products
+    return list(set(links))
 
 
 # =========================
@@ -91,106 +84,72 @@ def get_products(category_url):
 def parse_product(url):
     soup = get_soup(url)
 
-    name = soup.select_one("h1.product_title")
-    name = name.get_text(strip=True) if name else ""
+    # name
+    title = soup.select_one(".product_title.entry-title")
+    title = title.get_text(strip=True) if title else ""
 
-    sku = soup.select_one("span.sku")
+    # sku
+    sku = soup.select_one(".sku")
     sku = sku.get_text(strip=True) if sku else ""
 
-    price = soup.select_one("span.woocommerce-Price-amount")
-    price = price.get_text(strip=True) if price else ""
+    # price
+    price_tag = soup.select_one(".woocommerce-Price-amount")
+    price = price_tag.get_text(strip=True) if price_tag else ""
 
-    in_stock = True
-    if soup.select_one("p.stock.out-of-stock"):
-        in_stock = False
+    # stock
+    stock = "in_stock"
+    if soup.select_one("p.out-of-stock"):
+        stock = "out_of_stock"
 
     return {
-        "name": name,
+        "url": url,
+        "title": title,
         "sku": sku,
         "price": price,
-        "in_stock": in_stock,
-        "url": url
+        "stock": stock
     }
-
-
-# =========================
-# EXCEL SAVE
-# =========================
-def save_excel(data):
-    wb = Workbook()
-    ws = wb.active
-
-    ws.append(["Название", "Артикул", "Цена", "Наличие", "Ссылка"])
-
-    for item in data:
-        ws.append([
-            item["name"],
-            item["sku"],
-            item["price"],
-            "YES" if item["in_stock"] else "NO",
-            item["url"]
-        ])
-
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    wb.save(FILE_PATH)
 
 
 # =========================
 # MAIN
 # =========================
-def run():
+def main():
+    print("🚀 HI-TECH PARSER STARTED")
 
-    save_status({
-        "running": True,
-        "progress": 0,
-        "time": str(datetime.now())
-    })
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    print("🚀 START HI-TECH TEST PARSER")
+    save_status(0, True)
 
-    cat = get_test_category()
-    print("📂 CATEGORY:", cat["name"])
+    # 1) берем товары из категории
+    product_links = get_products_links(TEST_CATEGORY)
 
-    products = get_products(cat["url"])
-    total = len(products)
-
-    print("📦 PRODUCTS:", total)
+    total = len(product_links)
+    print(f"📦 FOUND PRODUCTS: {total}")
 
     data = []
 
-    for i, url in enumerate(products, start=1):
-
+    # 2) парсим карточки
+    for idx, url in enumerate(product_links, start=1):
         try:
             item = parse_product(url)
-            item["category"] = cat["name"]
             data.append(item)
 
-            progress = int((i / total) * 100)
-
-            save_status({
-                "running": True,
-                "progress": progress,
-                "time": str(datetime.now())
-            })
-
-            print(f"{progress}% {url}")
-
         except Exception as e:
-            print("ERROR:", e)
+            print("ERROR:", url, e)
 
-        time.sleep(0.2)
+        progress = int((idx / total) * 100)
+        save_status(progress=progress, running=True)
 
-    save_excel(data)
+        print(f"[{progress}%] {url}")
 
-    save_status({
-        "running": False,
-        "progress": 100,
-        "time": str(datetime.now()),
-        "file_path": FILE_PATH
-    })
+        time.sleep(0.5)
+
+    # 3) финал
+    save_status(progress=100, running=False)
 
     print("✅ DONE")
+    print("TOTAL:", len(data))
 
-
-if __name__ == "__main__":
-    run()
+    # пока просто json (xlsx подключим дальше)
+    with open(os.path.join(OUTPUT_DIR, "data.json"), "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
