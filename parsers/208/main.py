@@ -204,5 +204,6 @@ def run():
 # =========================
 # ENTRY
 # =========================
-if __name__ == "__main__":
-    run()
+def main():
+    print("🚀 START PARSER HI-TECH TEST")
+    run_parser()
