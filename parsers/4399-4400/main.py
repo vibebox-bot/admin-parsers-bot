@@ -15,7 +15,7 @@ BASE = "https://jumpex.com.ua"
 CATEGORY_ONLY = 1  # 👈 ВАЖНО: пока тест 1 категория
 
 OUTPUT_DIR = os.path.abspath("output/4399-4400")
-FILE_PATH = os.path.join(OUTPUT_DIR, "result.xlsx")
+FILE_PATH = os.path.join(OUTPUT_DIR, "Харьковская_4399-4400_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
