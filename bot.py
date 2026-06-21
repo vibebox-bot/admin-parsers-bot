@@ -7,10 +7,12 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import BOT_TOKEN, ALLOWED_USERS
 
-from datetime import datetime, timezone
+from datetime import datetime
+import pytz
 
 def now():
-    return datetime.now(timezone.utc).astimezone()
+    tz = pytz.timezone("Europe/Kyiv")
+    return datetime.now(tz)
 
 print("🔥 BOT STARTED")
 
