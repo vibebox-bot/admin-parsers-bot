@@ -11,7 +11,7 @@ from datetime import datetime
 import pytz
 
 def now():
-    return datetime.now(pytz.timezone("Europe/Kyiv"))
+    return datetime.now()
 
 print("🔥 BOT STARTED")
 
@@ -209,7 +209,7 @@ def display_status(st, file_path):
 
     # проверка файла
     if os.path.exists(file_path):
-        age_days_val = (now() - datetime.fromtimestamp(os.path.getmtime(file_path), tz=now().tzinfo)).days
+        age_days_val = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(file_path))).days
         # ⚠️ УСТАРЕЛО
         if age_days_val >= 3:
             return "⚠️ УСТАРЕЛО", 100
@@ -509,7 +509,7 @@ async def cb(call: types.CallbackQuery):
             "running": True,
             "canceled": False,
             "user": call.from_user.full_name,
-            "time": now().isoformat(),
+            "time": now().strftime("%Y-%m-%d %H:%M:%S"),
             "progress": 0,
             "file_path": s["file"]   # 👈 важно для "устарело"
         })
@@ -532,7 +532,7 @@ async def cb(call: types.CallbackQuery):
                 "running": False,
                 "canceled": False,
                 "user": call.from_user.full_name,
-                "time": now().isoformat(),
+                "time": now().strftime("%Y-%m-%d %H:%M:%S"),
                 "progress": 100,
                 "file_path": s["file"]
             })
@@ -548,7 +548,7 @@ async def cb(call: types.CallbackQuery):
                 "running": False,
                 "canceled": False,
                 "user": call.from_user.full_name,
-                "time": now().isoformat(),
+                "time": now().strftime("%Y-%m-%d %H:%M:%S"),
                 "progress": 0,
                 "file_path": s["file"]
             })
@@ -606,7 +606,7 @@ async def cb(call: types.CallbackQuery):
             "running": False,
             "canceled": True,
             "user": call.from_user.full_name,
-            "time": now().isoformat(),
+            "time": now().strftime("%Y-%m-%d %H:%M:%S"),
             "progress": 0,
             "file_path": s["file"]
         })
