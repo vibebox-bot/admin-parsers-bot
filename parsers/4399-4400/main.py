@@ -7,15 +7,18 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 
-print("🔥 JUMPEX CLEAN PARSER (NO PLAYWRIGHT)")
+print("🔥 JUMPEX CLEAN PARSER (NO PLAYWRIGHT + SESSION FIX)")
 
 BASE = "https://jumpex.com.ua"
 
 # =========================
-# ⚙️ SWITCH (1 category / all)
+# ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 1   # 👈 ТЕСТ РЕЖИМ
-# CATEGORY_LIMIT = None  # 👈 ВСЕ КАТЕГОРИИ
+CATEGORY_LIMIT = 1   # тест
+# CATEGORY_LIMIT = None  # все категории
+
+EMAIL = "angelinatitor@gmail.com"
+PASSWORD = "18022021"
 
 OUTPUT_DIR = os.path.abspath("output/4399-4400")
 FILE_PATH = os.path.join(OUTPUT_DIR, "Харьковская_4399-4400_LIVE.xlsx")
@@ -25,6 +28,11 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
+# =========================
+# SESSION (ВАЖНО)
+# =========================
+session = requests.Session()
+session.headers.update(HEADERS)
 
 # =========================
 # STATUS
@@ -56,11 +64,33 @@ def update_progress(p):
 
 
 # =========================
+# LOGIN (КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ)
+# =========================
+
+def login():
+    print("LOGIN...")
+
+    url = BASE + "/index.php?route=account/login"
+
+    session.get(url)
+
+    r = session.post(url, data={
+        "email": EMAIL,
+        "password": PASSWORD
+    })
+
+    if "logout" in r.text.lower():
+        print("LOGIN OK")
+    else:
+        print("LOGIN CHECK (maybe OK, depends on site)")
+
+
+# =========================
 # HTTP
 # =========================
 
 def get_soup(url):
-    r = requests.get(url, headers=HEADERS, timeout=30)
+    r = session.get(url, timeout=30)
     return BeautifulSoup(r.text, "html.parser")
 
 
@@ -88,7 +118,7 @@ def get_categories():
 
 
 # =========================
-# PAGINATION FIXED
+# PRODUCTS
 # =========================
 
 def load_products(cat_url):
@@ -126,7 +156,6 @@ def load_products(cat_url):
 
             all_products.add(href)
 
-        # STOP CONDITIONS
         if len(all_products) == before:
             break
 
@@ -134,14 +163,14 @@ def load_products(cat_url):
             break
 
         page += 12
-        time.sleep(0.7)
+        time.sleep(0.5)
 
     print("TOTAL LINKS:", len(all_products))
     return list(all_products)
 
 
 # =========================
-# PRODUCT PARSE
+# PRODUCT PARSE (ЦЕНА ТЕПЕРЬ РАБОТАЕТ)
 # =========================
 
 def parse_product(url):
@@ -171,6 +200,8 @@ def run_parser():
 
     set_status()
 
+    login()  # 🔥 ВАЖНО
+
     wb = Workbook()
     ws = wb.active
     ws.append(["SKU", "TITLE", "PRICE", "URL"])
@@ -185,7 +216,6 @@ def run_parser():
         cats = cats[:CATEGORY_LIMIT]
 
     total = len(cats)
-
     all_count = 0
 
     for i, cat in enumerate(cats, 1):
@@ -201,17 +231,11 @@ def run_parser():
             try:
                 data = parse_product(url)
 
-                # =========================
-                # SAFE NORMALIZATION
-                # =========================
                 sku = data[0].strip() if data[0] else ""
                 title = data[1].strip() if data[1] else ""
                 price = data[2].strip() if data[2] else ""
                 clean_url = data[3].split("?")[0]
 
-                # =========================
-                # DEDUP KEY (MAIN FIX)
-                # =========================
                 key = sku if sku else clean_url
 
                 if key in seen:
@@ -219,7 +243,6 @@ def run_parser():
 
                 seen.add(key)
 
-                # пропуск пустых товаров
                 if not title:
                     continue
 
@@ -227,7 +250,7 @@ def run_parser():
 
                 all_count += 1
 
-                print("ADDED:", title)
+                print("ADDED:", title, "|", price)
 
             except Exception as e:
                 print("ERROR:", e)
@@ -238,6 +261,7 @@ def run_parser():
     wb.save(FILE_PATH)
 
     print("DONE:", all_count)
+
 
 if __name__ == "__main__":
     run_parser()
