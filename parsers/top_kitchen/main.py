@@ -183,28 +183,26 @@ def parse_category(category_url, ws):
 
         for link in links:
 
-            if link in seen:
-                continue
+    if link in seen:
+        continue
 
-            seen.add(link)
+    seen.add(link)
 
-            print("➡️ PARSING:", link)
+    print("➡️ PARSING:", link)
 
-            try:
-                name, code, availability, price, url = parse_product(link)
+    try:
+        name, model, sku, price, qty, url = parse_product(link)
 
-                ws.append([
-                    name,
-                    model,
-                    sku,
-                    qty,
-                    price,
-                    url
-                ])
-                
+        ws.append([
+            name,
+            sku,
+            qty,
+            price,
+            url
+        ])
 
-            except Exception as e:
-                print("❌ ERROR:", e)
+    except Exception as e:
+        print("❌ ERROR:", e)
 
 
 # =========================
@@ -229,6 +227,7 @@ def run_parser():
         # HEADER (ТО ЧТО ТЕБЕ НАДО)
         ws.append([
             "Название",
+            "Код товара",
             "Артикул",
             "Наличие",
             "Цена",
