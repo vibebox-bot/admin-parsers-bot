@@ -7,10 +7,10 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import BOT_TOKEN, ALLOWED_USERS
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 def now():
-    return datetime.now(timezone.utc) + timedelta(hours=3)
+    return datetime.now(timezone.utc).astimezone()
 
 print("🔥 BOT STARTED")
 
