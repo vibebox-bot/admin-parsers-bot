@@ -208,7 +208,28 @@ def parse_category(category_url, ws):
             except Exception as e:
                 print("❌ ERROR:", e)
 
+def get_categories():
+    soup = get_soup(BASE_URL)
 
+    categories = set()
+
+    for a in soup.select("a"):
+        href = a.get("href")
+
+        if not href:
+            continue
+
+        full = urljoin(BASE_URL, href)
+
+        # фильтр только категорий
+        if "tv-shop" in full or ".html" in full:
+            continue
+
+        if BASE_URL in full:
+            categories.add(full)
+
+    return list(categories)
+    
 # =========================
 # MAIN
 # =========================
@@ -238,11 +259,15 @@ def run_parser():
             "Ссылка"
         ])
 
-        category_url = BASE_URL + "/tv-shop"
+        
+        categories = get_categories()
 
-        print("🚀 START CATEGORY:", category_url)
-
-        parse_category(category_url, ws)
+        print("📦 CATEGORIES FOUND:", len(categories))
+        
+        for cat in categories:
+            print("🚀 CATEGORY:", cat)
+            parse_category(cat, ws)
+                
 
         set_status(True, 100)
 
