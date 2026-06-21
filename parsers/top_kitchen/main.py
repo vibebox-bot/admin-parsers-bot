@@ -65,9 +65,6 @@ def is_locked():
 def get_soup(url):
     r = requests.get(url, headers=HEADERS, timeout=30)
 
-    print("🌐", url)
-    print("📡", r.status_code)
-
     return BeautifulSoup(r.text, "html.parser")
 
 
@@ -86,7 +83,6 @@ def get_all_pages(category_url):
             if full not in pages:
                 pages.append(full)
 
-    print("📄 PAGES FOUND:", len(pages))
     return pages
 
 
@@ -105,7 +101,6 @@ def get_product_links(soup):
         full = urljoin(BASE_URL, href)
         links.add(full)
 
-    print("🧩 PRODUCTS FOUND:", len(links))
     return list(links)
 
 
@@ -189,7 +184,6 @@ def parse_category(category_url, ws):
 
             seen.add(link)
 
-            print("➡️ PARSING:", link)
 
             try:
                 name, model, sku, price, qty, url = parse_product(link)
@@ -197,7 +191,6 @@ def parse_category(category_url, ws):
                 ws.append([name, model, sku, price, qty, url])
 
             except Exception as e:
-                print("❌ ERROR:", e)
 
 
 
@@ -224,7 +217,6 @@ def get_categories():
 def run_parser():
 
     if is_locked():
-        print("⛔ ALREADY RUNNING")
         return
 
     set_lock(True)
@@ -250,10 +242,8 @@ def run_parser():
         
         categories = get_categories()
 
-        print("📦 CATEGORIES FOUND:", len(categories))
         
         for cat in categories:
-            print("🚀 CATEGORY:", cat)
             parse_category(cat, ws)
                 
 
