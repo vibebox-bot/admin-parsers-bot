@@ -66,22 +66,38 @@ def get_products():
 
     while True:
         url = CATEGORY_URL + f"&paged={page}"
-        soup = load_page(url)
 
-        # ВАЖНО: ТУТ ДОЛЖНЫ БЫТЬ ТОВАРЫ, НЕ КАТЕГОРИИ
-        items = soup.select("li.product a.woocommerce-LoopProduct-link, li.product a")
+        try:
+            r = requests.get(url, headers=HEADERS, timeout=20)
 
-        if not items:
+            # 🔥 СТОП НА 404
+            if r.status_code == 404:
+                break
+
+            soup = BeautifulSoup(r.text, "html.parser")
+
+            items = soup.select("ul.products li.product a")
+
+            # 🔥 если товаров нет — стоп
+            if not items:
+                break
+
+            for i in items:
+                href = i.get("href")
+
+                # берем только товары
+                if href and "?product=" in href:
+                    links.append(href)
+
+            print(f"📄 PAGE {page} OK - {len(items)} items")
+
+        except Exception as e:
+            print("PAGE ERROR:", e)
             break
-
-        for i in items:
-            href = i.get("href")
-            if href and "?product=" in href:
-                links.append(href)
 
         page += 1
 
-        if page > 50:
+        if page > 100:
             break
 
     return list(set(links))
