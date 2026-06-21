@@ -7,11 +7,13 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import BOT_TOKEN, ALLOWED_USERS
 
-from datetime import datetime
 import pytz
+from datetime import datetime
+
+KYIV_TZ = pytz.timezone("Europe/Kyiv")
 
 def now():
-    return datetime.now()
+    return datetime.now(KYIV_TZ)
 
 print("🔥 BOT STARTED")
 
@@ -146,7 +148,7 @@ def status(st):
 
     if file_path and os.path.exists(file_path):
         file_time = os.path.getmtime(file_path)
-        age_days = (datetime.now() - datetime.fromtimestamp(file_time)).days
+        age_days = (now() - datetime.fromtimestamp(file_time)).days
 
         if age_days >= 5:
             return "⚠️ УСТАРЕЛО", st.get("progress", 100)
@@ -167,7 +169,7 @@ def age_days(st):
         return 999
     try:
         t = datetime.strptime(st["time"], "%Y-%m-%d %H:%M")
-        return (datetime.now() - t).days
+        return (now() - t).days
     except:
         return 999
 
@@ -189,32 +191,29 @@ async def safe_edit(call, text, kb=None):
 
 
 def display_status(st, file_path):
-    """
-    ЕДИНЫЙ источник правды:
-    - running
-    - canceled
-    - outdated (старый файл)
-    """
-
-    p = 0
 
     if not st:
         return "⚪ НЕТ ДАННЫХ", 0
 
+    # running
     if st.get("running"):
-        return "🟡 В РАБОТЕ", int(st.get("progress", 0))
+        return "🟡 В РАБОТЕ", max(1, int(st.get("progress", 1)))
 
+    # canceled
     if st.get("canceled"):
         return "⛔ ОТМЕНЕНО", int(st.get("progress", 0))
 
-    # проверка файла
+    # file exists → сразу ГОТОВО
     if os.path.exists(file_path):
-        age_days_val = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(file_path))).days
-        # ⚠️ УСТАРЕЛО
+        if not st.get("running"):
+            return "🟢 ГОТОВО", 100
+
+        age_days_val = int((now().timestamp() - os.path.getmtime(file_path)) / 86400)
+
         if age_days_val >= 3:
             return "⚠️ УСТАРЕЛО", 100
 
-        return "🟢 ГОТОВО", int(st.get("progress", 100) if st else 100)
+        return "🟢 ГОТОВО", 100
 
     return "⚪ НЕТ ФАЙЛА", 0
 
@@ -232,7 +231,7 @@ def dashboard_text():
         warn = ""
 
         if st and not st.get("running") and os.path.exists(s["file"]):
-            age = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(s["file"]))).days
+            age = (now() - datetime.fromtimestamp(os.path.getmtime(s["file"]))).days
             if age >= 3:
                 warn = "⚠️"
 
@@ -424,6 +423,9 @@ async def cb(call: types.CallbackQuery):
 
         stt, p = display_status(st, s["file"])
 
+        if stt == "🟢 ГОТОВО":
+            p = 100
+
         running = st.get("running") if st else False
 
         text = f"{s['name']}\n\n"
@@ -442,7 +444,7 @@ async def cb(call: types.CallbackQuery):
 
         if file_exists:
             file_time_raw = os.path.getmtime(s["file"])
-            file_age_days = (datetime.now() - datetime.fromtimestamp(file_time_raw)).days
+            file_age_days = (now() - datetime.fromtimestamp(file_time_raw)).days
 
             file_old = file_age_days >= 3
             file_time = get_file_time(s["file"])
