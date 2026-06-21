@@ -1,157 +1,210 @@
 import os
+import json
+import re
 import time
+from datetime import datetime
+
 from playwright.sync_api import sync_playwright
+from bs4 import BeautifulSoup
+from openpyxl import Workbook
 
 # =========================
-# ⚙️ CONFIG
+# CONFIG
 # =========================
 
-ONLY_ONE_CATEGORY = True  # 👈 :1 режим (потом уберём)
+BASE = "https://www.jmaxtvshop.com.ua"
 
-BASE_URL = "https://jumpex.com.ua"
+EMAIL = "angelinatitor@gmail.com"
+PASSWORD = "18022021"
 
-LOGIN_URL = BASE_URL + "/login"
-CATEGORY_URL = BASE_URL + "/instrumenty-i-oborudovanie"
+# =========================
+# TEST MODE :1
+# =========================
+ONLY_ONE_CATEGORY = True   # <-- ВОТ ЭТО ТВОЙ :1
+
+OUTPUT_DIR = os.path.abspath("output/4421-4422_Jmax")
+FILE_PATH = os.path.join(OUTPUT_DIR, "LIVE.xlsx")
 
 
 # =========================
-# 🔥 PLAYWRIGHT FIX (RAILWAY SAFE)
+# HELPERS
 # =========================
-def ensure_playwright():
-    os.system("python -m playwright install --with-deps chromium")
 
-ensure_playwright()
+def clean(x):
+    return re.sub(r"\s+", " ", x).strip() if x else ""
+
+def soup(page):
+    return BeautifulSoup(page.content(), "html.parser")
+
+def full_url(href):
+    if href.startswith("http"):
+        return href
+    return BASE + "/" + href.lstrip("/")
 
 
 # =========================
 # LOGIN
 # =========================
+
 def login(page):
-    page.goto(LOGIN_URL)
+    print("LOGIN...")
 
-    # ⚠️ поставь свои данные
-    page.fill("#jlusername", "angelinatitor@gmail.com")
-    page.fill("#jlpassword", "380931937922")
+    page.goto(BASE + "/index.php?route=account/login", wait_until="networkidle")
 
-    page.click("button[type=submit]")
+    page.fill('input[name="email"]', EMAIL)
+    page.fill('input[name="password"]', PASSWORD)
 
-    page.wait_for_timeout(3000)
-    print("LOGIN: OK")
+    page.click('input[type="submit"], button[type="submit"]')
+
+    page.wait_for_timeout(4000)
+
+    print("LOGIN OK")
 
 
 # =========================
-# LOAD FULL CATEGORY (AUTO SCROLL + BUTTON)
+# CATEGORIES
 # =========================
-def load_full_category(page, url):
-    page.goto(url)
-    print(f"CATEGORY: {url}")
 
-    last_height = 0
+def get_categories(page):
+    page.goto(BASE, wait_until="networkidle")
+    html = soup(page)
 
-    while True:
-        # scroll вниз
-        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        time.sleep(2)
+    cats = set()
 
-        # нажать "Показати ще"
-        try:
-            btn = page.query_selector("button.autoScrollBtn")
-            if btn:
-                btn.click()
-                print("CLICK: Показати ще")
-                time.sleep(2)
-        except:
-            pass
+    for a in html.select("a[href*='route=product/category']"):
+        cats.add(full_url(a["href"]))
 
-        new_height = page.evaluate("document.body.scrollHeight")
+    cats = list(cats)
 
-        if new_height == last_height:
+    # =========================
+    # :1 MODE → ТОЛЬКО 1 КАТЕГОРИЯ
+    # =========================
+    if ONLY_ONE_CATEGORY:
+        print("⚠ TEST MODE :1 → only first category")
+        return cats[:1]
+
+    return cats
+
+
+# =========================
+# LOAD ALL PRODUCTS FROM CATEGORY
+# =========================
+
+def crawl_category(page, cat):
+    print("CATEGORY:", cat)
+
+    products = set()
+
+    for i in range(1, 200):
+
+        url = f"{cat}&page={i}" if "?" in cat else f"{cat}?page={i}"
+
+        page.goto(url, wait_until="networkidle")
+        html = soup(page)
+
+        links = set()
+
+        for a in html.find_all("a", href=True):
+            if "product_id" in a["href"]:
+                links.add(full_url(a["href"]))
+
+        print(f"PAGE {i} OK -> {len(links)}")
+
+        if not links and i > 1:
             break
 
-        last_height = new_height
+        products.update(links)
+        time.sleep(0.3)
 
-    return page
+    return list(products)
 
 
 # =========================
-# PARSE PRODUCT CARD
+# PRODUCT PARSE
 # =========================
-def parse_products(page):
-    items = page.query_selector_all(".product, .product-item, .jshop_list_product")
 
-    result = []
+def parse_product(page, url):
+    page.goto(url, wait_until="networkidle")
+    html = soup(page)
 
-    for item in items:
-        try:
-            title = item.query_selector(".ttl, .product-title, h1")
-            price = item.query_selector(".prod_price, .price")
-            sku = item.query_selector(".prod-ean")
-            avail = item.query_selector(".avail, .prod-not-avail")
+    title = clean(html.select_one("h1").get_text()) if html.select_one("h1") else ""
 
-            data = {
-                "title": title.inner_text().strip() if title else "",
-                "price": price.inner_text().strip() if price else "",
-                "sku": sku.inner_text().strip() if sku else "",
-                "avail": avail.inner_text().strip() if avail else "",
-            }
+    sku = clean(html.select_one(".prod-ean").get_text()) if html.select_one(".prod-ean") else ""
 
-            if data["title"]:
-                result.append(data)
+    price = clean(html.select_one(".prod_price").get_text()) if html.select_one(".prod_price") else ""
 
-        except:
-            continue
+    status = ""
+    if html.select_one(".avail"):
+        status = clean(html.select_one(".avail").get_text())
+    elif html.select_one(".prod-not-avail"):
+        status = clean(html.select_one(".prod-not-avail").get_text())
 
-    return result
+    return [sku, title, price, status, url]
 
 
 # =========================
 # MAIN
 # =========================
+
 def run_parser():
+
     with sync_playwright() as p:
 
         browser = p.chromium.launch(
             headless=True,
-            args=[
-                "--no-sandbox",
-                "--disable-setuid-sandbox"
-            ]
+            args=["--no-sandbox"]
         )
 
         page = browser.new_page()
 
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["SKU", "Title", "Price", "Status", "URL"])
+
         login(page)
 
-        categories = [CATEGORY_URL]
+        categories = get_categories(page)
 
-        # 👇 :1 режим
-        if ONLY_ONE_CATEGORY:
-            categories = categories[:1]
+        print("CATEGORIES:", len(categories))
 
-        all_products = []
+        seen = set()
+        total = 0
 
         for cat in categories:
 
-            page = load_full_category(page, cat)
+            products = crawl_category(page, cat)
 
-            products = parse_products(page)
+            for url in products:
 
-            print(f"PRODUCTS: {len(products)}")
+                try:
+                    data = parse_product(page, url)
 
-            for i, pr in enumerate(products):
-                percent = int((i + 1) / len(products) * 100)
-                print(f"[{percent}%] {pr['title']} | {pr['price']}")
+                    if data[0] and data[0] in seen:
+                        continue
 
-            all_products.extend(products)
+                    if data[0]:
+                        seen.add(data[0])
 
-        print("DONE")
-        print("TOTAL:", len(all_products))
+                    if not data[1]:
+                        continue
+
+                    ws.append(data)
+                    total += 1
+
+                    print(f"[OK] {data[1]} | {data[2]}")
+
+                except Exception as e:
+                    print("ERROR:", e)
+
+                time.sleep(0.2)
+
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        wb.save(FILE_PATH)
+
+        print("DONE:", total)
 
         browser.close()
 
 
-# =========================
-# ENTRY POINT
-# =========================
 if __name__ == "__main__":
     run_parser()
