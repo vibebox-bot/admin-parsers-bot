@@ -71,25 +71,21 @@ def get_soup(url):
 # =========================
 
 def get_categories():
-    cats = set()
-
-    # 1. пробуем главную
     soup = get_soup(BASE)
 
+    cats = set()
+
+    # 1. основной сайт (jumpex OpenCart структура)
     for a in soup.select("a[href*='route=product/category']"):
         href = a.get("href")
         if href:
             cats.add(href)
 
-    # 2. fallback через sitemap (ВАЖНО)
-    try:
-        sm = get_soup(BASE + "/sitemap.xml")
-        for loc in sm.find_all("loc"):
-            url = loc.text
-            if "category" in url or "instrumenty" in url:
-                cats.add(url)
-    except:
-        pass
+    # 2. меню (дополнительный источник)
+    for a in soup.select(".menu-wrapper a[href]"):
+        href = a.get("href")
+        if href and "javascript" not in href:
+            cats.add(href)
 
     return list(cats)
 
