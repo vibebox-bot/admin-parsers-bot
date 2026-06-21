@@ -2,59 +2,54 @@ import os
 import time
 import json
 import requests
-from datetime import datetime
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 from urllib.parse import urljoin
+from datetime import datetime
 
 BASE = "https://jumpex.com.ua"
-
-LOGIN_URL = BASE + "/user/loginsave"
 
 LOGIN = "angelinatitor@gmail.com"
 PASSWORD = "380931937922"
 
 OUTPUT_DIR = os.path.abspath("output/4399-4400")
-
 FILE_PATH = os.path.join(OUTPUT_DIR, "Харьковская_4399-4400_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+session = requests.Session()
+session.headers.update({"User-Agent": "Mozilla/5.0"})
+
 
 # =========================
 # STATUS
 # =========================
-def set_status(running: bool):
+def set_status(running):
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
         json.dump({
             "running": running,
             "progress": 0,
-            "time": datetime.now().strftime("%d.%m %H:%M")
+            "time": str(datetime.now())
         }, f, ensure_ascii=False, indent=2)
 
 
-def update_progress(percent):
+def update_progress(p):
     if not os.path.exists(STATUS_PATH):
         return
+    with open(STATUS_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
 
-    try:
-        with open(STATUS_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
+    data["progress"] = p
 
-        data["progress"] = percent
-
-        with open(STATUS_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except:
-        pass
+    with open(STATUS_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def set_lock(state: bool):
+def set_lock(state):
     if state:
-        with open(LOCK_FILE, "w") as f:
-            f.write("running")
+        open(LOCK_FILE, "w").write("1")
     else:
         if os.path.exists(LOCK_FILE):
             os.remove(LOCK_FILE)
@@ -65,90 +60,66 @@ def is_locked():
 
 
 # =========================
-# SESSION
-# =========================
-session = requests.Session()
-session.headers.update({
-    "User-Agent": "Mozilla/5.0"
-})
-
-
-# =========================
-# LOGIN (requests)
+# LOGIN
 # =========================
 def login():
-    """
-    login form:
-    username
-    passwd
-    """
     r = session.get(BASE + "/login")
     soup = BeautifulSoup(r.text, "html.parser")
 
-    token_input = soup.find("input", {"type": "hidden"})
-
     data = {
         "username": LOGIN,
-        "passwd": PASSWORD,
+        "passwd": PASSWORD
     }
 
-    # если есть hidden token
-    if token_input:
-        data[token_input.get("name")] = token_input.get("value", "1")
+    hidden = soup.select("input[type=hidden]")
+    for h in hidden:
+        if h.get("name"):
+            data[h["name"]] = h.get("value", "1")
 
-    r = session.post(LOGIN_URL, data=data)
+    r = session.post(BASE + "/user/loginsave", data=data)
 
-    print("LOGIN STATUS:", r.status_code)
+    print("LOGIN:", r.status_code)
 
 
 # =========================
-# CATEGORY (TEST :1)
+# CATEGORY (1 TEST)
 # =========================
 def get_category():
-    url = BASE + "/"
-
-    r = session.get(url)
+    r = session.get(BASE)
     soup = BeautifulSoup(r.text, "html.parser")
 
-    # берем первую основную категорию
     a = soup.select_one("li.nav-item.parent a[href]")
 
     if not a:
-        raise Exception("NO CATEGORY FOUND")
+        raise Exception("NO CATEGORY")
 
     return urljoin(BASE, a["href"])
 
 
 # =========================
-# LOAD MORE
+# PRODUCTS FROM CATEGORY
 # =========================
-def load_all_products(cat_url):
+def get_products(cat_url):
+
+    r = session.get(cat_url)
+    soup = BeautifulSoup(r.text, "html.parser")
+
     products = set()
 
-    page = 1
+    # 🔥 ВАЖНЫЙ jSHOP вариант
+    blocks = soup.select(".jshop_product, .product, .product-item")
 
-    while True:
-        url = cat_url + f"?page={page}"
+    print("BLOCKS:", len(blocks))
 
-        r = session.get(url)
-        soup = BeautifulSoup(r.text, "html.parser")
+    for b in blocks:
+        a = b.find("a", href=True)
+        if a:
+            products.add(urljoin(BASE, a["href"]))
 
-        items = soup.select(".product a[href]")
-
-        if not items:
-            break
-
-        for i in items:
-            href = i.get("href")
-            if href and "/product" in href:
-                products.add(urljoin(BASE, href))
-
-        print(f"PAGE {page} OK -> {len(items)}")
-
-        page += 1
-
-        if page > 50:
-            break
+    # 🔥 fallback (иногда jShop кладёт иначе)
+    if not products:
+        for a in soup.select("a[href*='product']"):
+            products.add(urljoin(BASE, a["href"]))
 
     return list(products)
 
@@ -157,22 +128,20 @@ def load_all_products(cat_url):
 # PRODUCT PARSE
 # =========================
 def parse_product(url):
+
     r = session.get(url)
     soup = BeautifulSoup(r.text, "html.parser")
 
-    # TITLE
     title = soup.select_one(".ttl.md.mb25")
     title = title.text.strip() if title else "-"
 
-    # ART
     art = soup.select_one(".prod-ean")
-    art = art.text.strip().replace("Артикул:", "").strip() if art else "-"
+    art = art.text.replace("Артикул:", "").strip() if art else "-"
 
-    # PRICE (ВАЖНО: ТОЛЬКО ins = текущая цена)
-    price = soup.select_one("ins .woocommerce-Price-amount, .prod_price")
+    # 🔥 ВАЖНО: правильная цена (INS + block_price)
+    price = soup.select_one("#block_price, .prod_price, ins .woocommerce-Price-amount")
     price = price.text.strip() if price else "-"
 
-    # STOCK
     stock = soup.select_one(".avail, .prod-not-avail")
     stock = stock.text.strip() if stock else "-"
 
@@ -180,7 +149,7 @@ def parse_product(url):
 
 
 # =========================
-# MAIN
+# RUN
 # =========================
 def run_parser():
 
@@ -194,28 +163,24 @@ def run_parser():
     try:
         login()
 
-        # 🔥 ТЕСТ :1 (одна категория)
         cat = get_category()
-
         print("CATEGORY:", cat)
 
         wb = Workbook()
         ws = wb.active
+        ws.append(["Артикул", "Название", "Цена", "Статус", "URL"])
 
-        ws.append(["Артикул", "Название", "Цена", "Статус", "Ссылка"])
+        products = get_products(cat)
 
-        products = load_all_products(cat)
+        print("PRODUCTS:", len(products))
 
         total = len(products)
-        print("PRODUCTS:", total)
-
         seen = set()
 
         for i, p in enumerate(products, 1):
 
             if p in seen:
                 continue
-
             seen.add(p)
 
             art, title, price, stock, url = parse_product(p)
@@ -225,7 +190,7 @@ def run_parser():
 
             ws.append([art, title, price, stock, url])
 
-            percent = int(i / total * 100)
+            percent = int(i / total * 100) if total else 100
             update_progress(percent)
 
             print(f"[{percent}%] {title} | {price}")
@@ -235,7 +200,6 @@ def run_parser():
         wb.save(FILE_PATH)
 
         update_progress(100)
-
         print("DONE")
 
     finally:
