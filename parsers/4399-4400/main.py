@@ -39,34 +39,47 @@ def login():
 
     login_url = BASE + "/index.php?route=account/login"
 
-    # 1. открываем страницу логина (ВАЖНО)
-    r = session.get(login_url)
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": login_url
+    }
+
+    # 1. GET login page
+    r = session.get(login_url, headers=headers)
     soup = BeautifulSoup(r.text, "html.parser")
 
-    # 2. собираем все hidden input (CSRF / token)
+    # 2. собираем форму (ВАЖНО)
+    form = soup.select_one("form")
+
     payload = {}
 
-    for inp in soup.select("form input"):
-        name = inp.get("name")
-        value = inp.get("value", "")
+    if form:
+        for inp in form.select("input"):
+            name = inp.get("name")
+            value = inp.get("value", "")
 
-        if name:
-            payload[name] = value
+            if name:
+                payload[name] = value
 
-    # 3. добавляем логин/пароль
+    # 3. добавляем данные
     payload["email"] = EMAIL
     payload["password"] = PASSWORD
 
-    # 4. отправляем POST
-    r2 = session.post(login_url, data=payload, allow_redirects=True)
-
-    # 5. проверка логина
-    if "logout" in r2.text.lower() or "account" in r2.url.lower():
-        print("LOGIN OK")
-    else:
-        print("LOGIN FAILED OR PARTIAL")
+    # 4. POST с referer
+    r2 = session.post(
+        login_url,
+        data=payload,
+        headers=headers,
+        allow_redirects=True
+    )
 
     print("FINAL URL:", r2.url)
+
+    # 5. ЖЁСТКАЯ проверка
+    if "logout" in r2.text.lower() or "/logout" in r2.text.lower():
+        print("LOGIN SUCCESS")
+    else:
+        print("LOGIN FAILED (REAL)")
 
 # =========================
 # STATUS
