@@ -215,34 +215,45 @@ def parse_product(url):
 
     soup = get_soup(url)
 
-    title = clean(soup.select_one("h1").get_text()) if soup.select_one("h1") else ""
+    # =========================
+    # TITLE
+    # =========================
+    title_tag = soup.select_one("h1")
+    title = clean(title_tag.get_text()) if title_tag else ""
 
+    # =========================
+    # SKU
+    # =========================
     sku = ""
-
     s = soup.select_one(".prod-ean")
-
     if s:
         sku = clean(s.get_text()).replace("Артикул:", "").strip()
 
     # =========================
-    # PRICE
+    # PRICE (FIX)
     # =========================
-
     price = ""
 
-    price_tag = soup.select_one("span.qty_price span.price")
-    
+    # основной вариант (как ты показал)
+    price_tag = soup.select_one("#block_price span")
+
+    # fallback 1
+    if not price_tag:
+        price_tag = soup.select_one("#block_price")
+
+    # fallback 2 (на случай других страниц)
     if not price_tag:
         price_tag = soup.select_one(".price")
-    
+
     if price_tag:
         price = clean(price_tag.get_text())
-    
-    print("PRICE:", price)
-    
-        print("PRICE:", sku, "|", price)
-    
-        return [sku, title, price, url]
+
+    # =========================
+    # DEBUG
+    # =========================
+    print("PRICE:", sku, "|", price)
+
+    return [sku, title, price, url]
 
 
 # =========================
