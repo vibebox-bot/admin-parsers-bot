@@ -215,41 +215,49 @@ def parse_product(url):
 
     soup = get_soup(url)
 
+    # =========================
+    # TITLE
+    # =========================
     title_tag = soup.select_one("h1")
     title = clean(title_tag.get_text()) if title_tag else ""
 
-    sku = ""
-    s = soup.select_one(".prod-ean")
-    if s:
-        sku = clean(s.get_text()).replace("Артикул:", "").strip()
+    # =========================
+    # SKU
+    # =========================
+    sku_tag = soup.select_one(".prod-ean")
+    sku = clean(sku_tag.get_text().replace("Артикул:", "")) if sku_tag else ""
 
     # =========================
-    # PRICE FIX (100% coverage)
+    # PRICE (УЛЬТРА НАДЁЖНО)
     # =========================
     price = ""
 
-    selectors = [
-        "#block_price",
-        ".prod_price",
-        ".prod_price .price",
-        ".price_prod_qty_list .price",
-        "span.price",
-    ]
-    
-    for sel in selectors:
-        tag = soup.select_one(sel)
-        if tag:
-            price = tag.get_text(" ", strip=True)
-            price = re.sub(r"\s+", " ", price)
-            if price:
-                break
+    # 1. основной блок (ВАЖНЫЙ)
+    price_tag = soup.select_one("#block_price")
+
+    # 2. fallback варианты
+    if not price_tag:
+        price_tag = soup.select_one(".prod_price span.price")
+
+    if not price_tag:
+        price_tag = soup.select_one("[id*='price']")
+
+    if price_tag:
+        price = clean(price_tag.get_text())
+
+    # чистка мусора
+    price = price.replace("\xa0", " ").strip()
 
     # =========================
-    # STATUS
+    # STATUS (наличие)
     # =========================
     status_tag = soup.select_one(".avail, .prod-not-avail")
+
     status = clean(status_tag.get_text()) if status_tag else ""
 
+    # =========================
+    # DEBUG
+    # =========================
     print("PARSED:", sku, "|", title, "|", price, "|", status)
 
     return [sku, title, price, status, url]
