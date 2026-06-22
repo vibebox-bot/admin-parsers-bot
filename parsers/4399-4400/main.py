@@ -230,30 +230,39 @@ def parse_product(url):
         sku = clean(s.get_text()).replace("Артикул:", "").strip()
 
     # =========================
-    # PRICE (FIX)
+    # PRICE (robust)
     # =========================
     price = ""
 
-    # основной вариант (как ты показал)
-    price_tag = soup.select_one("#block_price span")
+    price_selectors = [
+        "#block_price",
+        ".prod_price .price",
+        ".price_prod_qty_list .price",
+        "span[id^='pricelist_from_']",
+        ".prod_price"
+    ]
 
-    # fallback 1
-    if not price_tag:
-        price_tag = soup.select_one("#block_price")
+    for sel in price_selectors:
+        tag = soup.select_one(sel)
+        if tag:
+            price = clean(tag.get_text())
+            if price:
+                break
 
-    # fallback 2 (на случай других страниц)
-    if not price_tag:
-        price_tag = soup.select_one(".price")
+    price = price.replace("\n", " ").strip()
 
-    if price_tag:
-        price = clean(price_tag.get_text())
+    # =========================
+    # STATUS (В наличии / Немає / etc)
+    # =========================
+    status_tag = soup.select_one(".avail, .prod-not-avail")
+    status = clean(status_tag.get_text()) if status_tag else ""
 
     # =========================
     # DEBUG
     # =========================
-    print("PRICE:", sku, "|", price)
+    print("PARSED:", sku, "|", title, "|", price, "|", status)
 
-    return [sku, title, price, url]
+    return [sku, title, price, status, url]
 
 
 # =========================
@@ -268,7 +277,8 @@ def run_parser():
 
     wb = Workbook()
     ws = wb.active
-    ws.append(["SKU", "TITLE", "PRICE", "URL"])
+    ws.append(["SKU", "TITLE", "PRICE", "STATUS", "URL"])
+
 
     seen = set()
 
@@ -310,7 +320,7 @@ def run_parser():
                 if not title:
                     continue
 
-                ws.append([sku, title, price, data[3]])
+                ws.append([sku, title, price, status, data[3]])
 
                 all_count += 1
 
