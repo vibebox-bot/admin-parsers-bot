@@ -317,7 +317,7 @@ def run_parser():
                 if not title:
                     continue
 
-                ws.append([sku, title, price, data[3], data[4]])
+                ws.append([sku, title, price, data[3], status])
 
                 all_count += 1
 
