@@ -215,55 +215,43 @@ def parse_product(url):
 
     soup = get_soup(url)
 
-    # =========================
-    # TITLE
-    # =========================
     title_tag = soup.select_one("h1")
     title = clean(title_tag.get_text()) if title_tag else ""
 
-    # =========================
-    # SKU
-    # =========================
     sku = ""
     s = soup.select_one(".prod-ean")
     if s:
         sku = clean(s.get_text()).replace("Артикул:", "").strip()
 
     # =========================
-    # PRICE (robust)
+    # PRICE FIX (100% coverage)
     # =========================
     price = ""
 
-    price_selectors = [
-        "#block_price",
-        ".prod_price .price",
-        ".price_prod_qty_list .price",
-        "span[id^='pricelist_from_']",
-        ".prod_price"
-    ]
+    price_tag = soup.select_one("#block_price")
 
-    for sel in price_selectors:
-        tag = soup.select_one(sel)
-        if tag:
-            price = clean(tag.get_text())
-            if price:
-                break
+    if price_tag:
+        price = clean(price_tag.get_text())
 
-    price = price.replace("\n", " ").strip()
+    if not price:
+        price_tag = soup.select_one("span.qty_price span.price")
+        if price_tag:
+            price = clean(price_tag.get_text())
+
+    if not price:
+        price_tag = soup.select_one(".prod_price")
+        if price_tag:
+            price = clean(price_tag.get_text())
 
     # =========================
-    # STATUS (В наличии / Немає / etc)
+    # STATUS
     # =========================
     status_tag = soup.select_one(".avail, .prod-not-avail")
     status = clean(status_tag.get_text()) if status_tag else ""
 
-    # =========================
-    # DEBUG
-    # =========================
     print("PARSED:", sku, "|", title, "|", price, "|", status)
 
     return [sku, title, price, status, url]
-
 
 # =========================
 # MAIN
@@ -320,7 +308,7 @@ def run_parser():
                 if not title:
                     continue
 
-                ws.append([sku, title, price, status, data[3]])
+                ws.append([sku, title, price, data[3], data[4]])
 
                 all_count += 1
 
