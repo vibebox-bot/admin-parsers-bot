@@ -35,28 +35,38 @@ session = requests.Session()
 session.headers.update(HEADERS)
 
 def login():
-
     print("LOGIN...")
 
     login_url = BASE + "/index.php?route=account/login"
 
+    # 1. открываем страницу логина (ВАЖНО)
     r = session.get(login_url)
+    soup = BeautifulSoup(r.text, "html.parser")
 
-    print("GET LOGIN:", r.status_code)
+    # 2. собираем все hidden input (CSRF / token)
+    payload = {}
 
-    r = session.post(
-        login_url,
-        data={
-            "email": EMAIL,
-            "password": PASSWORD
-        },
-        allow_redirects=True
-    )
+    for inp in soup.select("form input"):
+        name = inp.get("name")
+        value = inp.get("value", "")
 
-    print("POST LOGIN:", r.status_code)
-    print("FINAL URL:", r.url)
+        if name:
+            payload[name] = value
 
-    print(r.text[:3000])
+    # 3. добавляем логин/пароль
+    payload["email"] = EMAIL
+    payload["password"] = PASSWORD
+
+    # 4. отправляем POST
+    r2 = session.post(login_url, data=payload, allow_redirects=True)
+
+    # 5. проверка логина
+    if "logout" in r2.text.lower() or "account" in r2.url.lower():
+        print("LOGIN OK")
+    else:
+        print("LOGIN FAILED OR PARTIAL")
+
+    print("FINAL URL:", r2.url)
 
 # =========================
 # STATUS
