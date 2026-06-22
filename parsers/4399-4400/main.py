@@ -99,28 +99,6 @@ def update_progress(p):
 
 
 # =========================
-# LOGIN (КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ)
-# =========================
-
-def login():
-    print("LOGIN...")
-
-    url = BASE + "/index.php?route=account/login"
-
-    session.get(url)
-
-    r = session.post(url, data={
-        "email": EMAIL,
-        "password": PASSWORD
-    })
-
-    if "logout" in r.text.lower():
-        print("LOGIN OK")
-    else:
-        print("LOGIN CHECK (maybe OK, depends on site)")
-
-
-# =========================
 # HTTP
 # =========================
 
@@ -240,18 +218,20 @@ def parse_product(url):
     # =========================
     # PRICE (ПРАВИЛЬНО БЕРЁМ ИЗ ТВОЕГО HTML)
     # =========================
-# =========================
-# PRICE (100% СТАБИЛЬНЫЙ ВАРИАНТ)
-# =========================
 
     price = ""
     
     price_tag = soup.select_one(".prod_price")
     
     if price_tag:
-        price = price_tag.get_text(strip=True)
+        price = clean(price_tag.get_text())
+        price = ""
+        
+        price_tag = soup.select_one(".prod_price")
+        
+        if price_tag:
+            price = price_tag.get_text(strip=True)
     
-
     # =========================
     # STATUS
     # =========================
