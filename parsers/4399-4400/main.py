@@ -37,50 +37,38 @@ session.headers.update(HEADERS)
 def login():
     print("LOGIN...")
 
-    login_url = BASE + "/index.php?route=account/login"
+    login_url = BASE + "/user/loginsave"
 
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Referer": login_url
-    }
+    # 1. открыть страницу логина (чтобы получить cookie + hidden token)
+    r = session.get(BASE + "/login")
 
-    # 1. GET login page
-    r = session.get(login_url, headers=headers)
     soup = BeautifulSoup(r.text, "html.parser")
-
-    # 2. собираем форму (ВАЖНО)
-    form = soup.select_one("form")
 
     payload = {}
 
-    if form:
-        for inp in form.select("input"):
-            name = inp.get("name")
-            value = inp.get("value", "")
+    # 2. забираем hidden input (ОЧЕНЬ ВАЖНО)
+    for inp in soup.select("form input"):
+        name = inp.get("name")
+        value = inp.get("value", "")
 
-            if name:
-                payload[name] = value
+        if name:
+            payload[name] = value
 
-    # 3. добавляем данные
-    payload["email"] = EMAIL
-    payload["password"] = PASSWORD
+    # 3. ВАЖНО: правильные поля сайта
+    payload["username"] = EMAIL
+    payload["passwd"] = PASSWORD
 
-    # 4. POST с referer
-    r2 = session.post(
-        login_url,
-        data=payload,
-        headers=headers,
-        allow_redirects=True
-    )
+    # 4. отправка
+    r2 = session.post(login_url, data=payload)
 
     print("FINAL URL:", r2.url)
 
-    # 5. ЖЁСТКАЯ проверка
-    if "logout" in r2.text.lower() or "/logout" in r2.text.lower():
-        print("LOGIN SUCCESS")
+    if "logout" in r2.text.lower() or "account" in r2.text.lower():
+        print("LOGIN OK")
     else:
-        print("LOGIN FAILED (REAL)")
+        print("LOGIN FAILED")
 
+    return r2
 # =========================
 # STATUS
 # =========================
@@ -248,6 +236,8 @@ def parse_product(url):
     # =========================
     # DEBUG
     # =========================
+
+    print("COOKIES:", session.cookies.get_dict())
     print("PARSED:", sku, "|", title, "|", price, "|", status)
 
     return [sku, title, price, status, url]
