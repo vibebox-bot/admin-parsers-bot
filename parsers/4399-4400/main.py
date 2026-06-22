@@ -230,29 +230,35 @@ def parse_product(url):
     # =========================
     # PRICE (ПРАВИЛЬНО БЕРЁМ ИЗ ТВОЕГО HTML)
     # =========================
+# =========================
+# PRICE (100% СТАБИЛЬНЫЙ ВАРИАНТ)
+# =========================
 
     price = ""
-
-    # 🔥 1. САМЫЙ ТОЧНЫЙ ВАРИАНТ (как в инспекторе)
+    
+    # 1. главный блок цены (самый правильный)
     price_tag = soup.select_one("#block_price")
-
+    
     if price_tag:
         price = price_tag.get_text(strip=True)
-
-    # 🔥 2. fallback (иногда цена в qty блоке)
-    if not price:
-        price_tag = soup.select_one(".price_prod_qty_list .price")
-        if price_tag:
-            price = price_tag.get_text(strip=True)
-
-    # 🔥 3. ещё fallback
+    
+    # 2. fallback — но ТОЛЬКО если это НЕ qty цена
     if not price:
         price_tag = soup.select_one(".prod_price")
         if price_tag:
-            price = price_tag.get_text(" ", strip=True)
-
-    # чистка nbsp
-    price = price.replace("\xa0", " ").strip()
+            txt = price_tag.get_text(" ", strip=True)
+    
+            # защита от оптовых цен
+            if "/ шт" not in txt and "Від" not in txt:
+                price = txt
+    
+    # 3. последний fallback
+    if not price:
+        price_tag = soup.find(text=re.compile(r"\d+\.\d+\s*\$"))
+        if price_tag:
+            price = price_tag.strip()
+    
+    price = clean(price).replace("\xa0", " ")
 
     # =========================
     # STATUS
