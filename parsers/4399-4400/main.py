@@ -215,26 +215,57 @@ def parse_product(url):
 
     soup = get_soup(url)
 
+    # =========================
     # TITLE
+    # =========================
     title_tag = soup.select_one("h1")
     title = clean(title_tag.get_text()) if title_tag else ""
 
+    # =========================
     # SKU
+    # =========================
     sku_tag = soup.select_one(".prod-ean")
     sku = clean(sku_tag.get_text().replace("Артикул:", "")) if sku_tag else ""
 
-    # PRICE (100% правильный вариант под твой HTML)
+    # =========================
+    # PRICE (ПРАВИЛЬНО БЕРЁМ ИЗ ТВОЕГО HTML)
+    # =========================
+
+    price = ""
+
+    # 🔥 1. САМЫЙ ТОЧНЫЙ ВАРИАНТ (как в инспекторе)
     price_tag = soup.select_one("#block_price")
 
-    price = clean(price_tag.get_text()) if price_tag else ""
+    if price_tag:
+        price = price_tag.get_text(strip=True)
 
+    # 🔥 2. fallback (иногда цена в qty блоке)
+    if not price:
+        price_tag = soup.select_one(".price_prod_qty_list .price")
+        if price_tag:
+            price = price_tag.get_text(strip=True)
+
+    # 🔥 3. ещё fallback
+    if not price:
+        price_tag = soup.select_one(".prod_price")
+        if price_tag:
+            price = price_tag.get_text(" ", strip=True)
+
+    # чистка nbsp
+    price = price.replace("\xa0", " ").strip()
+
+    # =========================
     # STATUS
+    # =========================
     status_tag = soup.select_one(".avail, .prod-not-avail")
-    status = clean(status_tag.get_text()) if status_tag else ""
+    status = status_tag.get_text(strip=True) if status_tag else ""
 
+    # =========================
+    # DEBUG
+    # =========================
     print("PARSED:", sku, "|", title, "|", price, "|", status)
 
-    return sku, title, price, status, url
+    return [sku, title, price, status, url]
 
 # =========================
 # MAIN
