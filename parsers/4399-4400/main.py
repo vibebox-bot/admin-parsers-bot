@@ -37,38 +37,21 @@ session.headers.update(HEADERS)
 def login():
     print("LOGIN...")
 
-    login_url = BASE + "/user/loginsave"
+    url = BASE + "/user/loginsave"
 
-    # 1. открыть страницу логина (чтобы получить cookie + hidden token)
-    r = session.get(BASE + "/login")
+    r = session.post(url, data={
+        "username": EMAIL,
+        "passwd": PASSWORD
+    }, allow_redirects=True)
 
-    soup = BeautifulSoup(r.text, "html.parser")
+    print("FINAL URL:", r.url)
 
-    payload = {}
-
-    # 2. забираем hidden input (ОЧЕНЬ ВАЖНО)
-    for inp in soup.select("form input"):
-        name = inp.get("name")
-        value = inp.get("value", "")
-
-        if name:
-            payload[name] = value
-
-    # 3. ВАЖНО: правильные поля сайта
-    payload["username"] = EMAIL
-    payload["passwd"] = PASSWORD
-
-    # 4. отправка
-    r2 = session.post(login_url, data=payload)
-
-    print("FINAL URL:", r2.url)
-
-    if "logout" in r2.text.lower() or "account" in r2.text.lower():
+    if "/login" not in r.url:
         print("LOGIN OK")
     else:
         print("LOGIN FAILED")
-
-    return r2
+        print(r.text[:500])
+        print(session.cookies.get_dict())
 # =========================
 # STATUS
 # =========================
