@@ -128,18 +128,31 @@ def clean(t):
 # =========================
 
 def get_categories():
+
     soup = get_soup(BASE)
 
-    cats = set()
+    cats = []
 
-    for a in soup.select("a[href*='instrumenty']"):
+    for a in soup.select(".catalog_treenameClass li.nav-item.parent > a"):
+
         href = a.get("href")
-        if href:
-            if href.startswith("/"):
-                href = BASE + href
-            cats.add(href)
 
-    return list(cats)
+        if not href:
+            continue
+
+        if href.startswith("/"):
+            href = BASE + href
+
+        cats.append(href)
+
+    cats = list(dict.fromkeys(cats))
+
+    print("FOUND MAIN CATEGORIES:", len(cats))
+
+    for c in cats:
+        print(c)
+
+    return cats
 
 
 # =========================
@@ -205,15 +218,36 @@ def parse_product(url):
     title = clean(soup.select_one("h1").get_text()) if soup.select_one("h1") else ""
 
     sku = ""
+
     s = soup.select_one(".prod-ean")
+
     if s:
         sku = clean(s.get_text()).replace("Артикул:", "").strip()
 
     # =========================
-    # FIX PRICE (ВАЖНО)
+    # PRICE
     # =========================
-    price_tag = soup.select_one("#block_price")
-    price = clean(price_tag.get_text()) if price_tag else ""
+
+    price = ""
+
+    price_tag = soup.select_one(".price_prod_qty_list .price")
+
+    if price_tag:
+        price = clean(price_tag.get_text())
+
+    if not price:
+        price_tag = soup.select_one("#block_price")
+
+        if price_tag:
+            price = clean(price_tag.get_text())
+
+    if not price:
+        price_tag = soup.select_one(".prod_price")
+
+        if price_tag:
+            price = clean(price_tag.get_text())
+
+    print("PRICE:", sku, "|", price)
 
     return [sku, title, price, url]
 
