@@ -215,52 +215,26 @@ def parse_product(url):
 
     soup = get_soup(url)
 
-    # =========================
     # TITLE
-    # =========================
     title_tag = soup.select_one("h1")
     title = clean(title_tag.get_text()) if title_tag else ""
 
-    # =========================
     # SKU
-    # =========================
     sku_tag = soup.select_one(".prod-ean")
     sku = clean(sku_tag.get_text().replace("Артикул:", "")) if sku_tag else ""
 
-    # =========================
-    # PRICE (УЛЬТРА НАДЁЖНО)
-    # =========================
-    price = ""
-
-    # 1. основной блок (ВАЖНЫЙ)
+    # PRICE (100% правильный вариант под твой HTML)
     price_tag = soup.select_one("#block_price")
 
-    # 2. fallback варианты
-    if not price_tag:
-        price_tag = soup.select_one(".prod_price span.price")
+    price = clean(price_tag.get_text()) if price_tag else ""
 
-    if not price_tag:
-        price_tag = soup.select_one("[id*='price']")
-
-    if price_tag:
-        price = clean(price_tag.get_text())
-
-    # чистка мусора
-    price = price.replace("\xa0", " ").strip()
-
-    # =========================
-    # STATUS (наличие)
-    # =========================
+    # STATUS
     status_tag = soup.select_one(".avail, .prod-not-avail")
-
     status = clean(status_tag.get_text()) if status_tag else ""
 
-    # =========================
-    # DEBUG
-    # =========================
     print("PARSED:", sku, "|", title, "|", price, "|", status)
 
-    return [sku, title, price, status, url]
+    return sku, title, price, status, url
 
 # =========================
 # MAIN
@@ -317,7 +291,8 @@ def run_parser():
                 if not title:
                     continue
 
-                ws.append([sku, title, price, data[3], status])
+                sku, title, price, status, url = data
+                ws.append([sku, title, price, status, url])
 
                 all_count += 1
 
