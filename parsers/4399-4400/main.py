@@ -236,29 +236,11 @@ def parse_product(url):
 
     price = ""
     
-    # 1. главный блок цены (самый правильный)
-    price_tag = soup.select_one("#block_price")
+    price_tag = soup.select_one(".prod_price")
     
     if price_tag:
         price = price_tag.get_text(strip=True)
     
-    # 2. fallback — но ТОЛЬКО если это НЕ qty цена
-    if not price:
-        price_tag = soup.select_one(".prod_price")
-        if price_tag:
-            txt = price_tag.get_text(" ", strip=True)
-    
-            # защита от оптовых цен
-            if "/ шт" not in txt and "Від" not in txt:
-                price = txt
-    
-    # 3. последний fallback
-    if not price:
-        price_tag = soup.find(text=re.compile(r"\d+\.\d+\s*\$"))
-        if price_tag:
-            price = price_tag.strip()
-    
-    price = clean(price).replace("\xa0", " ")
 
     # =========================
     # STATUS
