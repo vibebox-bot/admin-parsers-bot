@@ -34,9 +34,34 @@ HEADERS = {
 session = requests.Session()
 session.headers.update(HEADERS)
 
+def login():
+
+    print("LOGIN...")
+
+    login_url = BASE + "/index.php?route=account/login"
+
+    r = session.get(login_url)
+
+    print("GET LOGIN:", r.status_code)
+
+    r = session.post(
+        login_url,
+        data={
+            "email": EMAIL,
+            "password": PASSWORD
+        },
+        allow_redirects=True
+    )
+
+    print("POST LOGIN:", r.status_code)
+    print("FINAL URL:", r.url)
+
+    print(r.text[:3000])
+
 # =========================
 # STATUS
 # =========================
+
 
 def set_status():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
