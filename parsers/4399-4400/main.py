@@ -228,20 +228,21 @@ def parse_product(url):
     # =========================
     price = ""
 
-    price_tag = soup.select_one("#block_price")
-
-    if price_tag:
-        price = clean(price_tag.get_text())
-
-    if not price:
-        price_tag = soup.select_one("span.qty_price span.price")
-        if price_tag:
-            price = clean(price_tag.get_text())
-
-    if not price:
-        price_tag = soup.select_one(".prod_price")
-        if price_tag:
-            price = clean(price_tag.get_text())
+    selectors = [
+        "#block_price",
+        ".prod_price",
+        ".prod_price .price",
+        ".price_prod_qty_list .price",
+        "span.price",
+    ]
+    
+    for sel in selectors:
+        tag = soup.select_one(sel)
+        if tag:
+            price = tag.get_text(" ", strip=True)
+            price = re.sub(r"\s+", " ", price)
+            if price:
+                break
 
     # =========================
     # STATUS
