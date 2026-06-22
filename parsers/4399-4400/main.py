@@ -216,21 +216,15 @@ def parse_product(url):
     sku = clean(sku_tag.get_text().replace("Артикул:", "")) if sku_tag else ""
 
     # =========================
-    # PRICE (ПРАВИЛЬНО БЕРЁМ ИЗ ТВОЕГО HTML)
+    # PRICE
     # =========================
-
+    
     price = ""
     
     price_tag = soup.select_one(".prod_price")
     
     if price_tag:
         price = clean(price_tag.get_text())
-        price = ""
-        
-        price_tag = soup.select_one(".prod_price")
-        
-        if price_tag:
-            price = price_tag.get_text(strip=True)
     
     # =========================
     # STATUS
