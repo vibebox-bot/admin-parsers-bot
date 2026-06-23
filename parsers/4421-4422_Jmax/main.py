@@ -123,6 +123,7 @@ def login():
     print("LOGIN...")
 
     login_url = BASE + "/index.php?route=account/login"
+
     session.get(login_url)
 
     payload = {
@@ -132,14 +133,18 @@ def login():
 
     r = session.post(login_url, data=payload, allow_redirects=True)
 
-    if "logout" in r.text.lower():
+    # OpenCart логин = появление account меню
+    if "account/logout" in r.text.lower() or "logout" in r.text.lower():
         print("LOGIN OK")
         return True
-    else:
-        print("LOGIN FAILED")
-        return False
 
+    if "route=account/account" in r.url:
+        print("LOGIN OK")
+        return True
 
+    print("LOGIN FAILED")
+    return False
+    
 # =========================
 # CATEGORIES
 # =========================
