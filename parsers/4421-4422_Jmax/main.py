@@ -119,6 +119,8 @@ def clean(text):
 # =========================
 # LOGIN
 # =========================
+from bs4 import BeautifulSoup
+
 def login():
     print("LOGIN...")
 
@@ -126,28 +128,38 @@ def login():
 
     headers = {
         "User-Agent": "Mozilla/5.0",
-        "Referer": login_url,
-        "Content-Type": "application/x-www-form-urlencoded"
+        "Referer": login_url
     }
 
-    # GET first
-    session.get(login_url, headers=headers)
+    # 1. GET (важно для cookies)
+    r = session.get(login_url, headers=headers)
+    soup = BeautifulSoup(r.text, "html.parser")
 
-    payload = {
-        "email": EMAIL,
-        "password": PASSWORD
-    }
+    # 2. собираем ВСЮ форму автоматически
+    payload = {}
 
-    r = session.post(login_url, data=payload, headers=headers, allow_redirects=True)
+    form = soup.select_one("form")
 
-    print("DEBUG URL:", r.url)
-    print("DEBUG TEXT:", r.text[:300])
+    if form:
+        for inp in form.select("input"):
+            name = inp.get("name")
+            value = inp.get("value", "")
 
-    if "route=account/account" in r.url:
-        print("LOGIN OK")
-        return True
+            if name:
+                payload[name] = value
 
-    if "logout" in r.text.lower():
+    # 3. подставляем логин/пароль
+    payload["email"] = EMAIL
+    payload["password"] = PASSWORD
+
+    # 4. POST
+    r2 = session.post(login_url, data=payload, headers=headers, allow_redirects=True)
+
+    print("DEBUG URL:", r2.url)
+    print("DEBUG FINAL PART:", r2.text[:200])
+
+    # 5. проверка логина
+    if "account/logout" in r2.text.lower() or "route=account/account" in r2.url:
         print("LOGIN OK")
         return True
 
