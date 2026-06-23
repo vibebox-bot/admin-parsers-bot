@@ -37,13 +37,28 @@ ws = None
 def init():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+    # 🧠 проверяем "живой ли процесс"
     if os.path.exists(LOCK_FILE):
-        print("ALREADY RUNNING")
-        exit()
+        try:
+            with open(LOCK_FILE, "r") as f:
+                pid = int(f.read().strip())
 
+            # проверяем существует ли процесс
+            import psutil
+            if psutil.pid_exists(pid):
+                print("ALREADY RUNNING (live process)")
+                exit()
+            else:
+                print("STALE LOCK → removing")
+                os.remove(LOCK_FILE)
+
+        except:
+            print("BROKEN LOCK → removing")
+            os.remove(LOCK_FILE)
+
+    # создаём новый lock с PID
     with open(LOCK_FILE, "w") as f:
-        f.write("running")
-
+        f.write(str(os.getpid()))
 
 def finish():
     global wb
@@ -52,8 +67,10 @@ def finish():
         wb.save(FILE_PATH)
 
     if os.path.exists(LOCK_FILE):
-        os.remove(LOCK_FILE)
-
+        try:
+            os.remove(LOCK_FILE)
+        except:
+            pass
 
 # =========================
 # STATUS
