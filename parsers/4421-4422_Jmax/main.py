@@ -1,18 +1,14 @@
 import os
-import json
-import re
 import time
-from datetime import datetime
-
-from playwright.sync_api import sync_playwright
+import json
+import requests
 from bs4 import BeautifulSoup
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 # =========================
 # CONFIG
 # =========================
-
-BASE = "https://www.jmaxtvshop.com.ua"
+BASE = "http://www.jmaxtvshop.com.ua"
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
@@ -22,250 +18,241 @@ FILE_PATH = os.path.join(OUTPUT_DIR, "Харьковская_4421-4422_Jmax_LIVE
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
+
+session = requests.Session()
+
 
 # =========================
-# STATUS / LOCK
+# INIT / LOCK
 # =========================
-
-def set_status(running: bool):
+def init():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+    if os.path.exists(LOCK_FILE):
+        print("ALREADY RUNNING")
+        exit()
+
+    with open(LOCK_FILE, "w") as f:
+        f.write("running")
+
+
+def finish():
+    if os.path.exists(LOCK_FILE):
+        os.remove(LOCK_FILE)
+
+
+# =========================
+# STATUS
+# =========================
+def update_status(data):
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
-        json.dump({
-            "running": running,
-            "progress": 0,
-            "time": datetime.now().strftime("%d.%m %H:%M")
-        }, f, ensure_ascii=False, indent=2)
-
-
-def set_lock(state: bool):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    if state:
-        with open(LOCK_FILE, "w") as f:
-            f.write("running")
-    else:
-        if os.path.exists(LOCK_FILE):
-            os.remove(LOCK_FILE)
-
-
-def is_locked():
-    return os.path.exists(LOCK_FILE)
-
-def update_progress(percent):
-
-    try:
-
-        if not os.path.exists(STATUS_PATH):
-            return
-
-        with open(STATUS_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        data["progress"] = percent
-
-        with open(STATUS_PATH, "w", encoding="utf-8") as f:
-            json.dump(
-                data,
-                f,
-                ensure_ascii=False,
-                indent=2
-            )
-
-    except:
-        pass
-
-# =========================
-# HELPERS (ТВОЙ КОД)
-# =========================
-
-def clean(x):
-    return re.sub(r"\s+", " ", x).strip() if x else ""
-
-
-def soup(page):
-    return BeautifulSoup(page.content(), "html.parser")
-
-
-def full_url(href):
-    if href.startswith("http"):
-        return href
-    return BASE + "/" + href.lstrip("/")
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 # =========================
-# LOGIN (НЕ ТРОГАЮ)
+# HELPERS
 # =========================
+def get_soup(url):
+    r = session.get(url, timeout=30)
+    return BeautifulSoup(r.text, "html.parser")
 
-def login(page):
+
+def clean(text):
+    return text.strip().replace("\n", " ").replace("\t", " ")
+
+
+# =========================
+# LOGIN
+# =========================
+def login():
     print("LOGIN...")
 
-    page.goto(BASE + "/index.php?route=account/login", wait_until="networkidle")
+    login_url = BASE + "/index.php?route=account/login"
 
-    page.fill('input[name="email"]', EMAIL)
-    page.fill('input[name="password"]', PASSWORD)
+    session.get(login_url)
 
-    page.click('input[type="submit"], button[type="submit"]')
+    payload = {
+        "email": EMAIL,
+        "password": PASSWORD
+    }
 
-    page.wait_for_timeout(5000)
+    r = session.post(login_url, data=payload, allow_redirects=True)
 
-    if "logout" in page.content().lower():
+    if "logout" in r.text.lower():
         print("LOGIN OK")
     else:
-        print("LOGIN CHECK")
+        print("LOGIN FAILED")
 
 
 # =========================
 # CATEGORIES
 # =========================
+def get_categories():
+    soup = get_soup(BASE)
 
-def get_categories(page):
-    page.goto(BASE, wait_until="networkidle")
-    html = soup(page)
+    cats = []
 
-    cats = set()
-
-    for a in html.select(".menu-wrapper a[href]"):
+    for a in soup.select("#menu a"):
         href = a.get("href")
-        if href and "javascript" not in href:
-            cats.add(full_url(href))
+        if href and "route=product/category" in href:
+            cats.append(href)
 
-    for a in html.select("a[href*='route=product/category']"):
-        cats.add(full_url(a["href"]))
+    cats = list(dict.fromkeys(cats))
 
-    return list(cats)
+    print("FOUND CATEGORIES:", len(cats))
+    return cats
 
 
 # =========================
-# PRODUCTS
+# PRODUCTS LIST
 # =========================
+def load_products(cat_url):
 
-def crawl_category(page, cat):
-    print("CATEGORY:", cat)
+    print("CATEGORY:", cat_url)
 
-    all_links = set()
+    all_products = set()
+    page = 1
 
-    for i in range(1, 200):
+    while True:
 
-        url = f"{cat}&page={i}" if "?" in cat else f"{cat}?page={i}"
+        if "?" in cat_url:
+            url = f"{cat_url}&page={page}"
+        else:
+            url = f"{cat_url}&page={page}"
 
-        page.goto(url, wait_until="networkidle")
-        html = soup(page)
+        soup = get_soup(url)
 
-        links = set()
+        items = soup.select(".product-thumb.uni-item")
 
-        for a in html.find_all("a", href=True):
-            href = a["href"]
-            if "product_id" in href:
-                links.add(full_url(href))
-
-        print(f"PAGE {i}: {len(links)}")
-
-        if len(links) == 0 and i > 1:
+        if not items:
             break
 
-        all_links.update(links)
-        time.sleep(0.5)
+        before = len(all_products)
 
-    return list(all_links)
+        for item in items:
+            a = item.select_one("a.product-thumb__name")
+
+            if not a:
+                continue
+
+            href = a.get("href")
+
+            if href:
+                all_products.add(href)
+
+        if len(all_products) == before:
+            break
+
+        page += 1
+        time.sleep(0.3)
+
+    return list(all_products)
 
 
-def parse_product(page, url):
-    page.goto(url, wait_until="networkidle")
-    html = soup(page)
+# =========================
+# PRODUCT PARSER
+# =========================
+def parse_product(url):
 
-    title = clean(html.select_one("h1").get_text()) if html.select_one("h1") else ""
-    price = clean(html.select_one(".product-page__price.price").get_text()) if html.select_one(".product-page__price.price") else ""
-    sku = clean(html.select_one(".product-data__item.model").get_text()) if html.select_one(".product-data__item.model") else ""
-    status = clean(html.select_one(".product-page__cart.row-flex").get_text(" ")) if html.select_one(".product-page__cart.row-flex") else ""
+    soup = get_soup(url)
+
+    title = ""
+    sku = ""
+    price = ""
+    status = ""
+
+    h1 = soup.select_one("h1")
+    if h1:
+        title = clean(h1.get_text())
+
+    sku_tag = soup.select_one(".product-data__item.model")
+    if sku_tag:
+        sku = clean(sku_tag.get_text().replace("Код товара:", ""))
+
+    price_tag = soup.select_one(".product-page__price")
+    if price_tag:
+        price = clean(price_tag.get_text())
+
+    if soup.select_one("#button-cart"):
+        status = "in_stock"
+    else:
+        status = "out_of_stock"
 
     return [sku, title, price, status, url]
 
 
 # =========================
-# MAIN PARSER (SAFE WRAPPER)
+# EXCEL
 # =========================
+def init_excel():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-def run_parser():
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["SKU", "Title", "Price", "Status", "URL"])
+    wb.save(FILE_PATH)
 
-    if is_locked():
-        print("ALREADY RUNNING")
-        return
 
-    set_lock(True)
-    set_status(True)
+def append_row(row):
+    wb = load_workbook(FILE_PATH)
+    ws = wb.active
+    ws.append(row)
+    wb.save(FILE_PATH)
 
-    try:
-        with sync_playwright() as p:
 
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox"
-                ]
-            )
-            page = browser.new_page()
+# =========================
+# RUN
+# =========================
+def run():
 
-            wb = Workbook()
-            ws = wb.active
-            ws.append(["SKU", "Title", "Price", "Status", "URL"])
+    init()
+    login()
 
-            login(page)
+    init_excel()
 
-            categories = get_categories(page)
+    categories = get_categories()
 
-            print("CATEGORIES:", len(categories))
+    if CATEGORY_LIMIT:
+        categories = categories[:CATEGORY_LIMIT]
 
-            total_categories = len(categories)
+    total_cats = len(categories)
 
-            seen = set()
-            total = 0
+    for ci, cat in enumerate(categories):
 
-            for i, cat in enumerate(categories, 1):
+        update_status({
+            "status": "category",
+            "current": ci,
+            "total": total_cats,
+            "url": cat
+        })
 
-                percent = int(i / total_categories * 100)
-                update_progress(percent)
+        products = load_products(cat)
 
-                products = crawl_category(page, cat)
+        print("PRODUCTS:", len(products))
 
-                for url in products:
+        for pi, p in enumerate(products):
 
-                    try:
-                        data = parse_product(page, url)
+            update_status({
+                "status": "product",
+                "category_index": ci,
+                "product_index": pi,
+                "total_products": len(products)
+            })
 
-                        if data[0] and data[0] in seen:
-                            continue
+            try:
+                row = parse_product(p)
+                append_row(row)
 
-                        if data[0]:
-                            seen.add(data[0])
+            except Exception as e:
+                print("ERROR:", p, e)
 
-                        if not data[1]:
-                            continue
+            time.sleep(0.1)
 
-                        ws.append(data)
-                        total += 1
-
-                        print("PRODUCT:", data[0])
-
-                    except:
-                        pass
-
-                    time.sleep(0.2)
-
-            os.makedirs(OUTPUT_DIR, exist_ok=True)
-            wb.save(FILE_PATH)
-
-            print("DONE:", total)
-
-            update_progress(100)
-
-            browser.close()
-
-    finally:
-        set_status(False)
-        set_lock(False)
+    finish()
+    print("DONE")
 
 
 if __name__ == "__main__":
-    run_parser()
+    run()
