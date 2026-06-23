@@ -70,6 +70,7 @@ def login():
         print("LOGIN OK")
     else:
         print("LOGIN FAILED")
+        print(r.text[:5000])
 
     print(session.cookies.get_dict())
 
