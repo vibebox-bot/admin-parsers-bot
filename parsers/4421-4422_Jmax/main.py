@@ -205,7 +205,7 @@ def append_row(row):
 # =========================
 # RUN
 # =========================
-def run():
+def run_parser():
 
     init()
     login()
