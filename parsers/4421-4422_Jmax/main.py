@@ -176,6 +176,8 @@ def load_products(cat_url):
 # =========================
 def parse_product(url):
 
+    print("PARSING:", url)
+
     soup = get_soup(url)
 
     title = ""
@@ -186,14 +188,20 @@ def parse_product(url):
     h1 = soup.select_one("h1")
     if h1:
         title = clean(h1.get_text())
+    else:
+        print("NO TITLE:", url)
 
     sku_tag = soup.select_one(".product-data__item.model")
     if sku_tag:
-        sku = clean(sku_tag.get_text().replace("Код товара:", ""))
+        sku = clean(sku_tag.get_text())
+    else:
+        print("NO SKU:", url)
 
     price_tag = soup.select_one(".product-page__price")
     if price_tag:
         price = clean(price_tag.get_text())
+    else:
+        print("NO PRICE:", url)
 
     if soup.select_one("#button-cart"):
         status = "in_stock"
