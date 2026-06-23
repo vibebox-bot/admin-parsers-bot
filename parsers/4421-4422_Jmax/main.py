@@ -31,12 +31,16 @@ def init():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     if os.path.exists(LOCK_FILE):
-        print("ALREADY RUNNING")
-        exit()
+        try:
+            with open(LOCK_FILE, "r") as f:
+                if "running" in f.read():
+                    print("ALREADY RUNNING")
+                    exit()
+        except:
+            pass
 
     with open(LOCK_FILE, "w") as f:
         f.write("running")
-
 
 def finish():
     if os.path.exists(LOCK_FILE):
