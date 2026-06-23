@@ -119,30 +119,46 @@ def clean(text):
 # =========================
 # LOGIN
 # =========================
+from bs4 import BeautifulSoup
+
 def login():
     print("LOGIN...")
 
     login_url = BASE + "/index.php?route=account/login"
 
-    session.get(login_url)
+    # 1. GET страницу (ВАЖНО!)
+    r = session.get(login_url)
+    soup = BeautifulSoup(r.text, "html.parser")
 
-    payload = {
-        "email": EMAIL,
-        "password": PASSWORD
-    }
+    # 2. собрать hidden поля (если есть)
+    payload = {}
 
-    r = session.post(login_url, data=payload, allow_redirects=True)
+    for inp in soup.select("form input"):
+        name = inp.get("name")
+        value = inp.get("value", "")
 
-    # OpenCart логин = появление account меню
-    if "account/logout" in r.text.lower() or "logout" in r.text.lower():
+        if name:
+            payload[name] = value
+
+    # 3. вставляем логин/пароль
+    payload["email"] = EMAIL
+    payload["password"] = PASSWORD
+
+    # 4. POST
+    r2 = session.post(login_url, data=payload, allow_redirects=True)
+
+    # 5. проверка
+    if "route=account/account" in r2.url:
         print("LOGIN OK")
         return True
 
-    if "route=account/account" in r.url:
+    if "logout" in r2.text.lower():
         print("LOGIN OK")
         return True
 
     print("LOGIN FAILED")
+    print("DEBUG URL:", r2.url)
+
     return False
     
 # =========================
