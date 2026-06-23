@@ -14,8 +14,8 @@ BASE = "https://jumpex.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 1   # тест
-# CATEGORY_LIMIT = None  # все категории
+# CATEGORY_LIMIT = 1   # тест
+CATEGORY_LIMIT = None  # все категории
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "380931937922"
@@ -64,15 +64,15 @@ def login():
         allow_redirects=True
     )
 
-    print("FINAL URL:", r.url)
+    #print("FINAL URL:", r.url)
 
     if "/login" not in r.url:
         print("LOGIN OK")
     else:
         print("LOGIN FAILED")
-        print(r.text[:5000])
+        #print(r.text[:5000])
 
-    print(session.cookies.get_dict())
+    #print(session.cookies.get_dict())
 
 
 # =========================
@@ -142,10 +142,10 @@ def get_categories():
 
     cats = list(dict.fromkeys(cats))
 
-    print("FOUND MAIN CATEGORIES:", len(cats))
+    #print("FOUND MAIN CATEGORIES:", len(cats))
 
-    for c in cats:
-        print(c)
+    #for c in cats:
+        #print(c)
 
     return cats
 
@@ -164,13 +164,13 @@ def load_products(cat_url):
     while True:
 
         url = f"{cat_url}?start={page}"
-        print("LOAD:", url)
+        #print("LOAD:", url)
 
         soup = get_soup(url)
 
         items = soup.select("div.product")
 
-        print("PRODUCTS:", len(items))
+        #print("PRODUCTS:", len(items))
 
         if not items:
             break
@@ -198,7 +198,7 @@ def load_products(cat_url):
         page += 12
         time.sleep(0.5)
 
-    print("TOTAL LINKS:", len(all_products))
+    #print("TOTAL LINKS:", len(all_products))
     return list(all_products)
 
 
@@ -243,8 +243,8 @@ def parse_product(url):
     # DEBUG
     # =========================
 
-    print("COOKIES:", session.cookies.get_dict())
-    print("PARSED:", sku, "|", title, "|", price, "|", status)
+    #print("COOKIES:", session.cookies.get_dict())
+    #print("PARSED:", sku, "|", title, "|", price, "|", status)
 
     return [sku, title, price, status, url]
 
@@ -308,7 +308,7 @@ def run_parser():
 
                 all_count += 1
 
-                print("ADDED:", title, "|", price)
+                #print("ADDED:", title, "|", price)
 
             except Exception as e:
                 print("ERROR:", e)
