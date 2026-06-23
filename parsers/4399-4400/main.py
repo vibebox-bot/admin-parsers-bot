@@ -35,14 +35,34 @@ session = requests.Session()
 session.headers.update(HEADERS)
 
 def login():
+
     print("LOGIN...")
 
-    url = BASE + "/user/loginsave"
+    login_url = BASE + "/login"
 
-    r = session.post(url, data={
-        "username": EMAIL,
-        "passwd": PASSWORD
-    }, allow_redirects=True)
+    r = session.get(login_url)
+
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    payload = {}
+
+    for inp in soup.select("form input"):
+        name = inp.get("name")
+
+        if not name:
+            continue
+
+        payload[name] = inp.get("value", "")
+
+    payload["username"] = EMAIL
+    payload["passwd"] = PASSWORD
+    payload["remember"] = "yes"
+
+    r = session.post(
+        BASE + "/user/loginsave",
+        data=payload,
+        allow_redirects=True
+    )
 
     print("FINAL URL:", r.url)
 
@@ -50,8 +70,10 @@ def login():
         print("LOGIN OK")
     else:
         print("LOGIN FAILED")
-        print(r.text[:500])
-        print(session.cookies.get_dict())
+
+    print(session.cookies.get_dict())
+
+
 # =========================
 # STATUS
 # =========================
