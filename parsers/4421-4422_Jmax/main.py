@@ -3,7 +3,7 @@ import time
 import json
 import requests
 from bs4 import BeautifulSoup
-from openpyxl import Workbook, load_workbook
+from openpyxl import Workbook
 
 # =========================
 # CONFIG
@@ -19,30 +19,33 @@ STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
 CATEGORY_LIMIT = 1
-#CATEGORY_LIMIT = None
 
 session = requests.Session()
 
+wb = None
+ws = None
+
 
 # =========================
-# INIT / LOCK
+# INIT
 # =========================
 def init():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     if os.path.exists(LOCK_FILE):
-        try:
-            with open(LOCK_FILE, "r") as f:
-                if "running" in f.read():
-                    print("ALREADY RUNNING")
-                    exit()
-        except:
-            pass
+        print("ALREADY RUNNING")
+        exit()
 
     with open(LOCK_FILE, "w") as f:
         f.write("running")
 
+
 def finish():
+    global wb
+
+    if wb:
+        wb.save(FILE_PATH)
+
     if os.path.exists(LOCK_FILE):
         os.remove(LOCK_FILE)
 
@@ -75,35 +78,19 @@ def login():
 
     login_url = BASE + "/index.php?route=account/login"
 
-    # 1. сначала GET (важно для cookies)
-    r = session.get(login_url)
-
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    # 2. берём форму action (на всякий случай)
-    form = soup.select_one("form")
-
-    action = login_url
-    if form and form.get("action"):
-        action = form.get("action")
+    session.get(login_url)
 
     payload = {
         "email": EMAIL,
         "password": PASSWORD
     }
 
-    headers = {
-        "Referer": login_url,
-        "User-Agent": "Mozilla/5.0"
-    }
+    r = session.post(login_url, data=payload, allow_redirects=True)
 
-    r2 = session.post(action, data=payload, headers=headers, allow_redirects=True)
-
-    # 3. правильная проверка логина
-    if "logout" in r2.text.lower() or "account/logout" in r2.url:
+    if "logout" in r.text.lower():
         print("LOGIN OK")
     else:
-        print("LOGIN OK (or guest access)")  # у тебя сайт может пускать и так
+        print("LOGIN FAILED")
 
 
 # =========================
@@ -129,7 +116,6 @@ def get_categories():
 # PRODUCTS LIST
 # =========================
 def load_products(cat_url):
-
     print("CATEGORY:", cat_url)
 
     all_products = set()
@@ -137,14 +123,13 @@ def load_products(cat_url):
 
     while True:
 
-        if "?" in cat_url:
-            url = f"{cat_url}&page={page}"
-        else:
-            url = f"{cat_url}&page={page}"
+        url = f"{cat_url}&page={page}"
 
         soup = get_soup(url)
 
         items = soup.select(".product-thumb.uni-item")
+
+        print(f"PAGE {page} -> ITEMS {len(items)}")
 
         if not items:
             break
@@ -158,7 +143,6 @@ def load_products(cat_url):
                 continue
 
             href = a.get("href")
-
             if href:
                 all_products.add(href)
 
@@ -175,9 +159,6 @@ def load_products(cat_url):
 # PRODUCT PARSER
 # =========================
 def parse_product(url):
-
-    print("PARSING:", url)
-
     soup = get_soup(url)
 
     title = ""
@@ -188,20 +169,14 @@ def parse_product(url):
     h1 = soup.select_one("h1")
     if h1:
         title = clean(h1.get_text())
-    else:
-        print("NO TITLE:", url)
 
     sku_tag = soup.select_one(".product-data__item.model")
     if sku_tag:
-        sku = clean(sku_tag.get_text())
-    else:
-        print("NO SKU:", url)
+        sku = clean(sku_tag.get_text().replace("Код товара:", ""))
 
     price_tag = soup.select_one(".product-page__price")
     if price_tag:
         price = clean(price_tag.get_text())
-    else:
-        print("NO PRICE:", url)
 
     if soup.select_one("#button-cart"):
         status = "in_stock"
@@ -215,18 +190,12 @@ def parse_product(url):
 # EXCEL
 # =========================
 def init_excel():
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    global wb, ws
 
     wb = Workbook()
     ws = wb.active
     ws.append(["SKU", "Title", "Price", "Status", "URL"])
-    wb.save(FILE_PATH)
 
-
-def append_row(row):
-    wb = load_workbook(FILE_PATH)
-    ws = wb.active
-    ws.append(row)
     wb.save(FILE_PATH)
 
 
@@ -234,7 +203,6 @@ def append_row(row):
 # RUN
 # =========================
 def run_parser():
-
     init()
     login()
 
@@ -245,20 +213,20 @@ def run_parser():
     if CATEGORY_LIMIT:
         categories = categories[:CATEGORY_LIMIT]
 
-    total_cats = len(categories)
+    total = len(categories)
 
     for ci, cat in enumerate(categories):
 
         update_status({
             "status": "category",
             "current": ci,
-            "total": total_cats,
+            "total": total,
             "url": cat
         })
 
         products = load_products(cat)
 
-        print("PRODUCTS:", len(products))
+        print("PRODUCTS FOUND:", len(products))
 
         for pi, p in enumerate(products):
 
@@ -271,7 +239,9 @@ def run_parser():
 
             try:
                 row = parse_product(p)
-                append_row(row)
+                ws.append(row)
+
+                print(f"[{pi+1}/{len(products)}] OK")
 
             except Exception as e:
                 print("ERROR:", p, e)
@@ -284,4 +254,3 @@ def run_parser():
 
 if __name__ == "__main__":
     run_parser()
-
