@@ -119,46 +119,39 @@ def clean(text):
 # =========================
 # LOGIN
 # =========================
-from bs4 import BeautifulSoup
-
 def login():
     print("LOGIN...")
 
     login_url = BASE + "/index.php?route=account/login"
 
-    # 1. GET страницу (ВАЖНО!)
-    r = session.get(login_url)
-    soup = BeautifulSoup(r.text, "html.parser")
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": login_url,
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
 
-    # 2. собрать hidden поля (если есть)
-    payload = {}
+    # GET first
+    session.get(login_url, headers=headers)
 
-    for inp in soup.select("form input"):
-        name = inp.get("name")
-        value = inp.get("value", "")
+    payload = {
+        "email": EMAIL,
+        "password": PASSWORD
+    }
 
-        if name:
-            payload[name] = value
+    r = session.post(login_url, data=payload, headers=headers, allow_redirects=True)
 
-    # 3. вставляем логин/пароль
-    payload["email"] = EMAIL
-    payload["password"] = PASSWORD
+    print("DEBUG URL:", r.url)
+    print("DEBUG TEXT:", r.text[:300])
 
-    # 4. POST
-    r2 = session.post(login_url, data=payload, allow_redirects=True)
-
-    # 5. проверка
-    if "route=account/account" in r2.url:
+    if "route=account/account" in r.url:
         print("LOGIN OK")
         return True
 
-    if "logout" in r2.text.lower():
+    if "logout" in r.text.lower():
         print("LOGIN OK")
         return True
 
     print("LOGIN FAILED")
-    print("DEBUG URL:", r2.url)
-
     return False
     
 # =========================
