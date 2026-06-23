@@ -2,7 +2,21 @@ import os
 import json
 import asyncio
 
+import sys   # ← добавь
+
+# 🔥 LOCK вставка ↓
+LOCK_FILE = "bot.lock"
+
+if os.path.exists(LOCK_FILE):
+    print("❌ BOT ALREADY RUNNING")
+    sys.exit()
+
+with open(LOCK_FILE, "w") as f:
+    f.write(str(os.getpid()))
+# 🔥 LOCK вставка ↑
+
 from aiogram import Bot, Dispatcher, types
+
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import BOT_TOKEN, ALLOWED_USERS
@@ -657,6 +671,14 @@ async def main():
 
     await dp.start_polling(bot)
 
+
+import atexit
+
+def remove_lock():
+    if os.path.exists("bot.lock"):
+        os.remove("bot.lock")
+
+atexit.register(remove_lock)
 
 if __name__ == "__main__":
     asyncio.run(main())
