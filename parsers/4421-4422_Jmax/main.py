@@ -119,51 +119,49 @@ def clean(text):
 # =========================
 # LOGIN
 # =========================
-from bs4 import BeautifulSoup
-
 def login():
     print("LOGIN...")
 
     login_url = BASE + "/index.php?route=account/login"
 
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Referer": login_url
-    }
+    # 1. сначала открываем страницу (ВАЖНО для cookies)
+    r = session.get(login_url)
 
-    # 1. GET (важно для cookies)
-    r = session.get(login_url, headers=headers)
     soup = BeautifulSoup(r.text, "html.parser")
 
-    # 2. собираем ВСЮ форму автоматически
-    payload = {}
-
+    # 2. берем action формы (иногда отличается)
     form = soup.select_one("form")
+    if not form:
+        print("LOGIN FAILED: no form")
+        return False
 
-    if form:
-        for inp in form.select("input"):
-            name = inp.get("name")
-            value = inp.get("value", "")
+    action = form.get("action")
+    if not action:
+        action = login_url
 
-            if name:
-                payload[name] = value
+    payload = {
+        "email": EMAIL,
+        "password": PASSWORD
+    }
 
-    # 3. подставляем логин/пароль
-    payload["email"] = EMAIL
-    payload["password"] = PASSWORD
+    # 3. отправляем логин уже в action
+    r2 = session.post(action, data=payload, allow_redirects=True)
 
-    # 4. POST
-    r2 = session.post(login_url, data=payload, headers=headers, allow_redirects=True)
-
+    # DEBUG (очень важно)
     print("DEBUG URL:", r2.url)
-    print("DEBUG FINAL PART:", r2.text[:200])
+    print("DEBUG STATUS:", r2.status_code)
 
-    # 5. проверка логина
-    if "account/logout" in r2.text.lower() or "route=account/account" in r2.url:
+    if "logout" in r2.text.lower() or "account/logout" in r2.text.lower():
         print("LOGIN OK")
         return True
 
+    # доп проверка (OpenCart часто редиректит в account)
+    if "account/account" in r2.url:
+        print("LOGIN OK (redirect)")
+        return True
+
     print("LOGIN FAILED")
+    print("DEBUG TEXT:", r2.text[:500])
     return False
     
 # =========================
