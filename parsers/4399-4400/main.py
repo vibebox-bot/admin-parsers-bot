@@ -18,7 +18,7 @@ CATEGORY_LIMIT = 1   # тест
 # CATEGORY_LIMIT = None  # все категории
 
 EMAIL = "angelinatitor@gmail.com"
-PASSWORD = "18022021"
+PASSWORD = "380931937922"
 
 OUTPUT_DIR = os.path.abspath("output/4399-4400")
 FILE_PATH = os.path.join(OUTPUT_DIR, "Харьковская_4399-4400_LIVE.xlsx")
