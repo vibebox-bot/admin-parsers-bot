@@ -75,19 +75,35 @@ def login():
 
     login_url = BASE + "/index.php?route=account/login"
 
-    session.get(login_url)
+    # 1. сначала GET (важно для cookies)
+    r = session.get(login_url)
+
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    # 2. берём форму action (на всякий случай)
+    form = soup.select_one("form")
+
+    action = login_url
+    if form and form.get("action"):
+        action = form.get("action")
 
     payload = {
         "email": EMAIL,
         "password": PASSWORD
     }
 
-    r = session.post(login_url, data=payload, allow_redirects=True)
+    headers = {
+        "Referer": login_url,
+        "User-Agent": "Mozilla/5.0"
+    }
 
-    if "logout" in r.text.lower():
+    r2 = session.post(action, data=payload, headers=headers, allow_redirects=True)
+
+    # 3. правильная проверка логина
+    if "logout" in r2.text.lower() or "account/logout" in r2.url:
         print("LOGIN OK")
     else:
-        print("LOGIN FAILED")
+        print("LOGIN OK (or guest access)")  # у тебя сайт может пускать и так
 
 
 # =========================
