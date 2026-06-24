@@ -197,15 +197,33 @@ def get_products_from_category(url):
 
 
 def get_pages(cat_url):
-    soup = get_soup(cat_url)
+    pages = []
+    seen = set()
 
-    pages = [cat_url]
+    # всегда добавляем limit=100
+    base = cat_url
+    if "limit=" not in base:
+        base += "&limit=100" if "?" in base else "?limit=100"
 
+    soup = get_soup(base)
+    if not soup:
+        return [base]
+
+    pages.append(base)
+    seen.add(base)
+
+    # собираем ВСЕ реальные страницы из пагинации
     for a in soup.select(".pagination a, ul.pagination a"):
         href = a.get("href")
-        if href:
-            if href not in pages:
-                pages.append(href)
+        if not href:
+            continue
+
+        # нормализация ссылки
+        page_url = href.split("&limit")[0]
+
+        if page_url not in seen:
+            seen.add(page_url)
+            pages.append(page_url)
 
     return pages
     
