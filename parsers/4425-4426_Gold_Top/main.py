@@ -41,12 +41,10 @@ def create_lock():
     os.makedirs(os.path.dirname(LOCK_FILE), exist_ok=True)
 
     if os.path.exists(LOCK_FILE):
-        age = time.time() - os.path.getmtime(LOCK_FILE)
-
-        # если lock старше 30 минут — считаем что он “мертвый”
-        if age < 1800:
-            print("❌ Already running")
-            exit()
+        try:
+            os.remove(LOCK_FILE)   # 👈 автоматически чистим старый lock
+        except:
+            pass
 
     with open(LOCK_FILE, "w") as f:
         f.write(str(time.time()))
