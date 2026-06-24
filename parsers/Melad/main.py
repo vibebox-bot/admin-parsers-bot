@@ -131,18 +131,16 @@ def get_categories():
 def get_pages(url):
     soup = get_soup(url)
 
-    pages = [url]
+    pages = set()
+    pages.add(url)
 
-    pagination = soup.select("div.pagination_wrap ul.pagination a")
-
-    for a in pagination:
+    for a in soup.select("div.pagination_wrap a[href]"):
         href = a.get("href")
 
         if href and "page=" in href:
-            pages.append(href)
+            pages.add(href)
 
-    return list(dict.fromkeys(pages))
-
+    return sorted(list(pages))
 
 # =========================
 # PRODUCTS FROM CATEGORY
@@ -247,14 +245,18 @@ def main():
     excel = ExcelWriter(FILE_PATH)
 
     seen = set()
+    seen_sku = set()
     found = 0
     written = 0
 
     categories = get_categories()
+    
+    if CATEGORY_LIMIT is not None:
+        categories = categories[:CATEGORY_LIMIT]
 
     for cat_name, cat_url in categories:
 
-        pages = [cat_url] + get_pages(cat_url)
+        pages = get_pages(cat_url)
 
         for page in pages:
 
@@ -262,13 +264,18 @@ def main():
             found += len(product_links)
 
             for data in product_links:
-            
-                url = data["url"].split("?")[0]
-            
-                if url in seen:
+
+
+                url = data["url"].split("?")[0].rstrip("/").lower()
+                sku = data["article"].strip()
+                
+                # защита от дублей
+                if url in seen or sku in seen_sku:
                     continue
-            
+                
                 seen.add(url)
+                seen_sku.add(sku)
+                
             
                 excel.add(
                     data["name"],
