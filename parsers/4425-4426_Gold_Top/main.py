@@ -176,10 +176,15 @@ def get_products_from_category(url):
 
 def get_pages(cat_url):
     pages = []
+
+    base = cat_url
+    if "limit=" not in base:
+        base += "&limit=100" if "?" in base else "?limit=100"
+
     page = 1
 
     while True:
-        url = f"{cat_url}&page={page}" if "?" in cat_url else f"{cat_url}?page={page}"
+        url = f"{base}&page={page}" if "?" in base else f"{base}?page={page}"
 
         soup = get_soup(url)
 
@@ -191,7 +196,7 @@ def get_pages(cat_url):
         pages.append(url)
         page += 1
 
-        if page > 100:
+        if page > 200:
             break
 
     return pages
