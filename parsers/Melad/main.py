@@ -12,7 +12,7 @@ from openpyxl import Workbook
 
 BASE_DIR = os.path.abspath("output/Melad")
 
-FILE_PATH = os.path.join(BASE_DIR, "Melad_live.xlsx")
+FILE_PATH = os.path.join(BASE_DIR, "Melad_Live.xlsx")
 STATUS_PATH = os.path.join(BASE_DIR, "status.json")
 LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
 
@@ -238,6 +238,11 @@ def main():
     os.makedirs(BASE_DIR, exist_ok=True)
 
     print("🚀 STARTED MELAD")
+
+    print("🔥 THIS IS MY MAIN.PY")
+
+    with open("test_melad.txt", "w", encoding="utf-8") as f:
+        f.write("hello")
 
     if not login():
         return
