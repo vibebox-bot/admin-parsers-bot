@@ -109,8 +109,16 @@ def check_cancel():
 # HELPERS
 # =========================
 def get_soup(url):
-    r = session.get(url, timeout=30)
-    return BeautifulSoup(r.text, "html.parser")
+    try:
+        r = session.get(
+            url,
+            timeout=20,
+            headers={"Connection": "close"}
+        )
+        return BeautifulSoup(r.text, "html.parser")
+    except Exception as e:
+        print("REQUEST ERROR:", url, e)
+        return BeautifulSoup("", "html.parser")
 
 
 def clean(text):
@@ -213,7 +221,7 @@ def load_products(cat_url):
             if a:
                 href = a.get("href")
                 if href:
-                    all_products.add(href)
+                    all_products.add(normalize(href))
 
         if len(all_products) == before:
             break
@@ -235,6 +243,13 @@ def parse_product(url):
     price = ""
     status = ""
 
+    for i in range(3):
+        try:
+            soup = get_soup(url)
+            break
+        except:
+            time.sleep(1)
+    
     h1 = soup.select_one("h1")
     if h1:
         title = clean(h1.get_text())
@@ -279,6 +294,7 @@ def init_excel():
 def run_parser():
     print("🚀 STARTED JMAX PARSER")
     init()
+    seen = set()
 
     ok = login()
     if not ok:
@@ -316,12 +332,22 @@ def run_parser():
                 finish()
                 return
 
+
             try:
                 row = parse_product(p)
+            
+                sku = row[0]   # 👈 SKU это первый элемент
+            
+                if sku in seen:
+                    continue
+            
+                seen.add(sku)
+            
                 ws.append(row)
-
+            
             except Exception as e:
                 print("ERROR:", p, e)
+            
 
             done_products += 1
 
