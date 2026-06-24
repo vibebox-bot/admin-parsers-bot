@@ -150,37 +150,20 @@ def get_products_from_category(url):
 
     links = set()
 
-    for a in soup.select("div.product-name a[href]"):
+    for card in soup.select("div.product-item"):
+        a = card.select_one("a[href]")
+
+        if not a:
+            continue
+
         href = a.get("href")
-    
-        if href:
+
+        if href and "gold-tor.com.ua" in href:
             links.add(href.split("?")[0])
 
-
     print("FOUND LINKS:", len(links))
+
     return list(links)
-
-
-def get_pages(cat_url):
-    pages = []
-    page = 1
-
-    while True:
-        url = f"{cat_url}?page={page}"
-        soup = get_soup(url)
-
-        items = soup.select("div.product-item")
-
-        if not items:
-            break
-
-        pages.append(url)
-        page += 1
-
-        if page > 50:
-            break
-
-    return pages
     
 # =========================
 # CATEGORY LIST
@@ -252,8 +235,9 @@ def main():
 
                 for link in product_links:
                     try:
-                        data = parse_product(link)
 
+                        data = parse_product(link)
+                        
                         url = data["url"].split("?")[0]
                         
                         if url in seen:
