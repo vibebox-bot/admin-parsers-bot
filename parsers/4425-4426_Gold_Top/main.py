@@ -118,6 +118,20 @@ def get_soup(url):
     return BeautifulSoup(r.text, "html.parser")
 
 
+def get_pages(url):
+    soup = get_soup(url)
+
+    pages = soup.select(".pagination a.page-link")
+
+    result = []
+
+    for p in pages:
+        href = p.get("href")
+        if href:
+            result.append(href)
+
+    return result
+
 def parse_product(url):
     soup = get_soup(url)
 
