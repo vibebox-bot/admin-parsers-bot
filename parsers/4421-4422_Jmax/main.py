@@ -19,7 +19,8 @@ FILE_PATH = os.path.join(OUTPUT_DIR, "Харьковская_4421-4422_Jmax_LIVE
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
-CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
 
 session = requests.Session()
 session.headers.update({
@@ -148,8 +149,8 @@ def login():
     r2 = session.post(action, data=payload, allow_redirects=True)
 
     # DEBUG (очень важно)
-    print("DEBUG URL:", r2.url)
-    print("DEBUG STATUS:", r2.status_code)
+    #print("DEBUG URL:", r2.url)
+    #print("DEBUG STATUS:", r2.status_code)
 
     if "logout" in r2.text.lower() or "account/logout" in r2.text.lower():
         print("LOGIN OK")
@@ -160,8 +161,8 @@ def login():
         print("LOGIN OK (redirect)")
         return True
 
-    print("LOGIN FAILED")
-    print("DEBUG TEXT:", r2.text[:500])
+    #print("LOGIN FAILED")
+    #print("DEBUG TEXT:", r2.text[:500])
     return False
     
 # =========================
@@ -185,7 +186,7 @@ def get_categories():
 # PRODUCTS LIST
 # =========================
 def load_products(cat_url):
-    print("CATEGORY:", cat_url)
+    #print("CATEGORY:", cat_url)
 
     all_products = set()
     page = 1
@@ -200,7 +201,7 @@ def load_products(cat_url):
 
         items = soup.select(".product-thumb.uni-item")
 
-        print(f"PAGE {page} -> ITEMS {len(items)}")
+        #print(f"PAGE {page} -> ITEMS {len(items)}")
 
         if not items:
             break
@@ -276,6 +277,7 @@ def init_excel():
 # RUN
 # =========================
 def run_parser():
+    print("🚀 STARTED JMAX PARSER")
     init()
 
     ok = login()
@@ -335,7 +337,8 @@ def run_parser():
                 file_path=FILE_PATH
             )
 
-            print(f"[{done_products}/{total_products_global}] {progress}%")
+            if done_products % 20 == 0 or progress == 100:
+                print(f"PROGRESS: {progress}%")
 
             time.sleep(0.1)
 
@@ -343,6 +346,7 @@ def run_parser():
     finish()
 
     print("DONE")
+    print("✅ FINISHED JMAX PARSER")
 
 
 if __name__ == "__main__":
