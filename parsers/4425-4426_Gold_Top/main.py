@@ -114,14 +114,22 @@ class ExcelWriter:
 # =========================
 
 def get_soup(url):
-    print("URL:", url, "SIZE:", len(r.text))
     try:
         r = session.get(url, headers=HEADERS, timeout=20)
-        r.raise_for_status()
+
+        if r.status_code != 200:
+            print(f"❌ HTTP {r.status_code}: {url}")
+            return None
+
+        if len(r.text) < 500:
+            print(f"⚠️ EMPTY PAGE: {url}")
+            return None
+
         return BeautifulSoup(r.text, "html.parser")
+
     except Exception as e:
-        print("⚠️ GET ERROR:", url, e)
-        return BeautifulSoup("", "html.parser")
+        print(f"⚠️ REQUEST FAIL: {url} -> {e}")
+        return None
 
 
 def parse_product(url):
@@ -153,27 +161,29 @@ def parse_product(url):
 
 def get_products_from_category(url):
     soup = get_soup(url)
+    if not soup:
+        return []
 
     links = set()
 
     for a in soup.select("div.product-name a[href]"):
         href = a.get("href")
-    
         if href:
             links.add(href.split("?")[0])
 
-
-    print("FOUND LINKS:", len(links))
+    print(f"FOUND LINKS: {len(links)}")
     return list(links)
 
 
 def get_pages(cat_url):
-    pages = []
-    page = 1
+    pages = [cat_url]
 
-    for _ in range(50):  # защита от бесконечного цикла
+    for page in range(2, 50):
         url = f"{cat_url}?page={page}"
         soup = get_soup(url)
+
+        if not soup:
+            break
 
         items = soup.select("div.product-item")
 
@@ -181,7 +191,6 @@ def get_pages(cat_url):
             break
 
         pages.append(url)
-        page += 1
 
     return pages
     
@@ -217,16 +226,15 @@ def main():
 
     os.makedirs(BASE_DIR, exist_ok=True)
 
-    # всегда создаём новый файл сразу
     excel = ExcelWriter(FILE_PATH)
-    excel.save()   # <-- ВАЖНО: создаёт файл физически сразу
+    excel.save()  # сразу создаём файл
 
+    try:
         if not login():
+            print("❌ LOGIN FAILED → STOP")
             return
 
-        excel = ExcelWriter(FILE_PATH)
         seen = set()
-        all_links = set()
         found = 0
         written = 0
 
@@ -240,18 +248,12 @@ def main():
         for cat_name, cat_url in categories:
             print(f"\n📁 CATEGORY: {cat_name}")
 
-            pages = [cat_url]
-
-            more_pages = get_pages(cat_url)
-            if more_pages:
-                pages.extend(more_pages)
+            pages = get_pages(cat_url)
 
             for page in pages:
                 print(f"➡ PAGE: {page}")
 
-
                 product_links = get_products_from_category(page)
-
                 found += len(product_links)
 
                 for link in product_links:
@@ -259,12 +261,12 @@ def main():
                         data = parse_product(link)
 
                         url = data["url"].split("?")[0]
-                        
+
                         if url in seen:
                             continue
-                        
+
                         seen.add(url)
-                        
+
                         excel.add(
                             data["name"],
                             data["price"],
@@ -272,13 +274,11 @@ def main():
                             data["stock"],
                             data["url"]
                         )
-                        
+
                         written += 1
-                        
-                        print("✔", data["name"])
 
                     except Exception as e:
-                        print("❌ product error:", e)
+                        print("❌ PRODUCT ERROR:", e)
 
                 excel.save()
 
@@ -287,11 +287,18 @@ def main():
                 "time": time.time()
             })
 
+        print("\n====================")
         print("FOUND:", found)
         print("WRITTEN:", written)
-        print("\n✅ DONE")
+        print("FILE EXISTS:", os.path.exists(FILE_PATH))
+        print("====================")
+        print("✅ DONE")
+
+    except Exception as e:
+        print("🔥 FATAL ERROR:", e)
 
     finally:
+        excel.save()
         remove_lock()
 
 
