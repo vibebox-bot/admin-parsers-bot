@@ -114,6 +114,7 @@ class ExcelWriter:
 # =========================
 
 def get_soup(url):
+    print("URL:", url, "SIZE:", len(r.text))
     try:
         r = session.get(url, headers=HEADERS, timeout=20)
         r.raise_for_status()
@@ -214,11 +215,11 @@ def main():
     print("🚀 STARTED MAIN")
     create_lock()
 
-    if os.path.exists(FILE_PATH):
-        os.remove(FILE_PATH)
+    os.makedirs(BASE_DIR, exist_ok=True)
 
-    try:
-        os.makedirs(BASE_DIR, exist_ok=True)
+    # всегда создаём новый файл сразу
+    excel = ExcelWriter(FILE_PATH)
+    excel.save()   # <-- ВАЖНО: создаёт файл физически сразу
 
         if not login():
             return
