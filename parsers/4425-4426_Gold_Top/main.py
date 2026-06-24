@@ -34,6 +34,21 @@ session = requests.Session()
 
 print("🔥 LOADED NEW MAIN FILE 2026")
 
+def set_status(running=True, progress=0, found=0, written=0, cat=""):
+    os.makedirs(BASE_DIR, exist_ok=True)
+
+    data = {
+        "running": running,
+        "progress": progress,
+        "found": found,
+        "written": written,
+        "last_category": cat,
+        "time": time.time()
+    }
+
+    with open(STATUS_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
 # =========================
 # LOCK
 # =========================
@@ -229,6 +244,7 @@ def get_categories():
 
 def main():
     print("🚀 STARTED MAIN")
+    set_status(True, 0)
     create_lock()
 
     os.makedirs(BASE_DIR, exist_ok=True)
@@ -246,6 +262,8 @@ def main():
         written = 0
 
         categories = get_categories()
+        done = 0
+        total = len(categories)
 
         if CATEGORY_LIMIT:
             categories = categories[:CATEGORY_LIMIT]
@@ -253,6 +271,7 @@ def main():
         print(f"📦 Categories: {len(categories)}")
 
         for cat_name, cat_url in categories:
+            done += 1
             print(f"\n📁 CATEGORY: {cat_name}")
 
             pages = get_pages(cat_url)
@@ -293,6 +312,8 @@ def main():
                 "last_category": cat_name,
                 "time": time.time()
             })
+
+        set_status(False, 100, found, written, "DONE")
 
         print("\n====================")
         print("FOUND:", found)
