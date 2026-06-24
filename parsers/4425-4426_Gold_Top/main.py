@@ -126,21 +126,16 @@ def parse_product(url):
     name = name_tag.get_text(strip=True) if name_tag else ""
 
     # ARTICLE
-    article_tag = soup.select_one(".text-danger")
+    article_tag = soup.select_one("span.text-danger")
     article = article_tag.get_text(strip=True) if article_tag else ""
 
     # PRICE
     price_tag = soup.select_one(".h2.m-0.text-nowrap")
     price = price_tag.get_text(strip=True) if price_tag else ""
 
-    # STOCK
+    # STOCK (как на сайте)
     stock_tag = soup.select_one(".alert")
-    stock_text = stock_tag.get_text(" ", strip=True) if stock_tag else ""
-
-    if "В наличии" in stock_text:
-        stock = "InStock"
-    else:
-        stock = "OutOfStock"
+    stock = stock_tag.get_text(" ", strip=True) if stock_tag else ""
 
     return {
         "name": name,
@@ -155,14 +150,13 @@ def get_products_from_category(url):
 
     links = set()
 
-    for a in soup.select("div.product-item a[href]"):
+    for a in soup.select("div.product-name a[href]"):
         href = a.get("href")
 
-        if href and "gold-tor.com.ua" in href:
+        if href:
             links.add(href)
-            
+
     print("FOUND LINKS:", len(links))
-    
     return list(links)
 
 
@@ -212,6 +206,8 @@ def main():
             return
 
         excel = ExcelWriter(FILE_PATH)
+        found = 0
+        written = 0
 
         categories = get_categories()
 
@@ -235,6 +231,7 @@ def main():
                 print(f"➡ PAGE: {page}")
 
                 product_links = get_products_from_category(page)
+                found += len(product_links)
 
                 for link in product_links:
                     try:
@@ -247,7 +244,9 @@ def main():
                             data["stock"],
                             data["url"]
                         )
-                        excel.save()
+                        written += 1
+                        print("FOUND:", found)
+                        print("WRITTEN:", written)
                         print("✔", data["name"])
 
                     except Exception as e:
