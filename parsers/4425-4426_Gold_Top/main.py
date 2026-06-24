@@ -146,7 +146,6 @@ def get_soup(url):
         print(f"⚠️ REQUEST FAIL: {url} -> {e}")
         return None
 
-
 def parse_product(url):
     soup = get_soup(url)
 
@@ -188,7 +187,7 @@ def get_products_from_category(url):
 
     links = set()
 
-    for item in soup.select("div.product-item"):
+    for item in soup.select("div.product-layout, div.product-item, div.product-thumb"):
         a = item.select_one("div.product-image a[href]")
         if a:
             links.add(a["href"].split("?")[0])
@@ -211,7 +210,7 @@ def get_pages(cat_url):
 
         soup = get_soup(url)
 
-        items = soup.select("div.product-item")
+        items = soup.select("div.product-layout, div.product-item, div.product-thumb")
 
         if not items:
             break
