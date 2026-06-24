@@ -283,7 +283,7 @@ def main():
 
             pages = get_pages(cat_url)
 
-                print(f"➡ PAGE: {page}")
+            print(f"➡ PAGE: {page}")
 
                 product_links = get_products_from_category(page)
                 found += len(product_links)
