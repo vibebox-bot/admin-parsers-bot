@@ -162,18 +162,23 @@ def parse_product(url):
 
 def get_products_from_category(url):
     soup = get_soup(url)
-    if not soup:
-        return []
 
     links = set()
 
-    for a in soup.select("div.product-name a[href]"):
+    for a in soup.select("div.product-layout a[href]"):
         href = a.get("href")
-        if href:
-            links.add(href.split("?")[0])
 
-    print(f"FOUND LINKS: {len(links)}")
+        if not href:
+            continue
+
+        if "/product" not in href:
+            continue
+
+        links.add(href.split("?")[0])
+
+    print("FOUND LINKS:", len(links))
     return list(links)
+
 
 def get_pages(cat_url):
     return [f"{cat_url}?limit=100"]
