@@ -2,17 +2,13 @@ import os
 import json
 import time
 import requests
-import pandas as pd
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from openpyxl import Workbook, load_workbook
 
 
 # =========================
 # CONFIG
 # =========================
-BASE_URL = "https://www.gold-tor.com.ua"
-
-CATEGORY_LIMIT = 1  # None = все категории
 
 BASE_DIR = os.path.abspath("output/4425-4426_Gold_Top")
 
@@ -20,67 +16,66 @@ FILE_PATH = os.path.join(BASE_DIR, "Харьковская_4425-4426_Gold_Top_LI
 STATUS_PATH = os.path.join(BASE_DIR, "status.json")
 LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
 
+#CATEGORY_LIMIT = None  # или 1 для теста
+CATEGORY_LIMIT = 1  # или 1 для теста
 
-# =========================
-# SESSION (важно для логина)
-# =========================
-session = requests.Session()
-session.headers.update({
+LOGIN_URL = "https://www.gold-tor.com.ua/index.php?route=account/login"
+
+EMAIL = "Sawrun_05@icloud.com"
+PASSWORD = "18022021"
+
+BASE_URL = "https://www.gold-tor.com.ua"
+
+HEADERS = {
     "User-Agent": "Mozilla/5.0"
-})
+}
 
-
-# =========================
-# STATUS
-# =========================
-def save_status(text):
-    os.makedirs(BASE_DIR, exist_ok=True)
-    with open(STATUS_PATH, "w", encoding="utf-8") as f:
-        json.dump({"status": text}, f, ensure_ascii=False, indent=2)
+session = requests.Session()
 
 
 # =========================
 # LOCK
 # =========================
-def lock():
-    os.makedirs(BASE_DIR, exist_ok=True)
+
+def create_lock():
+    if os.path.exists(LOCK_FILE):
+        print("❌ Already running")
+        exit()
+
     with open(LOCK_FILE, "w") as f:
-        f.write("running")
+        f.write("locked")
 
 
-def unlock():
+def remove_lock():
     if os.path.exists(LOCK_FILE):
         os.remove(LOCK_FILE)
 
 
 # =========================
-# LOGIN (OpenCart-safe)
+# STATUS
 # =========================
+
+def save_status(data):
+    with open(STATUS_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+# =========================
+# LOGIN
+# =========================
+
 def login():
-    login_url = BASE_URL + "/index.php?route=account/login"
+    print("🔐 LOGIN...")
 
-    r = session.get(login_url)
-    soup = BeautifulSoup(r.text, "html.parser")
+    payload = {
+        "email": EMAIL,
+        "password": PASSWORD
+    }
 
-    payload = {}
+    r = session.post(LOGIN_URL, data=payload, headers=HEADERS)
 
-    # забираем hidden поля (csrf/token если есть)
-    for inp in soup.select("form input"):
-        name = inp.get("name")
-        value = inp.get("value", "")
-        if name:
-            payload[name] = value
-
-    # твои данные
-    payload.update({
-        "email": "Sawrun_05@icloud.com",
-        "password": "18022021"
-    })
-
-    r2 = session.post(login_url, data=payload)
-
-    if "logout" in r2.text.lower() or "account/logout" in r2.text.lower():
-        print("✅ LOGIN OK")
+    if "logout" in r.text.lower() or "account" in r.text.lower():
+        print("✅ LOGIN SUCCESS")
         return True
 
     print("❌ LOGIN FAILED")
@@ -88,154 +83,181 @@ def login():
 
 
 # =========================
-# CATEGORIES
+# EXCEL WRITER
 # =========================
-def get_categories():
-    r = session.get(BASE_URL)
-    soup = BeautifulSoup(r.text, "html.parser")
 
-    cats = []
+class ExcelWriter:
+    def __init__(self, path):
+        self.path = path
 
-    for a in soup.select("#d_category_menu_list a.link-level-1"):
-        cats.append({
-            "title": a.get_text(strip=True),
-            "url": urljoin(BASE_URL, a["href"])
-        })
+        if os.path.exists(path):
+            self.wb = load_workbook(path)
+            self.ws = self.wb.active
+        else:
+            self.wb = Workbook()
+            self.ws = self.wb.active
 
-    return cats
+            self.ws.append([
+                "Category",
+                "Name",
+                "Price",
+                "Code",
+                "URL",
+                "Stock"
+            ])
+
+    def add(self, category, name, price, code, url, stock):
+        self.ws.append([category, name, price, code, url, stock])
+
+    def save(self):
+        self.wb.save(self.path)
 
 
 # =========================
-# PRODUCT CARD
+# PARSING HELPERS
 # =========================
-def parse_card(card):
-    a = card.select_one(".product-name a")
-    if not a:
-        return None
 
-    title = a.get_text(strip=True)
-    url = urljoin(BASE_URL, a["href"])
+def get_soup(url):
+    r = session.get(url, headers=HEADERS)
+    return BeautifulSoup(r.text, "html.parser")
 
-    img = card.select_one("img")
-    image = img["src"] if img else None
 
-    price_el = card.select_one(".price")
-    price = price_el.get_text(" ", strip=True) if price_el else None
+def parse_product(url, category):
+    soup = get_soup(url)
+
+    name = soup.select_one("h1")
+    name = name.text.strip() if name else ""
+
+    price = soup.select_one(".h2")
+    price = price.text.strip() if price else ""
+
+    code = soup.select_one(".text-danger")
+    code = code.text.strip() if code else ""
+
+    stock = "OutOfStock"
+    if "Нет в наличии" not in soup.text:
+        stock = "InStock"
 
     return {
-        "title": title,
+        "category": category,
+        "name": name,
+        "price": price,
+        "code": code,
         "url": url,
-        "image": image,
-        "price": price
+        "stock": stock
     }
 
 
-# =========================
-# PAGE PARSER
-# =========================
-def parse_page(url):
-    r = session.get(url)
-    soup = BeautifulSoup(r.text, "html.parser")
+def get_products_from_category(url):
+    soup = get_soup(url)
 
-    items = []
+    items = soup.select(".product-item a[href]")
+    links = []
 
-    for card in soup.select(".product-item"):
-        p = parse_card(card)
-        if p:
-            items.append(p)
+    for i in items:
+        href = i.get("href")
+        if href and "/product" in href or "/nstrumenti" in href:
+            links.append(href)
 
-    return items
+    return list(set(links))
 
 
-# =========================
-# PAGINATION
-# =========================
 def get_pages(url):
-    r = session.get(url)
-    soup = BeautifulSoup(r.text, "html.parser")
+    soup = get_soup(url)
+    pages = soup.select(".pagination a.page-link")
 
-    max_page = 1
-
-    for a in soup.select(".pagination a"):
-        href = a.get("href", "")
-        if "page=" in href:
-            try:
-                p = int(href.split("page=")[-1])
-                max_page = max(max_page, p)
-            except:
-                pass
-
-    return max_page
+    return [p.get("href") for p in pages if p.get("href")]
 
 
 # =========================
-# CATEGORY PARSER
+# CATEGORY LIST
 # =========================
-def parse_category(cat):
-    print(f"\n📦 {cat['title']}")
 
-    max_page = get_pages(cat["url"])
+def get_categories():
+    url = BASE_URL + "/nstrumenti"
+    soup = get_soup(url)
 
-    all_products = []
+    cats = soup.select("#d_category_menu_list a")
 
-    for page in range(1, max_page + 1):
-        url = cat["url"] if page == 1 else f"{cat['url']}?page={page}"
+    result = []
 
-        print("  page:", page)
+    for c in cats:
+        href = c.get("href")
+        name = c.text.strip()
 
-        items = parse_page(url)
-        all_products.extend(items)
+        if href:
+            result.append((name, href))
 
-        time.sleep(0.3)
-
-    return all_products
-
-
-# =========================
-# SAVE EXCEL
-# =========================
-def save_excel(data):
-    os.makedirs(BASE_DIR, exist_ok=True)
-
-    df = pd.DataFrame(data)
-    df.to_excel(FILE_PATH, index=False)
-
-    print(f"\n💾 EXCEL SAVED: {FILE_PATH}")
+    return result
 
 
 # =========================
 # MAIN
 # =========================
+
 def main():
-    lock()
-    save_status("start")
+    create_lock()
 
-    # 1. login
-    if not login():
-        save_status("login_failed")
-        unlock()
-        return
+    try:
+        os.makedirs(BASE_DIR, exist_ok=True)
 
-    # 2. categories
-    cats = get_categories()
+        if not login():
+            return
 
-    if CATEGORY_LIMIT is not None:
-        cats = cats[:CATEGORY_LIMIT]
+        excel = ExcelWriter(FILE_PATH)
 
-    print(f"📂 categories: {len(cats)}")
+        categories = get_categories()
 
-    all_data = []
+        if CATEGORY_LIMIT:
+            categories = categories[:CATEGORY_LIMIT]
 
-    # 3. parse
-    for cat in cats:
-        products = parse_category(cat)
-        all_data.extend(products)
+        print(f"📦 Categories: {len(categories)}")
 
-    # 4. save
-    save_excel(all_data)
+        for cat_name, cat_url in categories:
+            print(f"\n📁 CATEGORY: {cat_name}")
 
-    save_status("done")
-    unlock()
+            pages = [cat_url]
+
+            more_pages = get_pages(cat_url)
+            if more_pages:
+                pages.extend(more_pages)
+
+            pages = list(set(pages))
+
+            for page in pages:
+                print(f"➡ PAGE: {page}")
+
+                product_links = get_products_from_category(page)
+
+                for link in product_links:
+                    try:
+                        data = parse_product(link, cat_name)
+
+                        excel.add(
+                            data["category"],
+                            data["name"],
+                            data["price"],
+                            data["code"],
+                            data["url"],
+                            data["stock"]
+                        )
+
+                        print("✔", data["name"])
+
+                    except Exception as e:
+                        print("❌ product error:", e)
+
+                excel.save()
+
+            save_status({
+                "last_category": cat_name,
+                "time": time.time()
+            })
+
+        print("\n✅ DONE")
+
+    finally:
+        remove_lock()
 
 
 if __name__ == "__main__":
