@@ -122,24 +122,25 @@ def parse_product(url):
     soup = get_soup(url)
 
     # NAME
-    name = soup.select_one("h1")
-    name = name.get_text(strip=True) if name else ""
+    name_tag = soup.select_one("h1.h2")
+    name = name_tag.get_text(strip=True) if name_tag else ""
+
+    # ARTICLE (Код товара)
+    article_tag = soup.select_one(".text-danger")
+    article = article_tag.get_text(strip=True) if article_tag else ""
 
     # PRICE
-    price = soup.select_one(".h2")
-    price = price.get_text(strip=True) if price else ""
-
-    # ARTICLE / CODE
-    article = soup.select_one(".text-danger")
-    article = article.get_text(strip=True) if article else ""
+    price_tag = soup.select_one(".h2.m-0.text-nowrap")
+    price = price_tag.get_text(strip=True) if price_tag else ""
 
     # STOCK
-    text = soup.get_text(" ", strip=True)
+    stock_tag = soup.select_one(".alert")
+    stock_text = stock_tag.get_text(" ", strip=True) if stock_tag else ""
 
-    if "Нет в наличии" in text:
-        stock = "OutOfStock"
-    else:
+    if "В наличии" in stock_text:
         stock = "InStock"
+    else:
+        stock = "OutOfStock"
 
     return {
         "name": name,
