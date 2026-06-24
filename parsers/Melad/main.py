@@ -2,6 +2,7 @@ import os
 import json
 import time
 import requests
+import random
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 
@@ -16,8 +17,8 @@ FILE_PATH = os.path.join(BASE_DIR, "Melad_LIVE.xlsx")
 STATUS_PATH = os.path.join(BASE_DIR, "status.json")
 LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
 
-#CATEGORY_LIMIT = None  # или 1 для теста
-CATEGORY_LIMIT = 1  # или 1 для теста
+CATEGORY_LIMIT = None  # или 1 для теста
+#CATEGORY_LIMIT = 1  # или 1 для теста
 
 LOGIN_URL = "https://melad.com.ua/login/"
 BASE_URL = "https://melad.com.ua"
@@ -54,9 +55,18 @@ def remove_lock():
 # HTTP
 # =========================
 
-def get_soup(url):
-    r = session.get(url, headers=HEADERS)
-    return BeautifulSoup(r.text, "html.parser")
+def get_soup(url, retries=3):
+    for i in range(retries):
+        try:
+            r = session.get(url, headers=HEADERS, timeout=20)
+            r.raise_for_status()
+            return BeautifulSoup(r.text, "html.parser")
+
+        except Exception as e:
+            print(f"⚠️ Retry {i+1}/{retries} for {url}: {e}")
+            time.sleep(2)
+
+    return BeautifulSoup("", "html.parser")
 
 
 # =========================
@@ -267,6 +277,9 @@ def main():
         for page in pages:
 
             product_links = get_products_from_category(page)
+
+            time.sleep(random.uniform(0.5, 1.5))
+            
             found += len(product_links)
 
             for data in product_links:
