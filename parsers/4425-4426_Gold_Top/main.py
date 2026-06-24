@@ -38,12 +38,18 @@ session = requests.Session()
 # =========================
 
 def create_lock():
+    os.makedirs(os.path.dirname(LOCK_FILE), exist_ok=True)
+
     if os.path.exists(LOCK_FILE):
-        print("❌ Already running")
-        exit()
+        age = time.time() - os.path.getmtime(LOCK_FILE)
+
+        # если lock старше 30 минут — считаем что он “мертвый”
+        if age < 1800:
+            print("❌ Already running")
+            exit()
 
     with open(LOCK_FILE, "w") as f:
-        f.write("locked")
+        f.write(str(time.time()))
 
 
 def remove_lock():
