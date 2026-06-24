@@ -155,10 +155,11 @@ def get_products_from_category(url):
 
     links = set()
 
-    for a in soup.select(".product-item a[href]"):
+    # правильный селектор карточек товара
+    for a in soup.select(".product-thumb a[href]"):
         href = a.get("href")
 
-        if href and "/nstrumenti/" in href:
+        if href and "product/product" in href:
             links.add(href)
 
     return list(links)
