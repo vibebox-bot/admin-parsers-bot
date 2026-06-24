@@ -114,8 +114,13 @@ class ExcelWriter:
 # =========================
 
 def get_soup(url):
-    r = session.get(url, headers=HEADERS)
-    return BeautifulSoup(r.text, "html.parser")
+    try:
+        r = session.get(url, headers=HEADERS, timeout=20)
+        r.raise_for_status()
+        return BeautifulSoup(r.text, "html.parser")
+    except Exception as e:
+        print("⚠️ GET ERROR:", url, e)
+        return BeautifulSoup("", "html.parser")
 
 
 def parse_product(url):
@@ -165,7 +170,7 @@ def get_pages(cat_url):
     pages = []
     page = 1
 
-    while True:
+    for _ in range(50):  # защита от бесконечного цикла
         url = f"{cat_url}?page={page}"
         soup = get_soup(url)
 
@@ -176,9 +181,6 @@ def get_pages(cat_url):
 
         pages.append(url)
         page += 1
-
-        if page > 50:
-            break
 
     return pages
     
@@ -209,6 +211,7 @@ def get_categories():
 # =========================
 
 def main():
+    print("🚀 STARTED MAIN")
     create_lock()
 
     if os.path.exists(FILE_PATH):
