@@ -175,15 +175,13 @@ def get_products_from_category(url):
 
 
 def get_pages(cat_url):
-    return [f"{cat_url}?limit=100"]
-    
+    pages = []
+    page = 1
 
-    for page in range(2, 50):
-        url = f"{cat_url}?page={page}&limit=100"
+    while True:
+        url = f"{cat_url}&page={page}" if "?" in cat_url else f"{cat_url}?page={page}"
+
         soup = get_soup(url)
-
-        if not soup:
-            break
 
         items = soup.select("div.product-item")
 
@@ -191,6 +189,10 @@ def get_pages(cat_url):
             break
 
         pages.append(url)
+        page += 1
+
+        if page > 100:
+            break
 
     return pages
     
