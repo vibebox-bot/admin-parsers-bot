@@ -98,16 +98,16 @@ class ExcelWriter:
             self.ws = self.wb.active
 
             self.ws.append([
-                "Category",
                 "Name",
                 "Price",
-                "Code",
-                "URL",
-                "Stock"
+                "Article",
+                "Stock",
+                "URL"
             ])
 
-    def add(self, category, name, price, code, url, stock):
-        self.ws.append([category, name, price, code, url, stock])
+
+    def add(self, name, price, article, stock, url):
+        self.ws.append([name, price, article, stock, url])
 
     def save(self):
         self.wb.save(self.path)
@@ -122,35 +122,36 @@ def get_soup(url):
     return BeautifulSoup(r.text, "html.parser")
 
 
-def parse_product(url, category):
+def parse_product(url):
     soup = get_soup(url)
 
     # NAME
     name = soup.select_one("h1")
     name = name.get_text(strip=True) if name else ""
 
-    # PRICE (на твоём HTML он тут)
+    # PRICE
     price = soup.select_one(".h2")
     price = price.get_text(strip=True) if price else ""
 
-    # CODE (Код товара)
-    code = soup.select_one(".text-danger")
-    code = code.get_text(strip=True) if code else ""
+    # ARTICLE / CODE
+    article = soup.select_one(".text-danger")
+    article = article.get_text(strip=True) if article else ""
 
     # STOCK
-    stock = "OutOfStock"
-    if "Нет в наличии" not in soup.get_text(" ", strip=True):
+    text = soup.get_text(" ", strip=True)
+
+    if "Нет в наличии" in text:
+        stock = "OutOfStock"
+    else:
         stock = "InStock"
 
     return {
-        "category": category,
         "name": name,
         "price": price,
-        "code": code,
-        "url": url,
-        "stock": stock
+        "article": article,
+        "stock": stock,
+        "url": url
     }
-
 
 def get_products_from_category(url):
     soup = get_soup(url)
@@ -235,15 +236,14 @@ def main():
 
                 for link in product_links:
                     try:
-                        data = parse_product(link, cat_name)
+                        data = parse_product(link)
 
                         excel.add(
-                            data["category"],
                             data["name"],
                             data["price"],
-                            data["code"],
-                            data["url"],
-                            data["stock"]
+                            data["article"],
+                            data["stock"],
+                            data["url"]
                         )
 
                         print("✔", data["name"])
