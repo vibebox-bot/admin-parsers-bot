@@ -247,19 +247,14 @@ def parse_product(url):
         price = clean(price_tag.get_text())
 
     # =========================
-    # STOCK FIX (ВАЖНО)
+    # RAW BUTTON TEXT (как на сайте)
     # =========================
     btn = soup.select_one("#button-cart span")
-
+    
     if btn:
-        btn_text = clean(btn.get_text()).lower()
-
-        if "законч" in btn_text or "нет" in btn_text or "out" in btn_text:
-            status = "out_of_stock"
-        else:
-            status = "in_stock"
+        status = clean(btn.get_text())
     else:
-        status = "out_of_stock"
+        status = "Нет кнопки"
 
     return [sku, title, price, status, url]
 
