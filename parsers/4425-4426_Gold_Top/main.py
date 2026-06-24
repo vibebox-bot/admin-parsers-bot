@@ -200,7 +200,7 @@ def main():
     create_lock()
 
     if os.path.exists(FILE_PATH):
-    os.remove(FILE_PATH)
+        os.remove(FILE_PATH)
 
     try:
         os.makedirs(BASE_DIR, exist_ok=True)
