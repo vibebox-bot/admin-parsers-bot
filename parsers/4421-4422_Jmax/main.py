@@ -124,19 +124,6 @@ def get_soup(url):
 def clean(text):
     return text.strip().replace("\n", " ").replace("\t", " ")
 
-def normalize(url):
-    try:
-        from urllib.parse import urlparse, parse_qs
-
-        q = parse_qs(urlparse(url).query)
-
-        # берем product_id если есть
-        if "product_id" in q:
-            return q["product_id"][0]
-
-        return url
-    except:
-        return url
 # =========================
 # LOGIN
 # =========================
@@ -233,7 +220,7 @@ def load_products(cat_url):
             if a:
                 href = a.get("href")
                 if href:
-                    all_products.add(normalize(href))
+                    all_products.add(href)
 
         if len(all_products) == before:
             break
