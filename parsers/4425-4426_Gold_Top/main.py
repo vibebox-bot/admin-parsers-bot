@@ -161,24 +161,27 @@ def get_products_from_category(url):
     return list(links)
 
 
-def get_pages(url):
+def get_pages(cat_url):
     pages = []
     page = 1
-    
+
     while True:
         url = f"{cat_url}?page={page}"
         soup = get_soup(url)
-    
+
         items = soup.select("div.product-item")
-    
+
         if not items:
             break
-    
+
         pages.append(url)
         page += 1
-    
-        if page > 50:  # защита
+
+        if page > 50:
             break
+
+    return pages
+    
 # =========================
 # CATEGORY LIST
 # =========================
