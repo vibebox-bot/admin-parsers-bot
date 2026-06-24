@@ -248,27 +248,18 @@ def main():
 
                 product_links = get_products_from_category(page)
 
-                # считаем FOUND правильно (уникально)
-                for link in product_links:
-                    clean_link = link.split("?")[0]
-                    all_links.add(clean_link)
-                
-                found = len(all_links)
+                found += len(product_links)
 
                 for link in product_links:
                     try:
                         data = parse_product(link)
 
-
-                        data = parse_product(link)
-
-                        article = data["article"]
+                        url = data["url"].split("?")[0]
                         
-                        # защита от дублей
-                        if article in seen:
+                        if url in seen:
                             continue
                         
-                        seen.add(article)
+                        seen.add(url)
                         
                         excel.add(
                             data["name"],
@@ -279,8 +270,6 @@ def main():
                         )
                         
                         written += 1
-                        
-                        excel.save()
                         
                         print("✔", data["name"])
 
