@@ -278,27 +278,32 @@ def main():
 
         print(f"📦 Categories: {len(categories)}")
 
+
+
+
         for i, (cat_name, cat_url) in enumerate(categories, start=1):
             print(f"\n📁 CATEGORY: {cat_name}")
-
+        
             pages = get_pages(cat_url)
-
-            print(f"➡ PAGE: {page}")
-
+        
+            for page in pages:
+        
+                print(f"➡ PAGE: {page}")
+        
                 product_links = get_products_from_category(page)
                 found += len(product_links)
-
+        
                 for link in product_links:
                     try:
                         data = parse_product(link)
-
+        
                         url = data["url"].split("?")[0]
-
+        
                         if url in seen:
                             continue
-
+        
                         seen.add(url)
-
+        
                         excel.add(
                             data["name"],
                             data["price"],
@@ -306,8 +311,9 @@ def main():
                             data["stock"],
                             data["url"]
                         )
-
+        
                         written += 1
+        
                         set_status(
                             running=True,
                             progress=int((i / len(categories)) * 100),
@@ -315,10 +321,10 @@ def main():
                             written=written,
                             cat=cat_name
                         )
-
+        
                     except Exception as e:
                         print("❌ PRODUCT ERROR:", e)
-
+        
                 excel.save()
 
             set_status(
