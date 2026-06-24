@@ -125,7 +125,7 @@ def parse_product(url):
     name_tag = soup.select_one("h1.h2")
     name = name_tag.get_text(strip=True) if name_tag else ""
 
-    # ARTICLE (Код товара)
+    # ARTICLE
     article_tag = soup.select_one(".text-danger")
     article = article_tag.get_text(strip=True) if article_tag else ""
 
@@ -155,13 +155,14 @@ def get_products_from_category(url):
 
     links = set()
 
-    # правильный селектор карточек товара
-    for a in soup.select(".product-thumb a[href]"):
+    for a in soup.select("div.product-item a[href]"):
         href = a.get("href")
 
-        if href and "product/product" in href:
+        if href and "gold-tor.com.ua" in href:
             links.add(href)
-
+            
+    print("FOUND LINKS:", len(links))
+    
     return list(links)
 
 
