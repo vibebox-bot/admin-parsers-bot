@@ -16,6 +16,9 @@ FILE_PATH = os.path.join(BASE_DIR, "Melad_live.xlsx")
 STATUS_PATH = os.path.join(BASE_DIR, "status.json")
 LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
 
+#CATEGORY_LIMIT = None  # или 1 для теста
+CATEGORY_LIMIT = 1  # или 1 для теста
+
 LOGIN_URL = "https://melad.com.ua/login/"
 BASE_URL = "https://melad.com.ua"
 
@@ -156,48 +159,35 @@ def get_products_from_category(url):
 
     for item in items:
 
-        # ссылка на товар
         a_tag = item.select_one("div.image a")
         if not a_tag:
             continue
 
         link = a_tag.get("href")
 
-        # название
         name_tag = item.select_one("div.caption a")
         name = name_tag.get_text(strip=True) if name_tag else ""
 
-        # цена
         price_tag = item.select_one("p.price")
         price = price_tag.get_text(strip=True) if price_tag else ""
 
-        # артикул (код товара)
         sku_tag = item.select_one("span.kod_sku b")
         sku = sku_tag.get_text(strip=True) if sku_tag else ""
 
-        # кнопка корзины (наличие)
-        cart_btn = item.select_one("button.add_to_cart")
+        btn = item.select_one("button.add_to_cart")
+        stock = btn.get_text(strip=True) if btn else ""
 
-        if cart_btn:
-            btn_text = cart_btn.get("data-original-title") or ""
-            stock = btn_text.strip()
-        else:
-            stock = ""
-
-        products.append(link)
+        products.append({
+            "url": link,
+            "name": name,
+            "price": price,
+            "article": sku,
+            "stock": stock
+        })
 
     print(f"   → FOUND PRODUCTS: {len(products)}")
 
-    return [
-    {
-        "url": link,
-        "name": name,
-        "price": price,
-        "article": sku,
-        "stock": stock
-    }
-    for item in items
-]
+    return products
 
 
 # =========================
@@ -271,17 +261,15 @@ def main():
             product_links = get_products_from_category(page)
             found += len(product_links)
 
-            for link in product_links:
-
-                data = parse_product(link)
-
+            for data in product_links:
+            
                 url = data["url"].split("?")[0]
-
+            
                 if url in seen:
                     continue
-
+            
                 seen.add(url)
-
+            
                 excel.add(
                     data["name"],
                     data["price"],
@@ -289,7 +277,7 @@ def main():
                     data["stock"],
                     data["url"]
                 )
-
+            
                 written += 1
 
         excel.save()
