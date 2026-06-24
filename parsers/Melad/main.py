@@ -292,6 +292,7 @@ def main():
 
         excel.save()
 
+    print("FILE EXISTS:", os.path.exists(FILE_PATH))
     print("FOUND:", found)
     print("WRITTEN:", written)
     print("✅ DONE")
