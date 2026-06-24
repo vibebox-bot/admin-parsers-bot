@@ -4,6 +4,8 @@ import time
 import requests
 from bs4 import BeautifulSoup
 from openpyxl import Workbook, load_workbook
+from datetime import datetime
+import pytz
 
 
 # =========================
@@ -34,6 +36,9 @@ session = requests.Session()
 
 print("🔥 LOADED NEW MAIN FILE 2026")
 
+def get_kiev_time():
+    return datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%Y-%m-%d %H:%M:%S")
+
 def set_status(running=True, progress=0, found=0, written=0, cat=""):
     os.makedirs(BASE_DIR, exist_ok=True)
 
@@ -43,7 +48,7 @@ def set_status(running=True, progress=0, found=0, written=0, cat=""):
         "found": found,
         "written": written,
         "last_category": cat,
-        "time": time.time()
+        "time": get_kiev_time()
     }
 
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
@@ -65,15 +70,6 @@ def create_lock():
 def remove_lock():
     if os.path.exists(LOCK_FILE):
         os.remove(LOCK_FILE)
-
-
-# =========================
-# STATUS
-# =========================
-
-def save_status(data):
-    with open(STATUS_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 # =========================
@@ -133,6 +129,9 @@ def get_soup(url):
     try:
         r = session.get(url, headers=HEADERS, timeout=20)
 
+        if not r or not r.text:
+            return None
+
         if r.status_code != 200:
             print(f"❌ HTTP {r.status_code}: {url}")
             return None
@@ -150,6 +149,15 @@ def get_soup(url):
 
 def parse_product(url):
     soup = get_soup(url)
+
+    if soup is None:
+        return {
+            "name": "",
+            "price": "",
+            "article": "",
+            "stock": "",
+            "url": url
+        }
 
     # NAME
     name_tag = soup.select_one("h1.h2")
@@ -270,14 +278,11 @@ def main():
 
         print(f"📦 Categories: {len(categories)}")
 
-        for cat_name, cat_url in categories:
-            done += 1
-            set_status(True, int(done / total * 100), found, written, cat_name)
+        for i, (cat_name, cat_url) in enumerate(categories, start=1):
             print(f"\n📁 CATEGORY: {cat_name}")
 
             pages = get_pages(cat_url)
 
-            for page in pages:
                 print(f"➡ PAGE: {page}")
 
                 product_links = get_products_from_category(page)
@@ -303,18 +308,34 @@ def main():
                         )
 
                         written += 1
+                        set_status(
+                            running=True,
+                            progress=int((i / len(categories)) * 100),
+                            found=found,
+                            written=written,
+                            cat=cat_name
+                        )
 
                     except Exception as e:
                         print("❌ PRODUCT ERROR:", e)
 
                 excel.save()
 
-            save_status({
-                "last_category": cat_name,
-                "time": time.time()
-            })
+            set_status(
+                running=True,
+                progress=int((i / len(categories)) * 100),
+                found=found,
+                written=written,
+                cat=cat_name
+            )
 
-        set_status(False, 100, found, written, "DONE")
+        set_status(
+            running=False,
+            progress=100,
+            found=found,
+            written=written,
+            cat="DONE"
+        )
 
         print("\n====================")
         print("FOUND:", found)
@@ -327,15 +348,15 @@ def main():
         print("🔥 FATAL ERROR:", e)
 
         print("💾 FINAL SAVE STATUS")
-    
-        save_status({
-            "running": False,
-            "progress": 100,
-            "found": found,
-            "written": written,
-            "finished": True,
-            "time": time.time()
-        })
+
+
+        set_status(
+            running=False,
+            progress=100,
+            found=found,
+            written=written,
+            cat="ERROR"
+        )
 
     finally:
         excel.save()
