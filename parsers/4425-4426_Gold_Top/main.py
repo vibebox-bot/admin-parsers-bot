@@ -90,20 +90,16 @@ class ExcelWriter:
     def __init__(self, path):
         self.path = path
 
-        if os.path.exists(path):
-            self.wb = load_workbook(path)
-            self.ws = self.wb.active
-        else:
-            self.wb = Workbook()
-            self.ws = self.wb.active
+        self.wb = Workbook()
+        self.ws = self.wb.active
 
-            self.ws.append([
-                "Name",
-                "Price",
-                "Article",
-                "Stock",
-                "URL"
-            ])
+        self.ws.append([
+            "Name",
+            "Price",
+            "Article",
+            "Stock",
+            "URL"
+        ])
 
 
     def add(self, name, price, article, stock, url):
@@ -203,6 +199,9 @@ def get_categories():
 def main():
     create_lock()
 
+    if os.path.exists(FILE_PATH):
+    os.remove(FILE_PATH)
+
     try:
         os.makedirs(BASE_DIR, exist_ok=True)
 
@@ -245,7 +244,7 @@ def main():
                             data["stock"],
                             data["url"]
                         )
-
+                        excel.save()
                         print("✔", data["name"])
 
                     except Exception as e:
