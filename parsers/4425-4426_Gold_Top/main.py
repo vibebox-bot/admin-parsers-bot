@@ -165,16 +165,10 @@ def get_products_from_category(url):
 
     links = set()
 
-    for a in soup.select("div.product-layout a[href]"):
-        href = a.get("href")
-
-        if not href:
-            continue
-
-        if "/product" not in href:
-            continue
-
-        links.add(href.split("?")[0])
+    for item in soup.select("div.product-item"):
+        a = item.select_one("div.product-image a[href]")
+        if a:
+            links.add(a["href"].split("?")[0])
 
     print("FOUND LINKS:", len(links))
     return list(links)
