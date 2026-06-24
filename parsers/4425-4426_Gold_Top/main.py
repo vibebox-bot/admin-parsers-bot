@@ -272,6 +272,7 @@ def main():
 
         for cat_name, cat_url in categories:
             done += 1
+            set_status(True, int(done / total * 100), found, written, cat_name)
             print(f"\n📁 CATEGORY: {cat_name}")
 
             pages = get_pages(cat_url)
