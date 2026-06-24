@@ -303,6 +303,17 @@ def main():
     except Exception as e:
         print("🔥 FATAL ERROR:", e)
 
+    print("💾 FINAL SAVE STATUS")
+
+    save_status({
+        "running": False,
+        "progress": 100,
+        "found": found,
+        "written": written,
+        "finished": True,
+        "time": time.time()
+    })
+
     finally:
         excel.save()
         remove_lock()
