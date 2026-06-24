@@ -123,8 +123,10 @@ def get_soup(url):
             r = session.get(
                 url,
                 headers=HEADERS,
-                timeout=15
+                timeout=15,
+                allow_redirects=True
             )
+
             r.raise_for_status()
             return BeautifulSoup(r.text, "html.parser")
 
@@ -228,10 +230,14 @@ def get_categories():
 
 def main():
     print("🚀 STARTED")
+    print("🔥 DEBUG MODE ON")
     create_lock()
 
     if os.path.exists(FILE_PATH):
-        os.remove(FILE_PATH)
+        try:
+            os.remove(FILE_PATH)
+        except:
+            pass
 
     try:
         os.makedirs(BASE_DIR, exist_ok=True)
@@ -253,7 +259,7 @@ def main():
         print(f"📦 Categories: {len(categories)}")
 
         for cat_name, cat_url in categories:
-            #print(f"\n📁 CATEGORY: {cat_name}")
+            print(f"\n📁 CATEGORY: {cat_name}")
 
             pages = [cat_url]
 
@@ -263,7 +269,7 @@ def main():
 
             for page in pages:
                 time.sleep(0.7)
-                #print(f"➡ PAGE: {page}")
+                print(f"➡ PAGE: {page}")
 
 
                 product_links = get_products_from_category(page)
@@ -306,6 +312,7 @@ def main():
 
         print("FOUND:", found)
         print("WRITTEN:", written)
+        excel.save()  # 👈 ДОБАВЬ ЭТО
         print("\n✅ DONE")
 
     finally:
@@ -313,4 +320,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print("🔥 FATAL ERROR:", e)
