@@ -175,12 +175,12 @@ def get_products_from_category(url):
     print(f"FOUND LINKS: {len(links)}")
     return list(links)
 
-
 def get_pages(cat_url):
-    pages = [cat_url]
+    return [f"{cat_url}?limit=100"]
+    
 
     for page in range(2, 50):
-        url = f"{cat_url}?page={page}"
+        url = f"{cat_url}?page={page}&limit=100"
         soup = get_soup(url)
 
         if not soup:
