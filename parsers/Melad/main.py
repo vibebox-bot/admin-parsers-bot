@@ -243,9 +243,10 @@ def main():
         return
 
     excel = ExcelWriter(FILE_PATH)
+    print("EXCEL FILE:", FILE_PATH)
+    excel.save()
 
     seen = set()
-    seen_sku = set()
     found = 0
     written = 0
 
@@ -267,14 +268,11 @@ def main():
 
 
                 url = data["url"].split("?")[0].rstrip("/").lower()
-                sku = data["article"].strip()
                 
-                # защита от дублей
-                if url in seen or sku in seen_sku:
+                if url in seen:
                     continue
                 
                 seen.add(url)
-                seen_sku.add(sku)
                 
             
                 excel.add(
