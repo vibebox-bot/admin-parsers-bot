@@ -221,6 +221,8 @@ def main():
             return
 
         excel = ExcelWriter(FILE_PATH)
+        seen = set()
+        all_links = set()
         found = 0
         written = 0
 
@@ -243,13 +245,31 @@ def main():
             for page in pages:
                 print(f"➡ PAGE: {page}")
 
+
                 product_links = get_products_from_category(page)
-                found += len(product_links)
+
+                # считаем FOUND правильно (уникально)
+                for link in product_links:
+                    clean_link = link.split("?")[0]
+                    all_links.add(clean_link)
+                
+                found = len(all_links)
 
                 for link in product_links:
                     try:
                         data = parse_product(link)
 
+
+                        data = parse_product(link)
+
+                        article = data["article"]
+                        
+                        # защита от дублей
+                        if article in seen:
+                            continue
+                        
+                        seen.add(article)
+                        
                         excel.add(
                             data["name"],
                             data["price"],
@@ -257,9 +277,11 @@ def main():
                             data["stock"],
                             data["url"]
                         )
+                        
                         written += 1
-                        print("FOUND:", found)
-                        print("WRITTEN:", written)
+                        
+                        excel.save()
+                        
                         print("✔", data["name"])
 
                     except Exception as e:
@@ -272,6 +294,8 @@ def main():
                 "time": time.time()
             })
 
+        print("FOUND:", found)
+        print("WRITTEN:", written)
         print("\n✅ DONE")
 
     finally:
