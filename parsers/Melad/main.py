@@ -1,56 +1,59 @@
 import os
+import json
 import time
-from datetime import datetime
-
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-
+import requests
+from bs4 import BeautifulSoup
 from openpyxl import Workbook
-from selenium_config import get_chrome_options
+
 
 # =========================
 # CONFIG
 # =========================
 
-BASE_URL = "https://melad.com.ua"
+BASE_DIR = os.path.abspath("output/Melad")
+
+FILE_PATH = os.path.join(BASE_DIR, "Melad_live.xlsx")
+STATUS_PATH = os.path.join(BASE_DIR, "status.json")
+LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
+
 LOGIN_URL = "https://melad.com.ua/login/"
+BASE_URL = "https://melad.com.ua"
 
 EMAIL = "titorangelina@gmail.com"
 PASSWORD = "18022021"
 
-OUTPUT_DIR = os.path.abspath("output/Melad")
-FILE_PATH = os.path.join(OUTPUT_DIR, "Melad_ALL.xlsx")
+HEADERS = {
+    "User-Agent": "Mozilla/5.0"
+}
 
-import json
-STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
+session = requests.Session()
 
-
-def update_progress(percent):
-    try:
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-        if not os.path.exists(STATUS_PATH):
-            return
-
-        with open(STATUS_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        data["progress"] = int(percent)
-
-        with open(STATUS_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-    except:
-        pass
 
 # =========================
-# DRIVER
+# LOCK
 # =========================
 
-driver = None
-wait = None
+def create_lock():
+    if os.path.exists(LOCK_FILE):
+        print("❌ Already running")
+        exit()
+
+    with open(LOCK_FILE, "w") as f:
+        f.write("locked")
+
+
+def remove_lock():
+    if os.path.exists(LOCK_FILE):
+        os.remove(LOCK_FILE)
+
+
+# =========================
+# HTTP
+# =========================
+
+def get_soup(url):
+    r = session.get(url, headers=HEADERS)
+    return BeautifulSoup(r.text, "html.parser")
 
 
 # =========================
@@ -58,225 +61,245 @@ wait = None
 # =========================
 
 def login():
-    print("LOGIN START")
+    print("🔐 LOGIN...")
 
-    driver.get(LOGIN_URL)
-    time.sleep(2)
+    payload = {
+        "email": EMAIL,
+        "password": PASSWORD
+    }
 
-    driver.find_element(By.NAME, "email").send_keys(EMAIL)
-    driver.find_element(By.NAME, "password").send_keys(PASSWORD)
-    driver.find_element(By.CSS_SELECTOR, "input[type='submit']").click()
+    r = session.post(LOGIN_URL, data=payload, headers=HEADERS)
 
-    time.sleep(3)
+    if "logout" in r.text.lower() or "account" in r.text.lower():
+        print("✅ LOGIN SUCCESS")
+        return True
 
-    print("LOGIN DONE")
+    print("❌ LOGIN FAILED")
+    return False
 
 
 # =========================
-# GET CATEGORIES
+# CATEGORIES (ТОЛЬКО ГЛАВНЫЕ)
 # =========================
 
 def get_categories():
-    print("LOADING HOME FOR CATEGORIES...")
+    print("📂 GET CATEGORIES...")
 
-    driver.get(BASE_URL)
-    time.sleep(3)
+    soup = get_soup(BASE_URL)
 
     categories = []
-    seen = set()
 
-    # 🔥 берем только основные категории
-    blocks = driver.find_elements(By.CSS_SELECTOR, ".has-children")
+    # ищем главное меню
+    menu_items = soup.select("li.has-children > a")
 
-    for block in blocks:
-        try:
-            a = block.find_element(By.CSS_SELECTOR, "a")
-            href = a.get_attribute("href")
+    for item in menu_items:
+        name = item.get_text(strip=True)
 
-            if not href:
-                continue
+        # чистим лишние иконки/стрелки
+        name = name.replace("›", "").replace("›", "").strip()
 
-            if "melad.com.ua" not in href:
-                continue
+        url = item.get("href")
 
-            if any(x in href for x in ["login", "account", "cart", "checkout"]):
-                continue
-
-            if href in seen:
-                continue
-
-            seen.add(href)
-            categories.append(href)
-
-        except:
+        if not url:
             continue
 
-    print("CATEGORIES FOUND:", len(categories))
-    for c in categories:
-        print("CAT:", c)
+        # приводим относительные ссылки к абсолютным
+        if url.startswith("/"):
+            url = BASE_URL + url
+
+        # фильтр от мусора (если вдруг попадётся вложенное)
+        if "javascript" in url:
+            continue
+
+        categories.append((name, url))
+
+    # убираем дубликаты (очень важно для таких меню)
+    categories = list(dict.fromkeys(categories))
+
+    print(f"✅ FOUND CATEGORIES: {len(categories)}")
 
     return categories
 
 
 # =========================
-# GET PRODUCTS ON PAGE
+# PAGES (ПАГИНАЦИЯ)
 # =========================
 
-def get_products():
-    time.sleep(2)
+def get_pages(url):
+    soup = get_soup(url)
 
-    cards = driver.find_elements(By.CSS_SELECTOR, ".product-thumb")
+    pages = [url]
 
-    results = []
+    pagination = soup.select("div.pagination_wrap ul.pagination a")
 
-    for c in cards:
+    for a in pagination:
+        href = a.get("href")
 
-        try:
-            name = c.find_element(By.CSS_SELECTOR, ".caption a").text.strip()
-        except:
-            name = ""
+        if href and "page=" in href:
+            pages.append(href)
 
-        try:
-            price = c.find_element(By.CSS_SELECTOR, ".price").text.strip()
-        except:
-            price = ""
-
-        try:
-            code = c.find_element(By.CSS_SELECTOR, ".kod_sku b").text.strip()
-        except:
-            code = ""
-
-        try:
-            status = c.find_element(By.CSS_SELECTOR, ".hidden-sm").text.strip()
-        except:
-            try:
-                status = c.find_element(By.CSS_SELECTOR, ".add_to_cart").text.strip()
-            except:
-                status = ""
-
-        results.append((name, price, code, status))
-
-    print("DEBUG CARDS FOUND:", len(cards))
-
-    return results
+    return list(dict.fromkeys(pages))
 
 
 # =========================
-# CATEGORY PARSER (FULL PAGINATION)
+# PRODUCTS FROM CATEGORY
 # =========================
 
-def parse_category(url, ws):
-    print("OPEN CATEGORY:", url)
-    print("\nCATEGORY:", url)
+def get_products_from_category(url):
+    print(f"📦 PARSING CATEGORY: {url}")
 
-    page = 1
+    soup = get_soup(url)
+
+    products = []
+
+    items = soup.select("div.product-layout.product-grid")
+
+    for item in items:
+
+        # ссылка на товар
+        a_tag = item.select_one("div.image a")
+        if not a_tag:
+            continue
+
+        link = a_tag.get("href")
+
+        # название
+        name_tag = item.select_one("div.caption a")
+        name = name_tag.get_text(strip=True) if name_tag else ""
+
+        # цена
+        price_tag = item.select_one("p.price")
+        price = price_tag.get_text(strip=True) if price_tag else ""
+
+        # артикул (код товара)
+        sku_tag = item.select_one("span.kod_sku b")
+        sku = sku_tag.get_text(strip=True) if sku_tag else ""
+
+        # кнопка корзины (наличие)
+        cart_btn = item.select_one("button.add_to_cart")
+
+        if cart_btn:
+            btn_text = cart_btn.get("data-original-title") or ""
+            stock = btn_text.strip()
+        else:
+            stock = ""
+
+        products.append(link)
+
+    print(f"   → FOUND PRODUCTS: {len(products)}")
+
+    return [
+    {
+        "url": link,
+        "name": name,
+        "price": price,
+        "article": sku,
+        "stock": stock
+    }
+    for item in items
+]
+
+
+# =========================
+# PRODUCT PARSER
+# =========================
+
+def parse_product(url):
+    # TODO: вставим позже
+    return {
+        "name": "",
+        "price": "",
+        "article": "",
+        "stock": "",
+        "url": url
+    }
+
+
+# =========================
+# EXCEL
+# =========================
+
+class ExcelWriter:
+    def __init__(self, path):
+        self.path = path
+        self.wb = Workbook()
+        self.ws = self.wb.active
+
+        self.ws.append([
+            "Name",
+            "Price",
+            "Article",
+            "Stock",
+            "URL"
+        ])
+
+    def add(self, name, price, article, stock, url):
+        self.ws.append([name, price, article, stock, url])
+
+    def save(self):
+        self.wb.save(self.path)
+
+
+# =========================
+# MAIN
+# =========================
+
+def main():
+    create_lock()
+
+    os.makedirs(BASE_DIR, exist_ok=True)
+
+    print("🚀 STARTED MELAD")
+
+    if not login():
+        return
+
+    excel = ExcelWriter(FILE_PATH)
+
     seen = set()
-    total = 0
+    found = 0
+    written = 0
 
-    while True:
+    categories = get_categories()
 
-        current_url = url if page == 1 else f"{url}?page={page}"
+    for cat_name, cat_url in categories:
 
-        print("PAGE:", page, current_url)
+        pages = [cat_url] + get_pages(cat_url)
 
-        driver.get(current_url)
-        time.sleep(3)
+        for page in pages:
 
-        products = get_products()
+            product_links = get_products_from_category(page)
+            found += len(product_links)
 
-        print("FOUND:", len(products))
+            for link in product_links:
 
-        if not products:
-            print("NO PRODUCTS -> STOP CATEGORY")
-            break
+                data = parse_product(link)
 
-        new_items = 0
+                url = data["url"].split("?")[0]
 
-        for p in products:
+                if url in seen:
+                    continue
 
-            key = (p[0], p[2])
+                seen.add(url)
 
-            if key in seen:
-                continue
+                excel.add(
+                    data["name"],
+                    data["price"],
+                    data["article"],
+                    data["stock"],
+                    data["url"]
+                )
 
-            seen.add(key)
-            new_items += 1
-            total += 1
+                written += 1
 
-            ws.append([
-                url,
-                p[0],
-                p[1],
-                p[2],
-                p[3]
-            ])
+        excel.save()
 
-        print("NEW:", new_items)
+    print("FOUND:", found)
+    print("WRITTEN:", written)
+    print("✅ DONE")
 
-        if new_items == 0:
-            print("NO NEW ITEMS -> STOP")
-            break
-
-        page += 1
-
-        if page > 50:
-            print("SAFETY STOP")
-            break
-
-    print("TOTAL IN CATEGORY:", total)
-
-
-# =========================
-# RUN
-# =========================
-
-def run_parser():
-
-    global driver, wait
-
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    driver = webdriver.Chrome(options=get_chrome_options())
-    
-    wait = WebDriverWait(driver, 20)
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "melad"
-
-    ws.append(["Category", "Name", "Price", "Code", "Status"])
-
-    try:
-        login()
-
-        categories = get_categories()
-        total_cats = len(categories)
-
-        print("DEBUG CATEGORIES COUNT:", len(categories))
-        print(categories[:3])
-
-        for i, cat in enumerate(categories, 1):
-
-            percent = int((i / total_cats) * 100)
-            update_progress(percent)
-
-            print(f"CAT {i}/{total_cats}")
-
-            parse_category(cat, ws)
-
-        wb.save(FILE_PATH)
-
-        print("\nDONE:", FILE_PATH)
-
-    finally:
-        try:
-            driver.quit()
-        except:
-            pass
-
-
-# IMPORTANT FOR IMPORT
-run_parser = run_parser
+    remove_lock()
 
 
 if __name__ == "__main__":
-    run_parser()
+    main()
