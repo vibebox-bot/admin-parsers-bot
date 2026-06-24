@@ -152,21 +152,33 @@ def get_products_from_category(url):
 
     for a in soup.select("div.product-name a[href]"):
         href = a.get("href")
-
+    
         if href:
-            links.add(href)
+            links.add(href.split("?")[0])
+
 
     print("FOUND LINKS:", len(links))
     return list(links)
 
 
 def get_pages(url):
-    soup = get_soup(url)
-    pages = soup.select(".pagination a.page-link")
-
-    return [p.get("href") for p in pages if p.get("href")]
-
-
+    pages = []
+    page = 1
+    
+    while True:
+        url = f"{cat_url}?page={page}"
+        soup = get_soup(url)
+    
+        items = soup.select("div.product-item")
+    
+        if not items:
+            break
+    
+        pages.append(url)
+        page += 1
+    
+        if page > 50:  # защита
+            break
 # =========================
 # CATEGORY LIST
 # =========================
@@ -224,8 +236,6 @@ def main():
             more_pages = get_pages(cat_url)
             if more_pages:
                 pages.extend(more_pages)
-
-            pages = list(set(pages))
 
             for page in pages:
                 print(f"➡ PAGE: {page}")
