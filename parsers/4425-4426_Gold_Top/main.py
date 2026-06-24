@@ -32,6 +32,7 @@ HEADERS = {
 
 session = requests.Session()
 
+print("🔥 LOADED NEW MAIN FILE 2026")
 
 # =========================
 # LOCK
@@ -39,11 +40,11 @@ session = requests.Session()
 
 def create_lock():
     if os.path.exists(LOCK_FILE):
-        print("❌ Already running")
-        exit()
+        print("⚠️ OLD LOCK FOUND → removing")
+        os.remove(LOCK_FILE)
 
     with open(LOCK_FILE, "w") as f:
-        f.write("locked")
+        f.write("1")
 
 
 def remove_lock():
