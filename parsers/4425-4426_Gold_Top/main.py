@@ -18,8 +18,8 @@ FILE_PATH = os.path.join(BASE_DIR, "Харьковская_4425-4426_Gold_Top_LI
 STATUS_PATH = os.path.join(BASE_DIR, "status.json")
 LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
 
-CATEGORY_LIMIT = None  # или 1 для теста
-#CATEGORY_LIMIT = 4  # или 1 для теста
+#CATEGORY_LIMIT = None  # или 1 для теста
+CATEGORY_LIMIT = 4  # или 1 для теста
 
 LOGIN_URL = "https://www.gold-tor.com.ua/index.php?route=account/login"
 
@@ -197,29 +197,15 @@ def get_products_from_category(url):
 
 
 def get_pages(cat_url):
-    pages = []
+    soup = get_soup(cat_url)
 
-    base = cat_url
-    if "limit=" not in base:
-        base += "&limit=100" if "?" in base else "?limit=100"
+    pages = [cat_url]
 
-    page = 1
-
-    while True:
-        url = f"{base}&page={page}" if "?" in base else f"{base}?page={page}"
-
-        soup = get_soup(url)
-
-        items = soup.select("div.product-layout, div.product-item, div.product-thumb")
-
-        if not items:
-            break
-
-        pages.append(url)
-        page += 1
-
-        if page > 200:
-            break
+    for a in soup.select(".pagination a, ul.pagination a"):
+        href = a.get("href")
+        if href:
+            if href not in pages:
+                pages.append(href)
 
     return pages
     
