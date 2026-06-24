@@ -31,6 +31,12 @@ def now():
 print("🔥 BOT STARTED")
 
 bot = Bot(token=BOT_TOKEN)
+
+import requests
+
+requests.get(
+    f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true"
+)
 dp = Dispatcher()
 
 
