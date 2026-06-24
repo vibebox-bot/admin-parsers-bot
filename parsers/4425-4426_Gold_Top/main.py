@@ -16,8 +16,8 @@ FILE_PATH = os.path.join(BASE_DIR, "Харьковская_4425-4426_Gold_Top_LI
 STATUS_PATH = os.path.join(BASE_DIR, "status.json")
 LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
 
-#CATEGORY_LIMIT = None  # или 1 для теста
-CATEGORY_LIMIT = 1  # или 1 для теста
+CATEGORY_LIMIT = None  # или 1 для теста
+#CATEGORY_LIMIT = 1  # или 1 для теста
 
 LOGIN_URL = "https://www.gold-tor.com.ua/index.php?route=account/login"
 
@@ -157,7 +157,7 @@ def get_products_from_category(url):
             links.add(href.split("?")[0])
 
 
-    print("FOUND LINKS:", len(links))
+    #print("FOUND LINKS:", len(links))
     return list(links)
 
 
@@ -209,6 +209,7 @@ def get_categories():
 # =========================
 
 def main():
+    print("🚀 STARTED")
     create_lock()
 
     if os.path.exists(FILE_PATH):
@@ -234,7 +235,7 @@ def main():
         print(f"📦 Categories: {len(categories)}")
 
         for cat_name, cat_url in categories:
-            print(f"\n📁 CATEGORY: {cat_name}")
+            #print(f"\n📁 CATEGORY: {cat_name}")
 
             pages = [cat_url]
 
@@ -243,7 +244,7 @@ def main():
                 pages.extend(more_pages)
 
             for page in pages:
-                print(f"➡ PAGE: {page}")
+                #print(f"➡ PAGE: {page}")
 
 
                 product_links = get_products_from_category(page)
@@ -271,7 +272,7 @@ def main():
                         
                         written += 1
                         
-                        print("✔", data["name"])
+                        #print("✔", data["name"])
 
                     except Exception as e:
                         print("❌ product error:", e)
