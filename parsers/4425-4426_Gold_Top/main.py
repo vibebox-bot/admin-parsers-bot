@@ -114,8 +114,22 @@ class ExcelWriter:
 # =========================
 
 def get_soup(url):
-    r = session.get(url, headers=HEADERS)
-    return BeautifulSoup(r.text, "html.parser")
+    for i in range(3):  # retry 3 раза
+        try:
+            r = session.get(
+                url,
+                headers=HEADERS,
+                timeout=15
+            )
+            r.raise_for_status()
+            return BeautifulSoup(r.text, "html.parser")
+
+        except Exception as e:
+            print(f"⚠ retry {i+1}/3 -> {url}")
+            time.sleep(2)
+
+    print(f"❌ FAILED URL: {url}")
+    return BeautifulSoup("", "html.parser")
 
 
 def parse_product(url):
@@ -244,6 +258,7 @@ def main():
                 pages.extend(more_pages)
 
             for page in pages:
+                time.sleep(0.7)
                 #print(f"➡ PAGE: {page}")
 
 
@@ -252,6 +267,7 @@ def main():
                 found += len(product_links)
 
                 for link in product_links:
+                    time.sleep(0.3)
                     try:
                         data = parse_product(link)
 
