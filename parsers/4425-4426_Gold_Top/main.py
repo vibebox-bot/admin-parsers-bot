@@ -125,17 +125,21 @@ def get_soup(url):
 def parse_product(url, category):
     soup = get_soup(url)
 
+    # NAME
     name = soup.select_one("h1")
-    name = name.text.strip() if name else ""
+    name = name.get_text(strip=True) if name else ""
 
+    # PRICE (на твоём HTML он тут)
     price = soup.select_one(".h2")
-    price = price.text.strip() if price else ""
+    price = price.get_text(strip=True) if price else ""
 
+    # CODE (Код товара)
     code = soup.select_one(".text-danger")
-    code = code.text.strip() if code else ""
+    code = code.get_text(strip=True) if code else ""
 
+    # STOCK
     stock = "OutOfStock"
-    if "Нет в наличии" not in soup.text:
+    if "Нет в наличии" not in soup.get_text(" ", strip=True):
         stock = "InStock"
 
     return {
@@ -151,15 +155,15 @@ def parse_product(url, category):
 def get_products_from_category(url):
     soup = get_soup(url)
 
-    items = soup.select(".product-item a[href]")
-    links = []
+    links = set()
 
-    for i in items:
-        href = i.get("href")
-        if href and "/product" in href or "/nstrumenti" in href:
-            links.append(href)
+    for a in soup.select(".product-item a[href]"):
+        href = a.get("href")
 
-    return list(set(links))
+        if href and "/nstrumenti/" in href:
+            links.add(href)
+
+    return list(links)
 
 
 def get_pages(url):
