@@ -16,8 +16,8 @@ FILE_PATH = os.path.join(BASE_DIR, "Харьковская_4425-4426_Gold_Top_LI
 STATUS_PATH = os.path.join(BASE_DIR, "status.json")
 LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
 
-CATEGORY_LIMIT = None  # или 1 для теста
-#CATEGORY_LIMIT = 1  # или 1 для теста
+#CATEGORY_LIMIT = None  # или 1 для теста
+CATEGORY_LIMIT = 1  # или 1 для теста
 
 LOGIN_URL = "https://www.gold-tor.com.ua/index.php?route=account/login"
 
@@ -38,16 +38,12 @@ session = requests.Session()
 # =========================
 
 def create_lock():
-    os.makedirs(os.path.dirname(LOCK_FILE), exist_ok=True)
-
     if os.path.exists(LOCK_FILE):
-        try:
-            os.remove(LOCK_FILE)   # 👈 автоматически чистим старый lock
-        except:
-            pass
+        print("❌ Already running")
+        exit()
 
     with open(LOCK_FILE, "w") as f:
-        f.write(str(time.time()))
+        f.write("locked")
 
 
 def remove_lock():
@@ -118,24 +114,8 @@ class ExcelWriter:
 # =========================
 
 def get_soup(url):
-    for i in range(3):  # retry 3 раза
-        try:
-            r = session.get(
-                url,
-                headers=HEADERS,
-                timeout=15,
-                allow_redirects=True
-            )
-
-            r.raise_for_status()
-            return BeautifulSoup(r.text, "html.parser")
-
-        except Exception as e:
-            print(f"⚠ retry {i+1}/3 -> {url}")
-            time.sleep(2)
-
-    print(f"❌ FAILED URL: {url}")
-    return BeautifulSoup("", "html.parser")
+    r = session.get(url, headers=HEADERS)
+    return BeautifulSoup(r.text, "html.parser")
 
 
 def parse_product(url):
@@ -177,7 +157,7 @@ def get_products_from_category(url):
             links.add(href.split("?")[0])
 
 
-    #print("FOUND LINKS:", len(links))
+    print("FOUND LINKS:", len(links))
     return list(links)
 
 
@@ -229,15 +209,10 @@ def get_categories():
 # =========================
 
 def main():
-    print("🚀 STARTED")
-    print("🔥 DEBUG MODE ON")
     create_lock()
 
     if os.path.exists(FILE_PATH):
-        try:
-            os.remove(FILE_PATH)
-        except:
-            pass
+        os.remove(FILE_PATH)
 
     try:
         os.makedirs(BASE_DIR, exist_ok=True)
@@ -268,7 +243,6 @@ def main():
                 pages.extend(more_pages)
 
             for page in pages:
-                time.sleep(0.7)
                 print(f"➡ PAGE: {page}")
 
 
@@ -277,7 +251,6 @@ def main():
                 found += len(product_links)
 
                 for link in product_links:
-                    time.sleep(0.3)
                     try:
                         data = parse_product(link)
 
@@ -298,7 +271,7 @@ def main():
                         
                         written += 1
                         
-                        #print("✔", data["name"])
+                        print("✔", data["name"])
 
                     except Exception as e:
                         print("❌ product error:", e)
@@ -312,7 +285,6 @@ def main():
 
         print("FOUND:", found)
         print("WRITTEN:", written)
-        excel.save()  # 👈 ДОБАВЬ ЭТО
         print("\n✅ DONE")
 
     finally:
@@ -320,7 +292,4 @@ def main():
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print("🔥 FATAL ERROR:", e)
+    main()
