@@ -538,19 +538,19 @@ async def cb(call: types.CallbackQuery):
             code = await run_parser(key)
 
             # если его НЕ отменили вручную
-            st = load_json(s["status"])
-            if st and st.get("canceled"):
-                return  # уже обработано cancel
+            st = load_json(s["status"]) or {}
 
             save_json(s["status"], {
                 "running": False,
                 "canceled": False,
-                "user": call.from_user.full_name,
-                "time": now().strftime("%Y-%m-%d %H:%M:%S"),
+                "user": st.get("user"),
+                "time": st.get("time"),
                 "progress": 100,
+                "found": st.get("found", 0),
+                "written": st.get("written", 0),
                 "file_path": s["file"]
             })
-
+            
             await call.message.edit_text(
                 "✅ ГОТОВО\n" + bar(100),
                 reply_markup=kb_supplier(key, False)
