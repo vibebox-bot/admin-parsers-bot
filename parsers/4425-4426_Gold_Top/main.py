@@ -6,7 +6,9 @@ from bs4 import BeautifulSoup
 from openpyxl import Workbook, load_workbook
 from datetime import datetime
 import pytz
+import sys
 
+USER = sys.argv[1] if len(sys.argv) > 1 else "unknown"
 
 # =========================
 # CONFIG
@@ -292,7 +294,7 @@ def get_categories():
 def main():
     print("🚀 STARTED MAIN")
 
-    set_status(True, 0, user="system", file_path=FILE_PATH)
+    set_status(True, 0, user=USER, file_path=FILE_PATH)
     create_lock()    
 
     os.makedirs(BASE_DIR, exist_ok=True)
