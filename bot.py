@@ -243,11 +243,11 @@ def dashboard_text():
         if st and not st.get("running") and os.path.exists(s["file"]):
 
             kyiv = pytz.timezone("Europe/Kyiv")
-            
-            age = (
-                now() - datetime.fromtimestamp(os.path.getmtime(s["file"]), kyiv)
-            ).days
 
+            age = (
+                now() - datetime.fromtimestamp(os.path.getmtime(s["file"]))
+            ).days
+           
             if age >= 3:
                 warn = "⚠️"
 
