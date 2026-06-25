@@ -24,8 +24,9 @@ from config import BOT_TOKEN, ALLOWED_USERS
 from datetime import datetime
 import pytz
 
+
 def now():
-    return datetime.now(pytz.timezone("Europe/Kyiv"))
+    return datetime.now()
     
 
 print("🔥 BOT STARTED")
