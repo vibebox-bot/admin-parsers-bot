@@ -25,7 +25,7 @@ from datetime import datetime
 import pytz
 
 def now():
-    return datetime.now()
+    return datetime.now(pytz.timezone("Europe/Kyiv"))
     
 
 print("🔥 BOT STARTED")
@@ -181,7 +181,11 @@ def age_days(st):
     if not st or not st.get("time"):
         return 999
     try:
+        from datetime import timezone
+        
         t = datetime.strptime(st["time"], "%Y-%m-%d %H:%M")
+        t = pytz.timezone("Europe/Kyiv").localize(t)
+        
         return (now() - t).days
     except:
         return 999
