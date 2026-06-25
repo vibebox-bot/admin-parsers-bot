@@ -42,20 +42,29 @@ print("🔥 LOADED NEW MAIN FILE 2026")
 def get_kiev_time():
     return datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%Y-%m-%d %H:%M:%S")
 
-def set_status(running=True, progress=0, found=0, written=0, cat=""):
-    os.makedirs(BASE_DIR, exist_ok=True)
+def set_status(**kwargs):
+    os.makedirs(os.path.dirname(STATUS_PATH), exist_ok=True)
 
-    data = {
-        "running": running,
-        "progress": progress,
-        "found": found,
-        "written": written,
-        "last_category": cat,
-        "time": get_kiev_time()
-    }
+    # 1. читаем старые данные
+    data = {}
+    if os.path.exists(STATUS_PATH):
+        try:
+            with open(STATUS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except:
+            data = {}
 
+    # 2. обновляем
+    data.update(kwargs)
+
+    # 3. ВСЕГДА обновляем время только если нет
+    if "time" not in data:
+        data["time"] = get_kiev_time()
+
+    # 4. сохраняем обратно
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
 
 # =========================
 # LOCK
