@@ -245,7 +245,7 @@ def dashboard_text():
         warn = ""
 
         if st and not st.get("running") and os.path.exists(s["file"]):
-            age = (now() - datetime.fromtimestamp(os.path.getmtime(file_path))).days
+            age = (now() - datetime.fromtimestamp(os.path.getmtime(s["file"]))).days
             if age >= 3:
                 warn = "⚠️"
 
