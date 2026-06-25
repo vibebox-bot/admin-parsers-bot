@@ -51,8 +51,9 @@ print("🔥 LOADED NEW MAIN FILE 2026")
 def get_kiev_time():
     return datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%Y-%m-%d %H:%M:%S")
 
-def set_status(running=True, progress=0, found=0, written=0, cat="", user=""):
+def set_status(running=True, progress=0, found=0, written=0, cat="", user=None, file_path=None):
     os.makedirs(BASE_DIR, exist_ok=True)
+
 
     data = {
         "running": running,
@@ -61,9 +62,10 @@ def set_status(running=True, progress=0, found=0, written=0, cat="", user=""):
         "written": written,
         "last_category": cat,
         "time": get_kiev_time(),
-        "user": user,                 # 🔥 ДОБАВИТЬ
-        "file_path": FILE_PATH       # 🔥 ДОБАВИТЬ
+        "user": user,
+        "file_path": file_path
     }
+
 
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -272,7 +274,7 @@ def main():
     if os.path.exists(FILE_PATH):
         os.remove(FILE_PATH)   # 🔥 ВАЖНО
 
-    set_status(True, 0)
+    set_status(True, 0, user="system", file_path=FILE_PATH)
     create_lock()    
 
     os.makedirs(BASE_DIR, exist_ok=True)
