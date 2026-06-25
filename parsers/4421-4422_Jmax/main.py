@@ -83,14 +83,24 @@ def update_status(data):
 
 
 def set_status(**kwargs):
-    base = {
-        "running": True,
-        "canceled": False,
-        "progress": 0,
-        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }
-    base.update(kwargs)
-    update_status(base)
+    # читаем старые данные
+    data = {}
+
+    if os.path.exists(STATUS_PATH):
+        try:
+            with open(STATUS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except:
+            data = {}
+
+    # обновляем только то что пришло
+    data.update(kwargs)
+
+    # всегда обновляем время только если не передали своё
+    if "time" not in data:
+        data["time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    update_status(data)
 
 
 def check_cancel():
@@ -367,7 +377,12 @@ def run_parser():
 
             time.sleep(0.1)
 
-    set_status(running=False, canceled=False, progress=100)
+    set_status(
+        running=False,
+        canceled=False,
+        progress=100,
+        file_path=FILE_PATH
+    )
     finish()
 
     print("DONE")
