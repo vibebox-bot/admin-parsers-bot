@@ -116,10 +116,8 @@ def login():
 # =========================
 
 class ExcelWriter:
-    def save(self):
-        tmp_path = self.path + ".tmp"
-        self.wb.save(tmp_path)
-        os.replace(tmp_path, self.path)
+    def __init__(self, path):
+        self.path = path
 
         self.wb = Workbook()
         self.ws = self.wb.active
@@ -132,12 +130,13 @@ class ExcelWriter:
             "URL"
         ])
 
-
     def add(self, name, price, article, stock, url):
         self.ws.append([name, price, article, stock, url])
 
     def save(self):
-        self.wb.save(self.path)
+        tmp_path = self.path + ".tmp"
+        self.wb.save(tmp_path)
+        os.replace(tmp_path, self.path)
 
 
 # =========================
