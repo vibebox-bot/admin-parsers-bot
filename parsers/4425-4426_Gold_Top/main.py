@@ -52,7 +52,7 @@ def set_status(running=True, progress=0, found=0, written=0, cat="", user=""):
         "found": found,
         "written": written,
         "last_category": cat,
-        "time": get_kiev_time()
+        "time": get_kiev_time(),
         "user": user,                 # 🔥 ДОБАВИТЬ
         "file_path": FILE_PATH       # 🔥 ДОБАВИТЬ
     }
