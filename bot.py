@@ -245,7 +245,7 @@ def dashboard_text():
         warn = ""
 
         if st and not st.get("running") and os.path.exists(s["file"]):
-            age = (now() - datetime.fromtimestamp(os.path.getmtime(s["file"]))).days
+            age = (now() - datetime.fromtimestamp(os.path.getmtime(file_path))).days
             if age >= 3:
                 warn = "⚠️"
 
@@ -276,7 +276,9 @@ def kb_dashboard():
 
 
 def kb_supplier(key, running=False):
-    file_exists = os.path.exists(SUPPLIERS[key]["file"])
+    st = load_json(SUPPLIERS[key]["status"])
+    file_path = st.get("file_path") if st else SUPPLIERS[key]["file"]
+    file_exists = os.path.exists(file_path)
 
     if running:
         return InlineKeyboardMarkup(inline_keyboard=[
@@ -445,13 +447,14 @@ async def cb(call: types.CallbackQuery):
 
         text += bar(p)
 
-        file_exists = os.path.exists(s["file"])
+        file_path = st.get("file_path") if st else s["file"]
+        file_exists = file_path and os.path.exists(file_path)
 
         file_old = False
         file_time = None
 
         if file_exists:
-            file_time_raw = os.path.getmtime(s["file"])
+            file_time_raw = os.path.getmtime(file_path)
             file_age_days = (now() - datetime.fromtimestamp(file_time_raw)).days
 
             file_old = file_age_days >= 3
@@ -463,7 +466,7 @@ async def cb(call: types.CallbackQuery):
 
         # 🔥 2) ЕСЛИ ФАЙЛ СЛИШКОМ СТАРЫЙ
         elif file_exists and file_old:
-            size_mb = round(os.path.getsize(s["file"]) / 1024 / 1024, 2)
+            size_mb = round(os.path.getsize(file_path) / 1024 / 1024, 2)
 
             text += (
                 f"\n\n⚠️ ДАННЫЕ УСТАРЕЛИ\n"
@@ -475,8 +478,8 @@ async def cb(call: types.CallbackQuery):
         # 🔥 3) НОРМАЛЬНЫЙ ФАЙЛ
 
         elif file_exists:
-            size_mb = round(os.path.getsize(s["file"]) / 1024 / 1024, 2)
-            file_time = get_file_time(s["file"])
+            size_mb = roundos.path.getsize(file_path) / 1024 / 1024, 2)
+            file_time = get_file_time(file_path)
 
             text += (
                 f"\n\n📄 Excel готов\n"
@@ -495,7 +498,8 @@ async def cb(call: types.CallbackQuery):
     # DOWNLOAD FILE
     if data.startswith("download_"):
         key = data.replace("download_", "")
-        path = SUPPLIERS[key]["file"]
+        st = load_json(SUPPLIERS[key]["status"])
+        path = st.get("file_path") if st else SUPPLIERS[key]["file"]
 
         if os.path.exists(path):
             await call.message.answer_document(
