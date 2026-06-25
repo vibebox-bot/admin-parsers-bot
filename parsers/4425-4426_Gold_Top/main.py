@@ -16,10 +16,11 @@ BASE_DIR = os.path.abspath("output/4425-4426_Gold_Top")
 
 FILE_PATH = os.path.join(BASE_DIR, "Харьковская_4425-4426_Gold_Top_LIVE.xlsx")
 STATUS_PATH = os.path.join(BASE_DIR, "status.json")
+print("STATUS_PATH =", STATUS_PATH)
 LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
 
-CATEGORY_LIMIT = None  # или 1 для теста
-#CATEGORY_LIMIT = 4  # или 1 для теста
+#CATEGORY_LIMIT = None  # или 1 для теста
+CATEGORY_LIMIT = 1  # или 1 для теста
 
 LOGIN_URL = "https://www.gold-tor.com.ua/index.php?route=account/login"
 
