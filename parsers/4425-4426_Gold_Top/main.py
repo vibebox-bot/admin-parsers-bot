@@ -357,6 +357,16 @@ def main():
                 cat=cat_name
             )
 
+
+
+        print("========== STATUS FILE ==========")
+        
+        with open(STATUS_PATH, "r", encoding="utf-8") as f:
+            print(f.read())
+        
+        print("========== END STATUS ==========")
+
+        
         set_status(
             running=False,
             progress=100,
