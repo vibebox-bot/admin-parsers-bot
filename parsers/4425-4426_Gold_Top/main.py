@@ -12,8 +12,8 @@ import pytz
 # CONFIG
 # =========================
 
-#BASE_DIR = os.path.abspath("output/4425-4426_Gold_Top")
-BASE_DIR = "/app/output/4425-4426_Gold_Top"
+BASE_DIR = os.path.abspath("output/4425-4426_Gold_Top")
+#BASE_DIR = "/app/output/4425-4426_Gold_Top"
 
 FILE_PATH = os.path.join(BASE_DIR, "Харьковская_4425-4426_Gold_Top_LIVE.xlsx")
 STATUS_PATH = os.path.join(BASE_DIR, "status.json")
@@ -43,7 +43,7 @@ print("🔥 LOADED NEW MAIN FILE 2026")
 def get_kiev_time():
     return datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%Y-%m-%d %H:%M:%S")
 
-def set_status(running=True, progress=0, found=0, written=0, cat=""):
+def set_status(running=True, progress=0, found=0, written=0, cat="", user=""):
     os.makedirs(BASE_DIR, exist_ok=True)
 
     data = {
@@ -53,6 +53,8 @@ def set_status(running=True, progress=0, found=0, written=0, cat=""):
         "written": written,
         "last_category": cat,
         "time": get_kiev_time()
+        "user": user,                 # 🔥 ДОБАВИТЬ
+        "file_path": FILE_PATH       # 🔥 ДОБАВИТЬ
     }
 
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
@@ -256,11 +258,14 @@ def get_categories():
 # =========================
 # MAIN
 # =========================
-
 def main():
     print("🚀 STARTED MAIN")
+
+    if os.path.exists(FILE_PATH):
+        os.remove(FILE_PATH)   # 🔥 ВАЖНО
+
     set_status(True, 0)
-    create_lock()
+    create_lock()    
 
     os.makedirs(BASE_DIR, exist_ok=True)
 
