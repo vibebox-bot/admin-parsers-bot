@@ -276,9 +276,15 @@ def kb_dashboard():
 
 
 def kb_supplier(key, running=False):
-    st = load_json(SUPPLIERS[key]["status"])
-    file_path = st.get("file_path") if st else SUPPLIERS[key]["file"]
-    file_exists = os.path.exists(file_path)
+
+    if key not in SUPPLIERS:
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="❌ НЕ НАЙДЕНО", callback_data="back")]
+        ])
+
+    file_path = SUPPLIERS[key].get("file")
+
+    file_exists = file_path and os.path.exists(file_path)
 
     if running:
         return InlineKeyboardMarkup(inline_keyboard=[
@@ -515,7 +521,12 @@ async def cb(call: types.CallbackQuery):
 
     # RUN
     if data.startswith("run_"):
-        key = data.replace("run_", "")
+        key = data.replace("run_", "").strip()
+        
+        if key not in SUPPLIERS:
+            await call.message.answer("❌ Парсер не найден")
+            return
+
         s = SUPPLIERS[key]
 
 
