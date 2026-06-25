@@ -39,6 +39,7 @@ requests.get(
 )
 dp = Dispatcher()
 
+BASE_ROOT = os.path.abspath("output")
 
 # =========================
 # SUPPLIERS
@@ -54,9 +55,12 @@ SUPPLIERS = {
     "Харьковская 4425-4426 Gold Top": {
         "name": "📦 Харьковская 4425-4426 Gold Top",
         "script": "parsers/4425-4426_Gold_Top/run.py",
-        "file": "output/4425-4426_Gold_Top/Харьковская_4425-4426_Gold_Top_LIVE.xlsx",
-        "status": "output/4425-4426_Gold_Top/status.json",
-        "lock": "output/4425-4426_Gold_Top/lock.txt",
+        "status": os.path.join(BASE_ROOT, "4425-4426_Gold_Top/status.json"),
+        "file": os.path.join(BASE_ROOT, "4425-4426_Gold_Top/Харьковская_4425-4426_Gold_Top_LIVE.xlsx"),
+        "lock": os.path.join(BASE_ROOT, "4425-4426_Gold_Top/lock.txt"),
+        #"file": "output/4425-4426_Gold_Top/Харьковская_4425-4426_Gold_Top_LIVE.xlsx",
+        #"status": "output/4425-4426_Gold_Top/status.json",
+        #"lock": "output/4425-4426_Gold_Top/lock.txt",
     },
     "Харьковская 208": {
         "name": "📦 Харьковская 208",
@@ -68,9 +72,9 @@ SUPPLIERS = {
         "Харьковская 4421-4422 Jmax": {
         "name": "📦 Харьковская 4421-4422 Jmax",
         "script": "parsers/4421-4422_Jmax/run.py",
-        "file": "/app/output/4421-4422_Jmax/Харьковская_4421-4422_Jmax_LIVE.xlsx",
-        "status": "/app/output/4421-4422_Jmax/status.json",
-        "lock": "/app/output/4421-4422_Jmax/lock.txt",
+        "file": "output/4421-4422_Jmax/Харьковская_4421-4422_Jmax_LIVE.xlsx",
+        "status": "output/4421-4422_Jmax/status.json",
+        "lock": "output/4421-4422_Jmax/lock.txt",
     },
         "Харьковская 4399-4400": {
         "name": "📦 Харьковская 4399-4400",
