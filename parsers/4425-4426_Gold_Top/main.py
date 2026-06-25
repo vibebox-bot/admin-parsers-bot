@@ -12,8 +12,8 @@ import pytz
 # CONFIG
 # =========================
 
-BASE_DIR = os.path.abspath("output/4425-4426_Gold_Top")
-#BASE_DIR = "/app/output/4425-4426_Gold_Top"
+#BASE_DIR = os.path.abspath("output/4425-4426_Gold_Top")
+BASE_DIR = "/app/output/4425-4426_Gold_Top"
 
 FILE_PATH = os.path.join(BASE_DIR, "Харьковская_4425-4426_Gold_Top_LIVE.xlsx")
 STATUS_PATH = os.path.join(BASE_DIR, "status.json")
