@@ -24,7 +24,6 @@ from config import BOT_TOKEN, ALLOWED_USERS
 from datetime import datetime
 import pytz
 
-from config_paths import path
 
 def now():
     return datetime.now()
@@ -41,6 +40,7 @@ requests.get(
 )
 dp = Dispatcher()
 
+from config_paths import path
 
 # =========================
 # SUPPLIERS
@@ -49,9 +49,9 @@ SUPPLIERS = {
     "top_kitchen": {
         "name": "📦 Top Kitchen",
         "script": "parsers/top_kitchen/run.py",
-        "file": "output/top_kitchen/top_kitchen_LIVE.xlsx",
-        "status": "output/top_kitchen/status.json",
-        "lock": "output/top_kitchen/lock.txt",
+        "file": path("output/top_kitchen/top_kitchen_LIVE.xlsx"),
+        "status": path("output/top_kitchen/status.json"),
+        "lock": path("output/top_kitchen/lock.txt"),
     },
     "Харьковская 4425-4426 Gold Top": {
         "name": "📦 Харьковская 4425-4426 Gold Top",
@@ -66,30 +66,30 @@ SUPPLIERS = {
     "Харьковская 208": {
         "name": "📦 Харьковская 208",
         "script": "parsers/208/run.py",
-        "file": "output/208/Харьковская_208_LIVE.xlsx",
-        "status": "output/208/status.json",
-        "lock": "output/208/lock.txt",
+        "file": path("output/208/Харьковская_208_LIVE.xlsx"),
+        "status": path("output/208/status.json"),
+        "lock": path("output/208/lock.txt"),
     },
         "Харьковская 4421-4422 Jmax": {
         "name": "📦 Харьковская 4421-4422 Jmax",
         "script": "parsers/4421-4422_Jmax/run.py",
-        "file": "output/4421-4422_Jmax/Харьковская_4421-4422_Jmax_LIVE.xlsx",
-        "status": "output/4421-4422_Jmax/status.json",
-        "lock": "output/4421-4422_Jmax/lock.txt",
+        "file": path("output/4421-4422_Jmax/Харьковская_4421-4422_Jmax_LIVE.xlsx"),
+        "status": path("output/4421-4422_Jmax/status.json"),
+        "lock": path("output/4421-4422_Jmax/lock.txt"),
     },
         "Харьковская 4399-4400": {
         "name": "📦 Харьковская 4399-4400",
         "script": "parsers/4399-4400/run.py",
-        "file": "output/4399-4400/Харьковская_4399-4400_LIVE.xlsx",
-        "status": "output/4399-4400/status.json",
-        "lock": "output/4399-4400/lock.txt",
+        "file": path("output/4399-4400/Харьковская_4399-4400_LIVE.xlsx"),
+        "status": path("output/4399-4400/status.json"),
+        "lock": path("output/4399-4400/lock.txt"),
     },
         "Melad": {
         "name": "📦 Melad",
         "script": "parsers/Melad/run.py",
-        "file": "output/Melad/Melad_LIVE.xlsx",
-        "status": "output/Melad/status.json",
-        "lock": "output/Melad/lock.txt",
+        "file": path("output/Melad/Melad_LIVE.xlsx"),
+        "status": path("output/Melad/status.json"),
+        "lock": path("output/Melad/lock.txt"),
     },
          
 }
@@ -111,17 +111,22 @@ def is_allowed(user_id):
 # HELPERS
 # =========================
 def load_json(path):
-    if not os.path.exists(path):
-        return None
-    try:
-        return json.load(open(path, "r", encoding="utf-8"))
-    except:
+    if not path or not os.path.exists(path):
         return None
 
-def save_json(path, data):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # защита от пустого JSON
+        if not isinstance(data, dict):
+            return None
+
+        return data
+
+    except Exception as e:
+        print("❌ JSON READ ERROR:", path, e)
+        return None
 
 # =========================
 # UI HELPERS
@@ -218,7 +223,7 @@ def display_status(st, file_path):
     if not st:
         return "⚪ НЕТ ДАННЫХ", 0
 
-    file_path = st.get("file_path") or file_path
+    # всегда берём путь из SUPPLIERS (это главный источник)
     exists = file_path and os.path.exists(file_path)
 
     if st.get("running"):
@@ -539,14 +544,6 @@ async def cb(call: types.CallbackQuery):
         s = SUPPLIERS[key]
 
 
-        save_json(s["status"], {
-            "running": True,
-            "canceled": False,
-            "user": call.from_user.full_name,
-            "progress": 0,
-            "file_path": None
-        })
-
         await call.message.edit_text(
             "🚀 Запуск...\n" + bar(0),
             reply_markup=kb_supplier(key, True)
@@ -558,17 +555,6 @@ async def cb(call: types.CallbackQuery):
 
             # если его НЕ отменили вручную
             st = load_json(s["status"]) or {}
-
-
-            save_json(s["status"], {
-                "running": False,
-                "canceled": False,
-                "user": st.get("user", call.from_user.full_name),
-                "time": now().strftime("%Y-%m-%d %H:%M:%S"),
-                "progress": 100,
-                "file_path": s["file"] if os.path.exists(s["file"]) else None
-            })
-
             
             await call.message.edit_text(
                 "✅ ГОТОВО\n" + bar(100),
@@ -576,15 +562,6 @@ async def cb(call: types.CallbackQuery):
             )
 
         except Exception as e:
-            # если упало
-            save_json(s["status"], {
-                "running": False,
-                "canceled": False,
-                "user": call.from_user.full_name,
-                "time": now().strftime("%Y-%m-%d %H:%M:%S"),
-                "progress": 0,
-                "file_path": s["file"]
-            })
 
             await call.message.edit_text(
                 f"❌ ОШИБКА\n{e}",
@@ -633,15 +610,6 @@ async def cb(call: types.CallbackQuery):
                 os.remove(s["lock"])
             except:
                 pass
-  
-        save_json(s["status"], {
-            "running": False,
-            "canceled": True,
-            "user": call.from_user.full_name,
-            "time": now().strftime("%Y-%m-%d %H:%M:%S"),
-            "progress": 0,
-            "file_path": s["file"]
-        })
 
         await safe_edit(call, "⛔ ОТМЕНЕНО\n" + bar(0), kb_supplier(key, False))
         return
