@@ -240,9 +240,9 @@ def display_status(st, file_path):
 # =========================
 def dashboard_text():
     t = "📊 Дашборд парсеров\n\n"
-    print("READ STATUS:", s["status"])
 
     for k, s in SUPPLIERS.items():
+        print("READ STATUS:", s["status"])
         st = load_json(s["status"])
 
         stt, p = display_status(st, s["file"])
