@@ -13,7 +13,8 @@ import pytz
 # =========================
 
 #BASE_DIR = os.path.abspath("output/4425-4426_Gold_Top")
-BASE_DIR = "/app/output/4425-4426_Gold_Top"
+BASE_DIR = os.path.abspath("output/4425-4426_Gold_Top")
+#BASE_DIR = "/app/output/4425-4426_Gold_Top"
 
 FILE_PATH = os.path.join(BASE_DIR, "Харьковская_4425-4426_Gold_Top_LIVE.xlsx")
 STATUS_PATH = os.path.join(BASE_DIR, "status.json")
@@ -115,8 +116,10 @@ def login():
 # =========================
 
 class ExcelWriter:
-    def __init__(self, path):
-        self.path = path
+    def save(self):
+        tmp_path = self.path + ".tmp"
+        self.wb.save(tmp_path)
+        os.replace(tmp_path, self.path)
 
         self.wb = Workbook()
         self.ws = self.wb.active
@@ -271,16 +274,12 @@ def get_categories():
 def main():
     print("🚀 STARTED MAIN")
 
-    if os.path.exists(FILE_PATH):
-        os.remove(FILE_PATH)   # 🔥 ВАЖНО
-
     set_status(True, 0, user="system", file_path=FILE_PATH)
     create_lock()    
 
     os.makedirs(BASE_DIR, exist_ok=True)
 
     excel = ExcelWriter(FILE_PATH)
-    excel.save()  # сразу создаём файл
 
     try:
         if not login():
