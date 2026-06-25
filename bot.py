@@ -42,6 +42,9 @@ dp = Dispatcher()
 
 BASE_DIR = "/app"
 
+def p(path):
+    return os.path.join(BASE_DIR, path)
+
 # =========================
 # SUPPLIERS
 # =========================
@@ -57,9 +60,9 @@ SUPPLIERS = {
         "name": "📦 Харьковская 4425-4426 Gold Top",
         "script": "parsers/4425-4426_Gold_Top/run.py",
         #"file": "output/4425-4426_Gold_Top/Харьковская_4425-4426_Gold_Top_LIVE.xlsx",
-        "file": os.path.join(BASE_DIR, "output/4425-4426_Gold_Top/Харьковская_4425-4426_Gold_Top_LIVE.xlsx"),
-        "status": os.path.join(BASE_DIR, "output/4425-4426_Gold_Top/status.json"),
-        "lock": os.path.join(BASE_DIR, "output/4425-4426_Gold_Top/lock.txt"),
+        "file": p("output/4425-4426_Gold_Top/Харьковская_4425-4426_Gold_Top_LIVE.xlsx"),
+        "status": p("output/4425-4426_Gold_Top/status.json"),
+        "lock": p("output/4425-4426_Gold_Top/lock.txt"),
         #"status": "output/4425-4426_Gold_Top/status.json",
        #"lock": "output/4425-4426_Gold_Top/lock.txt",
     },
@@ -237,6 +240,7 @@ def display_status(st, file_path):
 # =========================
 def dashboard_text():
     t = "📊 Дашборд парсеров\n\n"
+    print("READ STATUS:", s["status"])
 
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
@@ -359,6 +363,7 @@ async def run_parser(key):
 
     print(f"🚀 STARTED {key}")
     print(f"📄 SCRIPT: {s['script']}")
+    print("WRITE STATUS:", s["status"])
 
     try:
         while True:
