@@ -18,6 +18,8 @@ FILE_PATH = os.path.join(BASE_DIR, "Харьковская_4425-4426_Gold_Top_LI
 STATUS_PATH = os.path.join(BASE_DIR, "status.json")
 print("STATUS_PATH =", STATUS_PATH)
 LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
+print("BASE_DIR =", BASE_DIR)
+print("FILE_PATH =", FILE_PATH)
 
 #CATEGORY_LIMIT = None  # или 1 для теста
 CATEGORY_LIMIT = 1  # или 1 для теста
