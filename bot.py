@@ -409,8 +409,6 @@ async def run_parser(key):
         RUNNING_PROCESSES.pop(key, None)
         print("RUN ERROR:", e)
         return -1
-    
-
 # =========================
 # CALLBACKS
 # =========================
@@ -438,8 +436,6 @@ async def cb(call: types.CallbackQuery):
 
         return
     
-    
-
     # OPEN CARD
     if data.startswith("open_"):
         key = data.replace("open_", "")
@@ -510,8 +506,6 @@ async def cb(call: types.CallbackQuery):
             reply_markup=kb_supplier(key, running)
         )
 
-        
-
     # DOWNLOAD FILE
     if data.startswith("download_"):
         key = data.replace("download_", "")
@@ -536,14 +530,12 @@ async def cb(call: types.CallbackQuery):
 
 
         save_json(s["status"], {
-            "running": False,
+            "running": True,
             "canceled": False,
             "user": call.from_user.full_name,
-            "time": now().strftime("%Y-%m-%d %H:%M:%S"),
             "progress": 0,
             "file_path": s["file"]
         })
-
 
         await call.message.edit_text(
             "🚀 Запуск...\n" + bar(0),
