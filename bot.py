@@ -39,7 +39,6 @@ requests.get(
 )
 dp = Dispatcher()
 
-
 # =========================
 # SUPPLIERS
 # =========================
@@ -86,8 +85,7 @@ SUPPLIERS = {
         "status": "output/Melad/status.json",
         "lock": "output/Melad/lock.txt",
     },
-        
-    
+         
 }
 
 RUNNING_PROCESSES = {}
@@ -103,7 +101,6 @@ def file_time(ts):
 def is_allowed(user_id):
     return user_id in ALLOWED_USERS
 
-
 # =========================
 # HELPERS
 # =========================
@@ -115,12 +112,10 @@ def load_json(path):
     except:
         return None
 
-
 def save_json(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-
 
 # =========================
 # UI HELPERS
@@ -160,7 +155,6 @@ async def card_updater(chat_id, msg_id, key):
 
         await asyncio.sleep(2)
 
-
 def status(st):
     if not st:
         return "⚪ НЕТ ДАННЫХ", 0
@@ -182,9 +176,6 @@ def status(st):
         return "⛔ ОТМЕНЕНО", st.get("progress", 0)
 
     return "🟢 ГОТОВО", st.get("progress", 100)
-
-
-
 
 def age_days(st):
     if not st or not st.get("time"):
@@ -334,9 +325,6 @@ async def start(message: types.Message):
 
     DASHBOARD_MESSAGES[message.chat.id] = msg.message_id
     
-    
-
-
 # =========================
 # RUN PARSER
 # =========================
@@ -437,6 +425,7 @@ async def cb(call: types.CallbackQuery):
         key = data.replace("open_", "")
         s = SUPPLIERS[key]
         st = load_json(s["status"])
+        
 
         DASHBOARD_OPENED.add(call.message.chat.id)
 
@@ -484,9 +473,10 @@ async def cb(call: types.CallbackQuery):
             )
 
         # 🔥 3) НОРМАЛЬНЫЙ ФАЙЛ
+
         elif file_exists:
             size_mb = round(os.path.getsize(s["file"]) / 1024 / 1024, 2)
-            file_time = st.get("time", "-")
+            file_time = get_file_time(s["file"])
 
             text += (
                 f"\n\n📄 Excel готов\n"
@@ -619,8 +609,7 @@ async def cb(call: types.CallbackQuery):
                 os.remove(s["lock"])
             except:
                 pass
-
-        
+  
         save_json(s["status"], {
             "running": False,
             "canceled": True,
@@ -632,8 +621,6 @@ async def cb(call: types.CallbackQuery):
 
         await safe_edit(call, "⛔ ОТМЕНЕНО\n" + bar(0), kb_supplier(key, False))
         return
-
-
 
 async def dashboard_updater():
 
@@ -657,11 +644,9 @@ async def dashboard_updater():
 
         await asyncio.sleep(5)
 
-
 # =========================
 # MAIN
 # =========================
-
 async def main():
     print("🚀 BOT RUNNING")
 
@@ -670,7 +655,6 @@ async def main():
     )
 
     await dp.start_polling(bot)
-
 
 import atexit
 
