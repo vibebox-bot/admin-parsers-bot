@@ -17,10 +17,18 @@ BASE_DIR = os.path.abspath("output/4425-4426_Gold_Top")
 
 FILE_PATH = os.path.join(BASE_DIR, "Харьковская_4425-4426_Gold_Top_LIVE.xlsx")
 STATUS_PATH = os.path.join(BASE_DIR, "status.json")
-print("STATUS_PATH =", STATUS_PATH)
 LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
-print("BASE_DIR =", BASE_DIR)
-print("FILE_PATH =", FILE_PATH)
+
+print("📍 CWD =", os.getcwd())
+print("📍 BASE_DIR =", BASE_DIR)
+print("📍 FILE_PATH =", FILE_PATH)
+print("📍 STATUS_PATH =", STATUS_PATH)
+
+os.makedirs(BASE_DIR, exist_ok=True)
+
+# тестовый файл
+with open(os.path.join(BASE_DIR, "TEST_WRITE.txt"), "w") as f:
+    f.write("OK FROM PARSER")
 
 #CATEGORY_LIMIT = None  # или 1 для теста
 CATEGORY_LIMIT = 1  # или 1 для теста
