@@ -530,14 +530,15 @@ async def cb(call: types.CallbackQuery):
         key = data.replace("run_", "")
         s = SUPPLIERS[key]
 
-        save_json(s["status"], {
-            "running": True,
-            "canceled": False,
-            "user": call.from_user.full_name,
-            "time": now().strftime("%Y-%m-%d %H:%M:%S"),
-            "progress": 0,
-            "file_path": s["file"]   # 👈 важно для "устарело"
-        })
+
+        st = load_json(s["status"]) or {}
+
+        st["running"] = False
+        st["canceled"] = False
+        st["user"] = call.from_user.full_name
+        st["file_path"] = s["file"]
+        
+        save_json(s["status"], st)
 
         await call.message.edit_text(
             "🚀 Запуск...\n" + bar(0),
