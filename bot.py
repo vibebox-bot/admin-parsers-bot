@@ -208,25 +208,15 @@ def display_status(st, file_path):
     if not st:
         return "⚪ НЕТ ДАННЫХ", 0
 
-    # running
+    file_path = st.get("file_path") or file_path
+
     if st.get("running"):
         return "🟡 В РАБОТЕ", max(1, int(st.get("progress", 1)))
 
-    # canceled
     if st.get("canceled"):
         return "⛔ ОТМЕНЕНО", int(st.get("progress", 0))
 
-    # file exists → сразу ГОТОВО
-    if os.path.exists(file_path):
-        if not st.get("running"):
-            return "🟢 ГОТОВО", 100
-
-        
-        age_days_val = int((datetime.now().timestamp() - os.path.getmtime(file_path)) / 86400)
-        
-        if age_days_val >= 3:
-            return "⚠️ УСТАРЕЛО", 100
-
+    if file_path and os.path.exists(file_path):
         return "🟢 ГОТОВО", 100
 
     return "⚪ НЕТ ФАЙЛА", 0
@@ -282,8 +272,8 @@ def kb_supplier(key, running=False):
             [InlineKeyboardButton(text="❌ НЕ НАЙДЕНО", callback_data="back")]
         ])
 
-    file_path = SUPPLIERS[key].get("file")
-
+    st = load_json(SUPPLIERS[key]["status"])
+    file_path = st.get("file_path") if st else SUPPLIERS[key]["file"]
     file_exists = file_path and os.path.exists(file_path)
 
     if running:
@@ -535,7 +525,7 @@ async def cb(call: types.CallbackQuery):
             "canceled": False,
             "user": call.from_user.full_name,
             "progress": 0,
-            "file_path": s["file"]
+            "file_path": None
         })
 
         await call.message.edit_text(
