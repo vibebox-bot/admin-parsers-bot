@@ -7,6 +7,7 @@ from openpyxl import Workbook, load_workbook
 from datetime import datetime
 import pytz
 import sys
+from config_paths import path
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "unknown"
 
@@ -14,18 +15,12 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "unknown"
 # CONFIG
 # =========================
 
-#BASE_DIR = os.path.abspath("output/4425-4426_Gold_Top")
-BASE_DIR = "/app/output/4425-4426_Gold_Top"
+BASE_DIR = path("output/4425-4426_Gold_Top")
 
-FILE_PATH = os.path.join(BASE_DIR, "Харьковская_4425-4426_Gold_Top_LIVE.xlsx")
-STATUS_PATH = os.path.join(BASE_DIR, "status.json")
-LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
+FILE_PATH = path("output/4425-4426_Gold_Top/Харьковская_4425-4426_Gold_Top_LIVE.xlsx")
+STATUS_PATH = path("output/4425-4426_Gold_Top/status.json")
+LOCK_FILE = path("output/4425-4426_Gold_Top/lock.txt")
 
-print("📍 CWD =", os.getcwd())
-print("📍 BASE_DIR =", BASE_DIR)
-print("📍 FILE_PATH =", FILE_PATH)
-print("📍 STATUS_PATH =", STATUS_PATH)
-print("STATUS =", STATUS_PATH)
 
 os.makedirs(BASE_DIR, exist_ok=True)
 
