@@ -24,6 +24,7 @@ print("📍 CWD =", os.getcwd())
 print("📍 BASE_DIR =", BASE_DIR)
 print("📍 FILE_PATH =", FILE_PATH)
 print("📍 STATUS_PATH =", STATUS_PATH)
+print("STATUS =", STATUS_PATH)
 
 os.makedirs(BASE_DIR, exist_ok=True)
 
@@ -54,6 +55,7 @@ def get_kiev_time():
 
 def set_status(running=True, progress=0, found=0, written=0, cat="", user=None, file_path=None):
     os.makedirs(BASE_DIR, exist_ok=True)
+    print("WRITE STATUS:", STATUS_PATH)
 
 
     data = {
