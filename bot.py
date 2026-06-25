@@ -478,7 +478,7 @@ async def cb(call: types.CallbackQuery):
         # 🔥 3) НОРМАЛЬНЫЙ ФАЙЛ
 
         elif file_exists:
-            size_mb = roundos.path.getsize(file_path) / 1024 / 1024, 2)
+            size_mb = round(os.path.getsize(file_path) / 1024 / 1024, 2)
             file_time = get_file_time(file_path)
 
             text += (
