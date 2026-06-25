@@ -68,9 +68,9 @@ SUPPLIERS = {
         "Харьковская 4421-4422 Jmax": {
         "name": "📦 Харьковская 4421-4422 Jmax",
         "script": "parsers/4421-4422_Jmax/run.py",
-        "file": "output/4421-4422_Jmax/Харьковская_4421-4422_Jmax_LIVE.xlsx",
-        "status": "output/4421-4422_Jmax/status.json",
-        "lock": "output/4421-4422_Jmax/lock.txt",
+        "file": "/app/output/4421-4422_Jmax/Харьковская_4421-4422_Jmax_LIVE.xlsx",
+        "status": "/app/output/4421-4422_Jmax/status.json",
+        "lock": "/app/output/4421-4422_Jmax/lock.txt",
     },
         "Харьковская 4399-4400": {
         "name": "📦 Харьковская 4399-4400",
