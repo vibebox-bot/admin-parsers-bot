@@ -213,6 +213,7 @@ def display_status(st, file_path):
         return "⚪ НЕТ ДАННЫХ", 0
 
     file_path = st.get("file_path") or file_path
+    exists = file_path and os.path.exists(file_path)
 
     if st.get("running"):
         return "🟡 В РАБОТЕ", max(1, int(st.get("progress", 1)))
@@ -220,10 +221,10 @@ def display_status(st, file_path):
     if st.get("canceled"):
         return "⛔ ОТМЕНЕНО", int(st.get("progress", 0))
 
-    if file_path and os.path.exists(file_path):
+    if exists:
         return "🟢 ГОТОВО", 100
 
-    return "⚪ НЕТ ФАЙЛА", 0
+    return "⚪ ФАЙЛ ОТСУТСТВУЕТ", 0
 
 # =========================
 # DASHBOARD
@@ -557,7 +558,7 @@ async def cb(call: types.CallbackQuery):
                 "user": st.get("user", call.from_user.full_name),
                 "time": now().strftime("%Y-%m-%d %H:%M:%S"),
                 "progress": 100,
-                "file_path": s["file"]
+                "file_path": s["file"] if os.path.exists(s["file"]) else None
             })
 
             
