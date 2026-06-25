@@ -533,7 +533,7 @@ async def cb(call: types.CallbackQuery):
 
         st = load_json(s["status"]) or {}
 
-        st["running"] = False
+        st["running"] = True
         st["canceled"] = False
         st["user"] = call.from_user.full_name
         st["file_path"] = s["file"]
