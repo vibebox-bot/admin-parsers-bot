@@ -693,6 +693,27 @@ async def dir4425(message: types.Message):
 
     await message.answer(f"<pre>{files}</pre>", parse_mode="HTML")
 
+from aiogram.filters import Command
+import os
+
+@dp.message(Command("check4425"))
+async def check4425(message: types.Message):
+
+    folder = "/app/output/4425-4426_Gold_Top"
+
+    text = ""
+
+    for f in os.listdir(folder):
+        p = os.path.join(folder, f)
+
+        text += (
+            f"{f}\n"
+            f"size={os.path.getsize(p)}\n"
+            f"mtime={datetime.fromtimestamp(os.path.getmtime(p))}\n\n"
+        )
+
+    await message.answer(f"<pre>{text}</pre>", parse_mode="HTML")
+
 
 
 # =========================
