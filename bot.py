@@ -642,14 +642,12 @@ from aiogram.filters import Command
 
 @dp.message(Command("check"))
 async def check(message: types.Message):
-    path = "/app/output/4425-4426_Gold_Top/status.json"
-
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            await message.answer(f"<pre>{f.read()}</pre>", parse_mode="HTML")
-    else:
-        await message.answer("❌ нет файла")
-
+    for k, s in SUPPLIERS.items():
+        await message.answer(
+            f"{k}\n"
+            f"{s['status']}\n"
+            f"exists: {os.path.exists(s['status'])}"
+        )
 
 
 # =========================
