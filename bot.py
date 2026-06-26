@@ -357,6 +357,7 @@ async def run_parser(key):
     proc = await asyncio.create_subprocess_exec(
         sys.executable,
         s["script"],
+        USER
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE
     )
