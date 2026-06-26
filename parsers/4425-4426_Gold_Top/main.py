@@ -285,7 +285,9 @@ def get_categories():
 # MAIN
 # =========================
 def main():
-    print("🚀 STARTED MAIN")
+    print("🚀 STARTED MAIN V777777777")
+
+    print("RUN FILE =", __file__)
 
     os.makedirs(BASE_DIR, exist_ok=True)
 
