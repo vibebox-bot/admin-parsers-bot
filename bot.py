@@ -296,8 +296,7 @@ def kb_supplier(key, running=False):
         return InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="❌ НЕ НАЙДЕНО", callback_data="back")]
         ])
-
-    st = load_json(SUPPLIERS[key]["status"])
+    st = load_json(SUPPLIERS[key]["status"]) or {}
     file_path = st.get("file_path") if st else SUPPLIERS[key]["file"]
     file_exists = file_path and os.path.exists(file_path)
 
@@ -522,7 +521,7 @@ async def cb(call: types.CallbackQuery):
     # DOWNLOAD FILE
     if data.startswith("download_"):
         key = data.replace("download_", "")
-        st = load_json(SUPPLIERS[key]["status"])
+        st = load_json(SUPPLIERS[key]["status"]) or {}
         path = st.get("file_path") if st else SUPPLIERS[key]["file"]
 
         if os.path.exists(path):
