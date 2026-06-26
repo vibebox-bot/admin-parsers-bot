@@ -1,6 +1,6 @@
 import os
 
-BASE_DIR = os.getcwd()
+BASE_DIR = "/app"
 
-def path(*parts):
-    return os.path.join(BASE_DIR, *parts)
+def path(p):
+    return os.path.join(BASE_DIR, p)
