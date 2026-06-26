@@ -9,6 +9,9 @@ import pytz
 import sys
 from config_paths import path
 
+import os
+print("PARSER CWD =", os.getcwd())
+
 USER = sys.argv[1] if len(sys.argv) > 1 else "unknown"
 
 BASE_DIR = path("output/4425-4426_Gold_Top")
