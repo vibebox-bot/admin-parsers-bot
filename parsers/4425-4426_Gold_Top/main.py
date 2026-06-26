@@ -288,6 +288,16 @@ def get_categories():
 def main():
     print("🚀 STARTED MAIN")
 
+    set_status(
+        running=True,
+        progress=0,
+        found=0,
+        written=0,
+        cat="START",
+        user=USER,
+        file_path=FILE_PATH
+    )
+
     set_status(True, 0, user=USER, file_path=FILE_PATH)
     create_lock()    
 
