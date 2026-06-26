@@ -98,6 +98,7 @@ RUNNING_PROCESSES = {}
 DASHBOARD_MESSAGES = {}
 DASHBOARD_OPENED = set()
 
+
 def file_time(ts):
     return datetime.fromtimestamp(ts, KYIV)
     
@@ -636,6 +637,19 @@ async def dashboard_updater():
                 pass
 
         await asyncio.sleep(5)
+        
+@dp.message()
+async def debug_file(message: types.Message):
+    if message.text == "/status":
+
+        path = "/app/output/4425-4426_Gold_Top/status.json"
+
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                await message.answer(f"<pre>{f.read()}</pre>", parse_mode="HTML")
+        else:
+            await message.answer("❌ файла нет")
+
 
 # =========================
 # MAIN
