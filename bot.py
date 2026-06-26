@@ -335,7 +335,8 @@ def kb_supplier(key, running=False):
 # =========================
 # START
 # =========================
-@dp.message()
+#@dp.message()
+@dp.message(CommandStart())
 async def start(message: types.Message):
     if not is_allowed(message.from_user.id):
         return
