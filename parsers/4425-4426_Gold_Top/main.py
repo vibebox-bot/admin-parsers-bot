@@ -9,20 +9,18 @@ import pytz
 import sys
 from config_paths import path
 
-print("📌 REAL STATUS PATH:", STATUS_PATH)
-print("📌 BASE DIR:", BASE_DIR)
-
 USER = sys.argv[1] if len(sys.argv) > 1 else "unknown"
-
-# =========================
-# CONFIG
-# =========================
 
 BASE_DIR = path("output/4425-4426_Gold_Top")
 
 FILE_PATH = path("output/4425-4426_Gold_Top/Харьковская_4425-4426_Gold_Top_LIVE.xlsx")
 STATUS_PATH = path("output/4425-4426_Gold_Top/status.json")
 LOCK_FILE = path("output/4425-4426_Gold_Top/lock.txt")
+
+print("📌 REAL STATUS PATH:", STATUS_PATH)
+print("📌 BASE DIR:", BASE_DIR)
+
+
 
 
 os.makedirs(BASE_DIR, exist_ok=True)
@@ -289,6 +287,8 @@ def get_categories():
 def main():
     print("🚀 STARTED MAIN")
 
+    os.makedirs(BASE_DIR, exist_ok=True)
+
     set_status(
         running=True,
         progress=0,
@@ -299,7 +299,6 @@ def main():
         file_path=FILE_PATH
     )
 
-    set_status(True, 0, user=USER, file_path=FILE_PATH)
     create_lock()    
 
     os.makedirs(BASE_DIR, exist_ok=True)
