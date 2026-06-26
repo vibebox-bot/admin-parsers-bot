@@ -677,6 +677,23 @@ async def where(message: types.Message):
     )
 
 
+from aiogram.filters import Command
+import os
+
+@dp.message(Command("dir4425"))
+async def dir4425(message: types.Message):
+
+    folder = "/app/output/4425-4426_Gold_Top"
+
+    if not os.path.exists(folder):
+        await message.answer("Папки нет")
+        return
+
+    files = "\n".join(os.listdir(folder))
+
+    await message.answer(f"<pre>{files}</pre>", parse_mode="HTML")
+
+
 
 # =========================
 # MAIN
