@@ -9,7 +9,8 @@ import pytz
 import sys
 from config_paths import path
 
-import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
 print("PARSER CWD =", os.getcwd())
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "unknown"
