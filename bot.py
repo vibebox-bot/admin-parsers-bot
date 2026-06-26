@@ -642,12 +642,40 @@ from aiogram.filters import Command
 
 @dp.message(Command("check"))
 async def check(message: types.Message):
+    import os
+
+    txt = ""
+
     for k, s in SUPPLIERS.items():
-        await message.answer(
+        txt += (
             f"{k}\n"
-            f"{s['status']}\n"
-            f"exists: {os.path.exists(s['status'])}"
+            f"status = {s['status']}\n"
+            f"exists = {os.path.exists(s['status'])}\n\n"
         )
+
+    txt += f"\n\nFILES IN /app/output:\n"
+
+    try:
+        txt += str(os.listdir("/app/output"))
+    except Exception as e:
+        txt += str(e)
+
+    await message.answer(f"<pre>{txt}</pre>", parse_mode="HTML")
+
+
+
+
+from aiogram.filters import Command
+
+@dp.message(Command("where"))
+async def where(message: types.Message):
+    import os
+
+    await message.answer(
+        f"cwd:\n{os.getcwd()}\n\n"
+        f"__file__:\n{__file__}"
+    )
+
 
 
 # =========================
