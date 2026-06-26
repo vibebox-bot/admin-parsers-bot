@@ -654,6 +654,10 @@ async def debug_status(message: types.Message):
     else:
         await message.answer("❌ status.json не найден")
 
+@dp.message(Command("where"))
+async def where(message: types.Message):
+    await message.answer(os.getcwd())
+
 
 # =========================
 # MAIN
