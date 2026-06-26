@@ -638,17 +638,19 @@ async def dashboard_updater():
 
         await asyncio.sleep(5)
         
-@dp.message()
-async def debug_file(message: types.Message):
-    if message.text == "/status":
+from aiogram.filters import Command
 
-        path = "/app/output/4425-4426_Gold_Top/status.json"
+@dp.message(Command("status"))
+async def debug_status(message: types.Message):
+    path = "/app/output/4425-4426_Gold_Top/status.json"
 
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                await message.answer(f"<pre>{f.read()}</pre>", parse_mode="HTML")
-        else:
-            await message.answer("❌ файла нет")
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            data = f.read()
+
+        await message.answer(f"<pre>{data}</pre>", parse_mode="HTML")
+    else:
+        await message.answer("❌ status.json не найден")
 
 
 # =========================
