@@ -555,7 +555,7 @@ async def cb(call: types.CallbackQuery):
 
         try:
             # запускаем парсер
-            code = await run_parser(key)
+            code = await run_parser(key, call.from_user.full_name)
 
             # если его НЕ отменили вручную
             st = load_json(s["status"]) or {}
