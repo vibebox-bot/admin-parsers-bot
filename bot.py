@@ -352,7 +352,7 @@ async def start(message: types.Message):
 # =========================
 # RUN PARSER
 # =========================
-async def run_parser(key):
+async def run_parser(key, user):
     s = SUPPLIERS[key]
 
     import sys
@@ -360,7 +360,7 @@ async def run_parser(key):
     proc = await asyncio.create_subprocess_exec(
         sys.executable,
         s["script"],
-        USER,
+        user,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE
     )
