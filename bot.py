@@ -246,7 +246,6 @@ def dashboard_text():
     t = "📊 Дашборд парсеров\n\n"
 
     for k, s in SUPPLIERS.items():
-        print("READ STATUS:", s["status"])
         st = load_json(s["status"])
 
         stt, p = display_status(st, s["file"])
@@ -368,7 +367,6 @@ async def run_parser(key, user):
 
     print(f"🚀 STARTED {key}")
     print(f"📄 SCRIPT: {s['script']}")
-    print("WRITE STATUS:", s["status"])
 
     try:
         while True:
@@ -652,10 +650,6 @@ async def check(message: types.Message):
     else:
         await message.answer("❌ нет файла")
 
-
-@dp.message(Command("where"))
-async def where(message: types.Message):
-    await message.answer(os.getcwd())
 
 
 # =========================
