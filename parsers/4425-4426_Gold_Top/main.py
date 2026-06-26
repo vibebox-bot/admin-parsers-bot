@@ -9,6 +9,9 @@ import pytz
 import sys
 from config_paths import path
 
+print("📌 REAL STATUS PATH:", STATUS_PATH)
+print("📌 BASE DIR:", BASE_DIR)
+
 USER = sys.argv[1] if len(sys.argv) > 1 else "unknown"
 
 # =========================
@@ -44,7 +47,6 @@ HEADERS = {
 
 session = requests.Session()
 
-print("🔥 LOADED NEW MAIN FILE 2026")
 
 def get_kiev_time():
     return datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%Y-%m-%d %H:%M:%S")
@@ -81,7 +83,6 @@ def set_status(
         "file_path": file_path if file_path is not None else old.get("file_path")
     }
 
-    print("WRITE STATUS:", STATUS_PATH)
 
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -380,14 +381,6 @@ def main():
                 cat=cat_name
             )
 
-
-
-        print("========== STATUS FILE ==========")
-        
-        with open(STATUS_PATH, "r", encoding="utf-8") as f:
-            print(f.read())
-        
-        print("========== END STATUS ==========")
 
         
         set_status(
