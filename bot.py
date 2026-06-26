@@ -638,31 +638,19 @@ async def dashboard_updater():
 
         await asyncio.sleep(5)
         
+
 from aiogram.filters import Command
 
-@dp.message()
-async def start(message: types.Message):
+@dp.message(Command("status"))
+async def debug_status(message: types.Message):
 
-    if message.text == "/status":
-        path = "/app/output/4425-4426_Gold_Top/status.json"
+    path = "/app/output/4425-4426_Gold_Top/status.json"
 
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                await message.answer(f"<pre>{f.read()}</pre>", parse_mode="HTML")
-        else:
-            await message.answer("❌ файла нет")
-
-        return
-
-    if not is_allowed(message.from_user.id):
-        return
-
-    msg = await message.answer(
-        dashboard_text(),
-        reply_markup=kb_dashboard()
-    )
-
-    DASHBOARD_MESSAGES[message.chat.id] = msg.message_id
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            await message.answer(f"<pre>{f.read()}</pre>", parse_mode="HTML")
+    else:
+        await message.answer("❌ status.json не найден")
 
 
 # =========================
