@@ -8,6 +8,8 @@ from datetime import datetime
 import pytz
 import sys
 
+USER = sys.argv[1] if len(sys.argv) > 1 else "unknown"
+
 import os
 
 BASE_DIR = "/app/output/4425-4426_Gold_Top"
@@ -20,6 +22,7 @@ print("📌 REAL STATUS PATH:", STATUS_PATH)
 print("📌 BASE DIR:", BASE_DIR)
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
 
 os.makedirs(BASE_DIR, exist_ok=True)
 
