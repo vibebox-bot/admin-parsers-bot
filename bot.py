@@ -127,6 +127,25 @@ def file_time(ts):
 def is_allowed(user_id):
     return user_id in ALLOWED_USERS
 
+
+
+def ensure_status():
+    for s in SUPPLIERS.values():
+        os.makedirs(os.path.dirname(s["status"]), exist_ok=True)
+
+        if not os.path.exists(s["status"]):
+            with open(s["status"], "w", encoding="utf-8") as f:
+                json.dump({
+                    "running": False,
+                    "progress": 0,
+                    "found": 0,
+                    "written": 0,
+                    "time": "",
+                    "user": "",
+                    "file_path": ""
+                }, f)
+
+ensure_status()
 # =========================
 # HELPERS
 # =========================
