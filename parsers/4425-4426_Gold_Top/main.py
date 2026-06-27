@@ -8,18 +8,21 @@ from datetime import datetime
 import pytz
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-from config_paths import path
 
-
+print("🔍 FILE_PATH =", FILE_PATH)
+print("🔍 STATUS_PATH =", STATUS_PATH)
+print("🔍 BASE_DIR =", BASE_DIR)
 print("PARSER CWD =", os.getcwd())
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "unknown"
 
-BASE_DIR = path("output/4425-4426_Gold_Top")
+import os
 
-FILE_PATH = path("output/4425-4426_Gold_Top/4425-4426_Gold_Top_LIVE.xlsx")
-STATUS_PATH = path("output/4425-4426_Gold_Top/status.json")
-LOCK_FILE = path("output/4425-4426_Gold_Top/lock.txt")
+BASE_DIR = "/app/output/4425-4426_Gold_Top"
+
+FILE_PATH = os.path.join(BASE_DIR, "4425-4426_Gold_Top_LIVE.xlsx")
+STATUS_PATH = os.path.join(BASE_DIR, "status.json")
+LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
 
 print("📌 REAL STATUS PATH:", STATUS_PATH)
 print("📌 BASE DIR:", BASE_DIR)
