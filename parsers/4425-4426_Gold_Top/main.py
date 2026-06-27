@@ -88,12 +88,14 @@ def set_status(
 
     tmp = STATUS_PATH + ".tmp"
 
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
     
-    os.replace(tmp, STATUS_PATH)
+        os.replace(tmp, STATUS_PATH)
+    except Exception as e:
+        print("⚠️ STATUS WRITE ERROR:", e)
   
-
 # =========================
 # LOCK
 # =========================
