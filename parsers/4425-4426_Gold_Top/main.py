@@ -83,8 +83,13 @@ def set_status(
     }
 
 
-    with open(STATUS_PATH, "w", encoding="utf-8") as f:
+    tmp = STATUS_PATH + ".tmp"
+
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    os.replace(tmp, STATUS_PATH)
+  
 
 # =========================
 # LOCK
@@ -291,6 +296,22 @@ def main():
     print("RUN FILE =", __file__)
 
     os.makedirs(BASE_DIR, exist_ok=True)
+
+
+    # 🔥 СОЗДАЁМ status.json ЕСЛИ ЕГО НЕТ
+    if not os.path.exists(STATUS_PATH):
+        with open(STATUS_PATH, "w", encoding="utf-8") as f:
+            json.dump({
+                "running": False,
+                "progress": 0,
+                "found": 0,
+                "written": 0,
+                "time": "",
+                "user": USER,
+                "file_path": FILE_PATH
+            }, f, ensure_ascii=False, indent=2)
+
+    
     
     print("🧪 EXISTS XLS =", os.path.exists(FILE_PATH))
     print("🧪 EXISTS STATUS =", os.path.exists(STATUS_PATH))
