@@ -150,22 +150,39 @@ ensure_status()
 # HELPERS
 # =========================
 def load_json(path):
-    if not path or not os.path.exists(path):
-        return None
-
     try:
+        # 🔥 СНАЧАЛА читаем как текст (защита от битого файла)
         with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+            text = f.read().strip()
 
-        # защита от пустого JSON
-        if not isinstance(data, dict):
-            return None
+        # если файл пустой
+        if not text:
+            return {
+                "running": False,
+                "progress": 0,
+                "found": 0,
+                "written": 0,
+                "time": "",
+                "user": "",
+                "file_path": ""
+            }
 
-        return data
+        # пробуем распарсить JSON
+        return json.loads(text)
 
     except Exception as e:
         print("❌ JSON READ ERROR:", path, e)
-        return None
+
+        # fallback (чтобы бот НЕ падал)
+        return {
+            "running": False,
+            "progress": 0,
+            "found": 0,
+            "written": 0,
+            "time": "",
+            "user": "",
+            "file_path": ""
+        }
 
 # =========================
 # UI HELPERS
