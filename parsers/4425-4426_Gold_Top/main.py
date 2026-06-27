@@ -7,14 +7,6 @@ from openpyxl import Workbook, load_workbook
 from datetime import datetime
 import pytz
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-
-print("🔍 FILE_PATH =", FILE_PATH)
-print("🔍 STATUS_PATH =", STATUS_PATH)
-print("🔍 BASE_DIR =", BASE_DIR)
-print("PARSER CWD =", os.getcwd())
-
-USER = sys.argv[1] if len(sys.argv) > 1 else "unknown"
 
 import os
 
@@ -27,14 +19,16 @@ LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
 print("📌 REAL STATUS PATH:", STATUS_PATH)
 print("📌 BASE DIR:", BASE_DIR)
 
-
-
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 os.makedirs(BASE_DIR, exist_ok=True)
 
 # тестовый файл
 with open(os.path.join(BASE_DIR, "TEST_WRITE.txt"), "w") as f:
     f.write("OK FROM PARSER")
+
+print("🚀 START PARSER OK")
+print("STATUS PATH =", STATUS_PATH)
 
 #CATEGORY_LIMIT = None  # или 1 для теста
 CATEGORY_LIMIT = 1  # или 1 для теста
@@ -297,6 +291,11 @@ def main():
     print("RUN FILE =", __file__)
 
     os.makedirs(BASE_DIR, exist_ok=True)
+    
+    print("🧪 EXISTS XLS =", os.path.exists(FILE_PATH))
+    print("🧪 EXISTS STATUS =", os.path.exists(STATUS_PATH))
+    print("🧪 BASE_DIR =", BASE_DIR)
+    
 
     set_status(
         running=True,
