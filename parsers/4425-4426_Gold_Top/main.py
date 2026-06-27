@@ -17,7 +17,7 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "unknown"
 
 BASE_DIR = path("output/4425-4426_Gold_Top")
 
-FILE_PATH = path("output/4425-4426_Gold_Top/Харьковская_4425-4426_Gold_Top_LIVE.xlsx")
+FILE_PATH = path("output/4425-4426_Gold_Top/4425-4426_Gold_Top_LIVE.xlsx")
 STATUS_PATH = path("output/4425-4426_Gold_Top/status.json")
 LOCK_FILE = path("output/4425-4426_Gold_Top/lock.txt")
 
