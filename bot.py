@@ -60,12 +60,9 @@ SUPPLIERS = {
     "Харьковская 4425-4426 Gold Top": {
         "name": "📦 Харьковская 4425-4426 Gold Top",
         "script": "parsers/4425-4426_Gold_Top/run.py",
-        "file": path("output/4425-4426_Gold_Top/Харьковская_4425-4426_Gold_Top_LIVE.xlsx"),
+        "file": path("output/4425-4426_Gold_Top/4425-4426_Gold_Top_LIVE.xlsx"),
         "status": path("output/4425-4426_Gold_Top/status.json"),
         "lock": path("output/4425-4426_Gold_Top/lock.txt"), 
-        #"file": "output/4425-4426_Gold_Top/Харьковская_4425-4426_Gold_Top_LIVE.xlsx",
-        #"status": "output/4425-4426_Gold_Top/status.json",
-        #"lock": "output/4425-4426_Gold_Top/lock.txt",
     },
     "Харьковская 208": {
         "name": "📦 Харьковская 208",
