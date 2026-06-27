@@ -53,25 +53,10 @@ session = requests.Session()
 def get_kiev_time():
     return datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%Y-%m-%d %H:%M:%S")
 
-def set_status(
-    running=True,
-    progress=0,
-    found=0,
-    written=0,
-    cat="",
-    user=None,
-    file_path=None
-):
+def set_status(...):
     os.makedirs(BASE_DIR, exist_ok=True)
 
-    old = {}
-
-    if os.path.exists(STATUS_PATH):
-        try:
-            with open(STATUS_PATH, "r", encoding="utf-8") as f:
-                old = json.load(f)
-        except:
-            old = {}
+    tmp = STATUS_PATH + ".tmp"
 
     data = {
         "running": running,
@@ -80,22 +65,20 @@ def set_status(
         "written": written,
         "last_category": cat,
         "time": get_kiev_time(),
-
-        "user": user if user is not None else old.get("user"),
-        "file_path": file_path if file_path is not None else old.get("file_path")
+        "user": user,
+        "file_path": file_path
     }
-
-
-    tmp = STATUS_PATH + ".tmp"
 
     try:
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-    
+
         os.replace(tmp, STATUS_PATH)
+
     except Exception as e:
-        print("⚠️ STATUS WRITE ERROR:", e)
-  
+        print("⚠️ STATUS WRITE FAIL:", e)
+
+
 # =========================
 # LOCK
 # =========================
