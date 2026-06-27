@@ -53,15 +53,7 @@ session = requests.Session()
 def get_kiev_time():
     return datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%Y-%m-%d %H:%M:%S")
 
-def set_status(
-    running=True,
-    progress=0,
-    found=0,
-    written=0,
-    cat="",
-    user="",
-    file_path=""
-):
+def set_status(running, progress, status, user, file_exists, found=0, written=0):
     os.makedirs(BASE_DIR, exist_ok=True)
 
     tmp = STATUS_PATH + ".tmp"
@@ -69,12 +61,12 @@ def set_status(
     data = {
         "running": running,
         "progress": progress,
-        "found": found,
-        "written": written,
-        "last_category": cat,
-        "time": get_kiev_time(),
+        "status": status,
         "user": user,
-        "file_path": file_path
+        "time": get_kiev_time(),
+        "file_exists": file_exists,
+        "found": found,
+        "written": written
     }
 
     try:
@@ -312,18 +304,18 @@ def main():
     print("🧪 EXISTS XLS =", os.path.exists(FILE_PATH))
     print("🧪 EXISTS STATUS =", os.path.exists(STATUS_PATH))
     print("🧪 BASE_DIR =", BASE_DIR)
-    
+
 
     set_status(
         running=True,
         progress=0,
-        found=0,
-        written=0,
-        cat="START",
+        status="running",
         user=USER,
-        file_path=FILE_PATH
+        file_exists=False,
+        found=0,
+        written=0
     )
-
+    
     create_lock()    
 
     os.makedirs(BASE_DIR, exist_ok=True)
@@ -384,43 +376,25 @@ def main():
         
                         written += 1
         
-                        set_status(
-                            running=True,
-                            progress=int((i / len(categories)) * 100),
-                            found=found,
-                            written=written,
-                            cat=cat_name
-                        )
+                    
         
                     except Exception as e:
                         print("❌ PRODUCT ERROR:", e)
         
                 excel.save()
 
-            set_status(
-                running=True,
-                progress=int((i / len(categories)) * 100),
-                found=found,
-                written=written,
-                cat=cat_name
-            )
-
-
         
         set_status(
             running=False,
             progress=100,
+            status="done",
+            user=USER,
+            file_exists=os.path.exists(FILE_PATH),
             found=found,
-            written=written,
-            cat="DONE",
-            file_path=FILE_PATH
+            written=written
         )
-
-        print("\n====================")
-        print("FOUND:", found)
-        print("WRITTEN:", written)
-        print("FILE EXISTS:", os.path.exists(FILE_PATH))
-        print("====================")
+        
+        
         print("✅ DONE")
 
     except Exception as e:
@@ -432,11 +406,13 @@ def main():
         set_status(
             running=False,
             progress=100,
+            status="error",
+            user=USER,
+            file_exists=os.path.exists(FILE_PATH),
             found=found,
-            written=written,
-            cat="ERROR",
-            file_path=FILE_PATH
+            written=written
         )
+           
 
     finally:
         excel.save()
