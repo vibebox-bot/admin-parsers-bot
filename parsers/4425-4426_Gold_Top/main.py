@@ -53,7 +53,15 @@ session = requests.Session()
 def get_kiev_time():
     return datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%Y-%m-%d %H:%M:%S")
 
-def set_status(...):
+def set_status(
+    running=True,
+    progress=0,
+    found=0,
+    written=0,
+    cat="",
+    user="",
+    file_path=""
+):
     os.makedirs(BASE_DIR, exist_ok=True)
 
     tmp = STATUS_PATH + ".tmp"
