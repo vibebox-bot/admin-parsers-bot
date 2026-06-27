@@ -28,6 +28,29 @@ import pytz
 import os
 print("BOT CWD =", os.getcwd())
 
+last_edit = {}
+
+async def safe_edit_message(chat_id, message_id, text, kb=None):
+    import time
+
+    key = f"{chat_id}:{message_id}"
+    now = time.time()
+
+    if now - last_edit.get(key, 0) < 3:
+        return  # не чаще чем раз в 3 сек
+
+    last_edit[key] = now
+
+    try:
+        await bot.safe_edit_message(
+            chat_id=chat_id,
+            message_id=message_id,
+            text=text,
+            reply_markup=kb
+        )
+    except:
+        pass
+
 
 def now():
     return datetime.now()
@@ -151,11 +174,11 @@ ensure_status()
 # =========================
 def load_json(path):
     try:
-        # 🔥 СНАЧАЛА читаем как текст (защита от битого файла)
+        # читаем как текст
         with open(path, "r", encoding="utf-8") as f:
             text = f.read().strip()
 
-        # если файл пустой
+        # 🔥 ЗАЩИТА ОТ ПУСТОГО ФАЙЛА
         if not text:
             return {
                 "running": False,
@@ -167,13 +190,11 @@ def load_json(path):
                 "file_path": ""
             }
 
-        # пробуем распарсить JSON
         return json.loads(text)
 
     except Exception as e:
         print("❌ JSON READ ERROR:", path, e)
 
-        # fallback (чтобы бот НЕ падал)
         return {
             "running": False,
             "progress": 0,
@@ -183,7 +204,6 @@ def load_json(path):
             "user": "",
             "file_path": ""
         }
-
 # =========================
 # UI HELPERS
 # =========================
@@ -211,7 +231,7 @@ async def card_updater(chat_id, msg_id, key):
         text += bar(p)
 
         try:
-            await bot.edit_message_text(
+            await bot.safe_edit_message(
                 chat_id=chat_id,
                 message_id=msg_id,
                 text=text,
@@ -679,7 +699,7 @@ async def dashboard_updater():
                 continue
             
             try:
-                await bot.edit_message_text(
+                await bot.safe_edit_message(
                     chat_id=chat_id,
                     message_id=msg_id,
                     text=dashboard_text(),
