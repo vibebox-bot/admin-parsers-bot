@@ -27,38 +27,20 @@ HEADERS = {
 # =========================
 # STATUS SYSTEM (ДЛЯ DASHBOARD)
 # =========================
-def set_status(
-        running=False,
-        progress=0,
-        user="",
-        file_path=""
-):
+
+def set_status(running=True, user="", file_path=""):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    old = {}
-
-    if os.path.exists(STATUS_PATH):
-        try:
-            with open(STATUS_PATH, "r", encoding="utf-8") as f:
-                old = json.load(f)
-        except:
-            old = {}
 
     data = {
         "running": running,
-        "progress": progress,
-        "user": user or old.get("user", ""),
+        "user": user,
         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "file_path": file_path or old.get("file_path", "")
+        "file_path": file_path
     }
 
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-
-
-def update_progress(percent):
-    set_status(True, percent)
-
+        
 
 def is_locked():
 
@@ -255,7 +237,6 @@ def run_parser(user=""):
 
     set_status(
         running=True,
-        progress=0,
         user=user
     )
 
@@ -284,16 +265,13 @@ def run_parser(user=""):
             parse_category(cat, ws)
                 
 
-        set_status(True, 100)
-
-        wb.save(FILE_PATH)
-
         set_status(
             running=False,
-            progress=100,
             user=user,
             file_path=FILE_PATH
         )
+
+        wb.save(FILE_PATH)
 
         print("✅ DONE:", FILE_PATH)
 
