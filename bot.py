@@ -198,12 +198,26 @@ def load_json(path):
             "time": ""
         }
 
+
+ANIM = [
+    "▰▱▱▱▱▱▱▱▱▱",
+    "▰▰▱▱▱▱▱▱▱▱",
+    "▰▰▰▱▱▱▱▱▱▱",
+    "▰▰▰▰▱▱▱▱▱▱",
+    "▰▰▰▰▰▱▱▱▱▱",
+    "▰▰▰▰▰▰▱▱▱▱",
+    "▰▰▰▰▰▰▰▱▱▱",
+    "▰▰▰▰▰▰▰▰▱▱",
+    "▰▰▰▰▰▰▰▰▰▱",
+    "▰▰▰▰▰▰▰▰▰▰",
+]
+
+def anim_bar(step: int):
+    return ANIM[step % len(ANIM)]
+
 # =========================
 # UI HELPERS
 # =========================
-def bar(p):
-    p = int(p)
-    return "█" * (p // 10) + "░" * (10 - p // 10) + f" {p}%"
 
 def get_progress(st):
     if not st:
@@ -218,12 +232,11 @@ async def card_updater(chat_id, msg_id, key):
         st = load_json(s["status"])
 
         stt = display_status(st, s["file"])[0]
-        p = int(st.get("progress", 0)) if st else 0
-
-        text = f"{s['name']}\n\n"
-        text += f"📌 {stt} {p}%\n\n"
-        text += bar(p)
-
+        
+        step = int(time.time() * 2)  # скорость анимации
+        
+        text += "\n\n" + anim_bar(step)
+        
         try:
             await bot.safe_edit_message(
                 chat_id=chat_id,
