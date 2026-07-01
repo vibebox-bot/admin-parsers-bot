@@ -354,44 +354,64 @@ def kb_dashboard():
 def kb_supplier(key, running=False):
 
     if key not in SUPPLIERS:
-        return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="❌ НЕ НАЙДЕНО", callback_data="back")]
-        ])
-    st = load_json(SUPPLIERS[key]["status"]) or {}
-    file_path = st.get("file_path") if st else SUPPLIERS[key]["file"]
-    file_exists = file_path and os.path.exists(file_path)
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="❌ НЕ НАЙДЕНО",
+                        callback_data="back"
+                    )
+                ]
+            ]
+        )
+
+    file_exists = os.path.exists(SUPPLIERS[key]["file"])
 
     if running:
-        return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⛔ ОТМЕНА", callback_data=f"cancel_{key}")],
-            [InlineKeyboardButton(text="🔙 ДАШБОРД", callback_data="back")]
-        ])
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="⛔ ОТМЕНА",
+                        callback_data=f"cancel_{key}"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="🔙 ДАШБОРД",
+                        callback_data="back"
+                    )
+                ]
+            ]
+        )
 
     rows = []
 
     if file_exists:
         rows.append([
             InlineKeyboardButton(
-                text="⬇️ СКАЧАТЬ EXCEL",
+                text="⬇️ Скачать Excel",
                 callback_data=f"download_{key}"
             )
         ])
 
     rows.append([
         InlineKeyboardButton(
-            text="▶ ЗАПУСТИТЬ ЗАНОВО",
+            text="▶ Запустить заново",
             callback_data=f"run_{key}"
         )
     ])
 
     rows.append([
         InlineKeyboardButton(
-            text="🔙 ДАШБОРД",
+            text="🔙 Дашборд",
             callback_data="back"
         )
     ])
 
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows
+    )
 
 # =========================
 # START
@@ -538,21 +558,26 @@ async def cb(call: types.CallbackQuery):
         return
     
     # DOWNLOAD FILE
-    if data.startswith("download_"):
-        key = data.replace("download_", "")
-        st = load_json(SUPPLIERS[key]["status"]) or {}
-        path = st.get("file_path") if st else SUPPLIERS[key]["file"]
 
+    if data.startswith("download_"):
+    
+        key = data.replace("download_", "")
+    
+        path = SUPPLIERS[key]["file"]
+    
         if os.path.exists(path):
+    
             await call.message.answer_document(
                 types.FSInputFile(path)
             )
+    
         else:
+    
             await call.answer(
                 "Файл не найден",
                 show_alert=True
             )
-
+    
         return
 
     # RUN
