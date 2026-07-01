@@ -228,9 +228,8 @@ def parse_category(category_url, ws):
 
 def get_categories():
     soup = get_soup(BASE_URL)
-
-    categories = [:1]
-    #categories = []
+ 
+    categories = []
 
     for a in soup.select("#category-module a.list-group__a"):
         href = a.get("href")
