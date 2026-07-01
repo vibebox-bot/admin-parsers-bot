@@ -1,6 +1,7 @@
 import os
 import json
 import asyncio
+import time
 
 import sys   # ← добавь
 
@@ -228,15 +229,20 @@ def get_progress(st):
 
 async def card_updater(chat_id, msg_id, key):
     while chat_id in DASHBOARD_OPENED:
+
         s = SUPPLIERS[key]
         st = load_json(s["status"])
 
-        stt = display_status(st, s["file"])[0]
-        
-        step = int(time.time() * 2)  # скорость анимации
-        
-        text += "\n\n" + anim_bar(step)
-        
+        stt, p = display_status(st, s["file"])
+
+        # 🧠 ВАЖНО: создаём text заново
+        text = f"{s['name']}\n\n"
+        text += f"📌 {stt}\n\n"
+
+        step = int(time.time() * 2)
+
+        text += anim_bar(step)
+
         try:
             await bot.safe_edit_message(
                 chat_id=chat_id,
@@ -247,7 +253,7 @@ async def card_updater(chat_id, msg_id, key):
         except:
             pass
 
-        await asyncio.sleep(2)
+        await asyncio.sleep(1)
 
 def status(st):
     if not st:
@@ -558,7 +564,7 @@ async def cb(call: types.CallbackQuery):
         text += f"👤 <b>Пользователь:</b> {user}\n"
         text += f"🕒 <b>Запуск:</b> {run_time}\n\n"
     
-        text += f"{bar(p)}"
+        text += "\n" + anim_bar(int(time.time() * 2))
     
         if os.path.exists(s["file"]):
     
