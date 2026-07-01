@@ -544,11 +544,39 @@ async def cb(call: types.CallbackQuery):
         text += f"🕒 Время: {st.get('time','-')}\n\n"
     
         text += bar(p)
-    
+
+
         if os.path.exists(s["file"]):
-            text += "\n\n📄 Excel готов"
+        
+            size_mb = round(os.path.getsize(s["file"]) / 1024 / 1024, 2)
+        
+            mtime = os.path.getmtime(s["file"])
+        
+            dt = datetime.fromtimestamp(mtime).strftime("%d.%m.%Y %H:%M")
+        
+            age = (datetime.now() - datetime.fromtimestamp(mtime)).days
+        
+            if age >= 3:
+        
+                text += (
+                    "\n\n"
+                    "⚠️ ДАННЫЕ УСТАРЕЛИ\n"
+                    f"📦 Размер: {size_mb} МБ\n"
+                    f"🕒 Обновлён: {dt}"
+                )
+        
+            else:
+        
+                text += (
+                    "\n\n"
+                    "✅ Excel готов\n"
+                    f"📦 Размер: {size_mb} МБ\n"
+                    f"🕒 Обновлён: {dt}"
+                )
+        
         else:
-            text += "\n\n📄 Excel отсутствует"
+        
+            text += "\n\n❌ Excel отсутствует"
     
         await call.message.edit_text(
             text,
