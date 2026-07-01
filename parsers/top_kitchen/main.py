@@ -27,13 +27,29 @@ HEADERS = {
 # =========================
 # STATUS SYSTEM (ДЛЯ DASHBOARD)
 # =========================
-def set_status(running=True, progress=0):
+def set_status(
+        running=False,
+        progress=0,
+        user="",
+        file_path=""
+):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    old = {}
+
+    if os.path.exists(STATUS_PATH):
+        try:
+            with open(STATUS_PATH, "r", encoding="utf-8") as f:
+                old = json.load(f)
+        except:
+            old = {}
 
     data = {
         "running": running,
         "progress": progress,
-        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "user": user or old.get("user", ""),
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "file_path": file_path or old.get("file_path", "")
     }
 
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
@@ -213,7 +229,8 @@ def parse_category(category_url, ws):
 def get_categories():
     soup = get_soup(BASE_URL)
 
-    categories = []
+    categories = [:1]
+    #categories = []
 
     for a in soup.select("#category-module a.list-group__a"):
         href = a.get("href")
@@ -230,13 +247,18 @@ def get_categories():
 # =========================
 # MAIN
 # =========================
-def run_parser():
+def run_parser(user=""):
 
     if is_locked():
         return
 
     set_lock(True)
-    set_status(True, 0)
+
+    set_status(
+        running=True,
+        progress=0,
+        user=user
+    )
 
     try:
         os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -267,19 +289,27 @@ def run_parser():
 
         wb.save(FILE_PATH)
 
+        set_status(
+            running=False,
+            progress=100,
+            user=user,
+            file_path=FILE_PATH
+        )
+
         print("✅ DONE:", FILE_PATH)
 
     finally:
         set_lock(False)
-        set_status(False, 100)
-
 
 # =========================
 # ENTRY
 # =========================
+import sys
+
 def main():
-    run_parser()
+    user = ""
 
+    if len(sys.argv) > 1:
+        user = sys.argv[1]
 
-if __name__ == "__main__":
-    main()
+    run_parser(user)
