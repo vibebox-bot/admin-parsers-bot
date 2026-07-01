@@ -158,15 +158,13 @@ def ensure_status():
 
         if not os.path.exists(s["status"]):
             with open(s["status"], "w", encoding="utf-8") as f:
+
                 json.dump({
                     "running": False,
                     "progress": 0,
-                    "found": 0,
-                    "written": 0,
-                    "time": "",
                     "user": "",
-                    "file_path": ""
-                }, f)
+                    "time": ""
+                }, f, ensure_ascii=False, indent=2)
 
 ensure_status()
 # =========================
@@ -183,12 +181,10 @@ def load_json(path):
             return {
                 "running": False,
                 "progress": 0,
-                "found": 0,
-                "written": 0,
-                "time": "",
                 "user": "",
-                "file_path": ""
+                "time": ""
             }
+            
 
         return json.loads(text)
 
@@ -198,12 +194,10 @@ def load_json(path):
         return {
             "running": False,
             "progress": 0,
-            "found": 0,
-            "written": 0,
-            "time": "",
             "user": "",
-            "file_path": ""
+            "time": ""
         }
+
 # =========================
 # UI HELPERS
 # =========================
@@ -299,16 +293,10 @@ def display_status(st, file_path):
     if not st:
         return "⚪ НЕТ ДАННЫХ", 0
 
-    # всегда берём путь из SUPPLIERS (это главный источник)
-    exists = file_path and os.path.exists(file_path)
-
     if st.get("running"):
-        return "🟡 В РАБОТЕ", max(1, int(st.get("progress", 1)))
+        return "🟡 В РАБОТЕ", int(st.get("progress", 0))
 
-    if st.get("canceled"):
-        return "⛔ ОТМЕНЕНО", int(st.get("progress", 0))
-
-    if exists:
+    if os.path.exists(file_path):
         return "🟢 ГОТОВО", 100
 
     return "⚪ ФАЙЛ ОТСУТСТВУЕТ", 0
@@ -516,80 +504,39 @@ async def cb(call: types.CallbackQuery):
         DASHBOARD_OPENED.discard(call.message.chat.id)
 
         return
-    
+
     # OPEN CARD
     if data.startswith("open_"):
+    
         key = data.replace("open_", "")
         s = SUPPLIERS[key]
         st = load_json(s["status"])
-        
-
+    
         DASHBOARD_OPENED.add(call.message.chat.id)
-
+    
         stt, p = display_status(st, s["file"])
-
-        if stt == "🟢 ГОТОВО":
-            p = 100
-
-        running = st.get("running") if st else False
-
+    
         text = f"{s['name']}\n\n"
+    
         text += f"📌 {stt} {p}%\n\n"
-
-        if st:
-            text += f"👤 Запустил: {st.get('user','-')}\n"
-            text += f"🕒 Время: {st.get('time','-')}\n\n"
-
+    
+        text += f"👤 Запустил: {st.get('user','-')}\n"
+        text += f"🕒 Время: {st.get('time','-')}\n\n"
+    
         text += bar(p)
-
-        file_path = st.get("file_path") if st else s["file"]
-        file_exists = file_path and os.path.exists(file_path)
-
-        file_old = False
-        file_time = None
-
-        if file_exists:
-            file_time_raw = os.path.getmtime(file_path)
-            file_age_days = (now() - datetime.fromtimestamp(file_time_raw)).days
-
-            file_old = file_age_days >= 3
-            file_time = get_file_time(s["file"])
-
-        # 🔥 1) ЕСЛИ БЫЛ ОТМЕНЁН ПАРСИНГ
-        if st and st.get("canceled"):
-            text += "\n\n⛔ Парсинг был ОТМЕНЁН\n📄 Файл может быть неполным"
-
-        # 🔥 2) ЕСЛИ ФАЙЛ СЛИШКОМ СТАРЫЙ
-        elif file_exists and file_old:
-            size_mb = round(os.path.getsize(file_path) / 1024 / 1024, 2)
-
-            text += (
-                f"\n\n⚠️ ДАННЫЕ УСТАРЕЛИ\n"
-                f"📄 Excel есть, но он старый\n"
-                f"📦 Размер: {size_mb} МБ\n"
-                f"🕒 Обновлён: {file_time}"
-            )
-
-        # 🔥 3) НОРМАЛЬНЫЙ ФАЙЛ
-
-        elif file_exists:
-            size_mb = round(os.path.getsize(file_path) / 1024 / 1024, 2)
-            file_time = get_file_time(file_path)
-
-            text += (
-                f"\n\n📄 Excel готов\n"
-                f"📦 Размер: {size_mb} МБ\n"
-                f"🕒 Обновлён: {file_time}"
-            )
-
+    
+        if os.path.exists(s["file"]):
+            text += "\n\n📄 Excel готов"
         else:
             text += "\n\n📄 Excel отсутствует"
-
+    
         await call.message.edit_text(
             text,
-            reply_markup=kb_supplier(key, running)
+            reply_markup=kb_supplier(key, st.get("running", False))
         )
-
+    
+        return
+    
     # DOWNLOAD FILE
     if data.startswith("download_"):
         key = data.replace("download_", "")
