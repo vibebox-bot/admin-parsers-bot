@@ -651,7 +651,7 @@ async def cb(call: types.CallbackQuery):
 
 
         await call.message.edit_text(
-            "🚀 Запуск...\n" + anim_bar(0)
+            "🚀 Запуск...\n" + anim_bar(0),
             reply_markup=kb_supplier(key, True)
         )
 
@@ -663,7 +663,7 @@ async def cb(call: types.CallbackQuery):
             st = load_json(s["status"]) or {}
             
             await call.message.edit_text(
-                "✅ ГОТОВО\n" + anim_bar(9)
+                "✅ ГОТОВО\n" + anim_bar(9),
                 reply_markup=kb_supplier(key, False)
             )
 
