@@ -2,10 +2,8 @@ import os
 import json
 import asyncio
 import time
+import sys
 
-import sys   # ← добавь
-
-# 🔥 LOCK вставка ↓
 LOCK_FILE = "bot.lock"
 
 if os.path.exists(LOCK_FILE):
@@ -14,7 +12,7 @@ if os.path.exists(LOCK_FILE):
 
 with open(LOCK_FILE, "w") as f:
     f.write(str(os.getpid()))
-# 🔥 LOCK вставка ↑
+
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart
@@ -349,7 +347,7 @@ def dashboard_text():
         elif os.path.exists(s["file"]):
             mini_bar = anim_bar(9)
         else:
-            mini_bar = "──────────"
+            mini_bar = ""
 
 
         t += f"{s['name']}\n{stt} {mini_bar} {p}% {warn}\n\n"
@@ -370,7 +368,7 @@ def kb_dashboard():
         elif os.path.exists(s["file"]):
             mini_bar = anim_bar(9)
         else:
-            mini_bar = "──────────"
+            mini_bar = ""
 
         rows.append([
             InlineKeyboardButton(
@@ -578,9 +576,9 @@ async def cb(call: types.CallbackQuery):
 
         if st.get("running"):
             text += "\n" + anim_bar(int(time.time() * 2))
-        else:
+        elif os.path.exists(s["file"]):
             text += "\n" + anim_bar(9)
-    
+            
         if os.path.exists(s["file"]):
     
             size_mb = round(
