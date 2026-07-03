@@ -21,7 +21,7 @@ EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "380931937922"
 
 OUTPUT_DIR = os.path.abspath("output/4399-4400")
-FILE_PATH = os.path.join(OUTPUT_DIR, "Харьковская_4399-4400_LIVE.xlsx")
+FILE_PATH = os.path.join(OUTPUT_DIR, "4399-4400_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 
 HEADERS = {
