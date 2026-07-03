@@ -203,6 +203,13 @@ def run_parser():
 
     set_lock(True)
 
+    save_status(
+        running=True,
+        progress=0,
+        user=USER,
+        file_path=FILE_PATH
+    )
+
     try:
         wb = Workbook()
         ws = wb.active
