@@ -21,8 +21,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-#CATEGORY_LIMIT = None  # или 1 для теста
-CATEGORY_LIMIT = 1  # или 1 для теста
+CATEGORY_LIMIT = None  # или 1 для теста
+#CATEGORY_LIMIT = 1  # или 1 для теста
 
 LOGIN_URL = "https://www.gold-tor.com.ua/index.php?route=account/login"
 
