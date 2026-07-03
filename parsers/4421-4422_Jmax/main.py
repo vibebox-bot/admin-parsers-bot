@@ -15,7 +15,7 @@ EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
 
 OUTPUT_DIR = os.path.abspath("output/4421-4422_Jmax")
-FILE_PATH = os.path.join(OUTPUT_DIR, "Харьковская_4421-4422_Jmax_LIVE.xlsx")
+FILE_PATH = os.path.join(OUTPUT_DIR, "4421-4422_Jmax_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
