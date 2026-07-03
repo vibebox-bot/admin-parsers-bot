@@ -1,6 +1,2 @@
 BOT_TOKEN = "8271994599:AAGmONJ4d8IJAcqR-3hKrG2MKP1QKVitzYs"
 ALLOWED_USERS = [7619496816, 662710716, 616406513]
-
-import os
-
-LOCK_FILE = "output/top_kitchen/lock.txt"
