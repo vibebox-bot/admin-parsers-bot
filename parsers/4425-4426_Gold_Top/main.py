@@ -117,10 +117,8 @@ class ExcelWriter:
 
     def save(self):
         tmp_path = self.path + ".tmp"
-        print("SAVE:", tmp_path)
         self.wb.save(tmp_path)
         os.replace(tmp_path, self.path)
-        print("EXISTS:", os.path.exists(self.path))
 
 # =========================
 # PARSING HELPERS
