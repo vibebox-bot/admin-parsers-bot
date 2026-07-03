@@ -344,7 +344,11 @@ def dashboard_text():
             if age >= 3:
                 warn = "⚠️"
 
-        mini_bar = "█" * (p // 20) + "░" * (5 - p // 20)
+        
+        if st.get("running"):
+            mini_bar = anim_bar(int(time.time() * 2))
+        else:
+            mini_bar = anim_bar(9)
 
         t += f"{s['name']}\n{stt} {mini_bar} {p}% {warn}\n\n"
 
@@ -358,7 +362,10 @@ def kb_dashboard():
 
         stt, p = display_status(st, s["file"])
 
-        mini_bar = "█" * (p // 20) + "░" * (5 - p // 20)
+        if st.get("running"):
+            mini_bar = anim_bar(int(time.time() * 2))
+        else:
+            mini_bar = anim_bar(9)
 
         rows.append([
             InlineKeyboardButton(
@@ -563,8 +570,11 @@ async def cb(call: types.CallbackQuery):
         text += f"📌 <b>Статус:</b> {stt}\n"
         text += f"👤 <b>Пользователь:</b> {user}\n"
         text += f"🕒 <b>Запуск:</b> {run_time}\n\n"
-    
-        text += "\n" + anim_bar(int(time.time() * 2))
+
+        if st.get("running"):
+            text += "\n" + anim_bar(int(time.time() * 2))
+        else:
+            text += "\n" + anim_bar(9)
     
         if os.path.exists(s["file"]):
     
