@@ -24,6 +24,9 @@ from config import BOT_TOKEN, ALLOWED_USERS
 from datetime import datetime
 import pytz
 
+import os
+print("VOLUME TEST:", os.path.exists("/data/output"))
+
 
 last_edit = {}
 
