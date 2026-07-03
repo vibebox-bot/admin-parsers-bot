@@ -6,6 +6,10 @@ from bs4 import BeautifulSoup
 from openpyxl import Workbook
 from datetime import datetime
 
+import sys
+
+USER = sys.argv[1] if len(sys.argv) > 1 else "-"
+
 # =========================
 # CONFIG
 # =========================
@@ -95,6 +99,12 @@ def set_status(**kwargs):
 
     # обновляем только то что пришло
     data.update(kwargs)
+
+    if "user" not in data:
+        data["user"] = USER
+
+    if "file_path" not in data:
+        data["file_path"] = FILE_PATH
 
     # всегда обновляем время только если не передали своё
     if "time" not in data:
@@ -294,8 +304,10 @@ def init_excel():
     ws = wb.active
     ws.append(["SKU", "Title", "Price", "Status", "URL"])
 
-    wb.save(FILE_PATH)
 
+    tmp = FILE_PATH + ".tmp"
+    wb.save(tmp)
+    os.replace(tmp, FILE_PATH)
 
 # =========================
 # RUN
@@ -311,6 +323,14 @@ def run_parser():
         return
 
     init_excel()
+
+    set_status(
+        running=True,
+        canceled=False,
+        progress=0,
+        user=USER,
+        file_path=FILE_PATH
+    )
 
     categories = get_categories()
 
@@ -377,12 +397,15 @@ def run_parser():
 
             time.sleep(0.1)
 
+    
     set_status(
         running=False,
         canceled=False,
         progress=100,
+        user=USER,
         file_path=FILE_PATH
     )
+    
     finish()
 
     print("DONE")
