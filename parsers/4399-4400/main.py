@@ -7,7 +7,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 
-print("🔥 JUMPEX CLEAN PARSER (NO PLAYWRIGHT + SESSION FIX)")
+print("🔥 JUMPEX")
 
 BASE = "https://jumpex.com.ua"
 
