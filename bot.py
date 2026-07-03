@@ -111,6 +111,13 @@ SUPPLIERS = {
         "status": path("output/Melad/status.json"),
         "lock": path("output/Melad/lock.txt"),
     },
+        "Melad": {
+            "name": "📦 Харьковская 220 Kithen Plus",
+            "script": "parsers/220_Kithen_Plus/run.py",
+            "file": path("output/220_Kithen_Plus/220_Kithen_Plus_LIVE.xlsx"),
+            "status": path("output/220_Kithen_Plus/status.json"),
+            "lock": path("output/220_Kithen_Plus/lock.txt"),
+        },
          
 }
 
