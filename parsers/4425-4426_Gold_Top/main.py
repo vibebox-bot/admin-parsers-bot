@@ -17,12 +17,15 @@ FILE_PATH = os.path.join(OUTPUT_DIR, "4425-4426_Gold_Top_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
+print("OUTPUT_DIR =", OUTPUT_DIR)
+print("FILE_PATH =", FILE_PATH)
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-CATEGORY_LIMIT = None  # или 1 для теста
-#CATEGORY_LIMIT = 1  # или 1 для теста
+#CATEGORY_LIMIT = None  # или 1 для теста
+CATEGORY_LIMIT = 1  # или 1 для теста
 
 LOGIN_URL = "https://www.gold-tor.com.ua/index.php?route=account/login"
 
@@ -116,9 +119,10 @@ class ExcelWriter:
 
     def save(self):
         tmp_path = self.path + ".tmp"
+        print("SAVE:", tmp_path)
         self.wb.save(tmp_path)
         os.replace(tmp_path, self.path)
-
+        print("EXISTS:", os.path.exists(self.path))
 
 # =========================
 # PARSING HELPERS
