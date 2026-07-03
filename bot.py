@@ -546,7 +546,33 @@ async def cb(call: types.CallbackQuery):
         stt, p = display_status(st, s["file"])
     
         user = st.get("user", "-")
+
+
+
+
+
+        
+        
+
+        from datetime import timedelta
+
         run_time = st.get("time", "-")
+        
+        try:
+            dt = datetime.strptime(run_time, "%Y-%m-%d %H:%M:%S")
+            dt = dt + timedelta(hours=3)
+            run_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+        except:
+            pass
+
+
+
+
+
+
+
+        
+        #run_time = st.get("time", "-")
     
         text = f"📦 <b>{s['name']}</b>\n\n"
     
