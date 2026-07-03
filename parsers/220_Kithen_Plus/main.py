@@ -66,18 +66,18 @@ session.mount("http://", adapter)
 
 def load_status():
 
-    if not os.path.exists(STATUS_FILE):
+    if not os.path.exists(STATUS_PATH):
         return {
             "category": 0
         }
-
-    with open(STATUS_FILE, "r", encoding="utf-8") as f:
+        
+    with open(STATUS_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def save_status(category_index):
 
-    with open(STATUS_FILE, "w", encoding="utf-8") as f:
+    with open(STATUS_PATH, "w", encoding="utf-8") as f:    
 
         json.dump(
             {
@@ -95,9 +95,9 @@ def save_status(category_index):
 
 def get_workbook():
 
-    if os.path.exists(OUTPUT_FILE):
+    if os.path.exists(FILE_PATH):
 
-        wb = load_workbook(OUTPUT_FILE)
+        wb = load_workbook(FILE_PATH)
         ws = wb.active
 
         return wb, ws
@@ -113,7 +113,7 @@ def get_workbook():
         "Ссылка"
     ])
 
-    wb.save(OUTPUT_FILE)
+    wb.save(FILE_PATH)
 
     return wb, ws
 
@@ -395,7 +395,7 @@ def save_product(ws, wb, product):
         product["url"]
     ])
 
-    wb.save(OUTPUT_FILE)
+    wb.save(FILE_PATH)
 
     print(product["title"])
 
