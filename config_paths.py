@@ -1,6 +1,6 @@
 import os
 
-BASE_DIR = "/data"
+BASE_DIR = "/app"
 
 def path(p):
     return os.path.join(BASE_DIR, p)
