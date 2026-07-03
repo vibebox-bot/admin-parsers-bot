@@ -6,6 +6,11 @@ import random
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 
+import sys
+from datetime import datetime
+
+USER = sys.argv[1] if len(sys.argv) > 1 else "-"
+
 
 # =========================
 # CONFIG
@@ -31,6 +36,25 @@ HEADERS = {
 }
 
 session = requests.Session()
+
+
+def save_status(running=False, progress=0, user="", file_path=""):
+    os.makedirs(BASE_DIR, exist_ok=True)
+
+    data = {
+        "running": running,
+        "progress": progress,
+        "user": user,
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "file_path": file_path
+    }
+
+    tmp = STATUS_PATH + ".tmp"
+
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    os.replace(tmp, STATUS_PATH)
 
 
 # =========================
@@ -235,21 +259,29 @@ class ExcelWriter:
         self.ws.append([name, price, article, stock, url])
 
     def save(self):
-        self.wb.save(self.path)
-
+        tmp = self.path + ".tmp"
+        self.wb.save(tmp)
+        os.replace(tmp, self.path)
+        
 
 # =========================
 # MAIN
 # =========================
 
 def main():
+
     create_lock()
-
+    
     os.makedirs(BASE_DIR, exist_ok=True)
-
+    
+    save_status(
+        running=True,
+        progress=0,
+        user=USER,
+        file_path=FILE_PATH
+    )
+    
     print("🚀 STARTED MELAD")
-
-    print("🔥 THIS IS MY MAIN.PY")
 
     with open("test_melad.txt", "w", encoding="utf-8") as f:
         f.write("hello")
@@ -303,11 +335,26 @@ def main():
             
                 written += 1
 
+                progress = int((written / max(found, 1)) * 100)
+        
+                save_status(
+                    running=True,
+                    progress=progress,
+                    user=USER,
+                    file_path=FILE_PATH
+                )
+
+        
+
         excel.save()
 
-    print("FILE EXISTS:", os.path.exists(FILE_PATH))
-    print("FOUND:", found)
-    print("WRITTEN:", written)
+    save_status(
+        running=False,
+        progress=100,
+        user=USER,
+        file_path=FILE_PATH
+    )
+    
     print("✅ DONE")
 
     remove_lock()
