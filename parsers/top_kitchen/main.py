@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from openpyxl import Workbook
 
-print("🔥 TOP-KITCHEN PARSER FINAL STABLE")
+print("🔥 TOP-KITCHEN")
 
 # =========================
 # PATHS (НЕ ТРОГАЕМ)
@@ -37,6 +37,8 @@ def set_status(running=True, user="", file_path=""):
         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "file_path": file_path
     }
+
+    print("WRITE STATUS:", STATUS_PATH)
 
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
