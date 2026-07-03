@@ -344,11 +344,13 @@ def dashboard_text():
             if age >= 3:
                 warn = "⚠️"
 
-        
         if st.get("running"):
             mini_bar = anim_bar(int(time.time() * 2))
-        else:
+        elif os.path.exists(s["file"]):
             mini_bar = anim_bar(9)
+        else:
+            mini_bar = "──────────"
+
 
         t += f"{s['name']}\n{stt} {mini_bar} {p}% {warn}\n\n"
 
@@ -362,10 +364,13 @@ def kb_dashboard():
 
         stt, p = display_status(st, s["file"])
 
+
         if st.get("running"):
             mini_bar = anim_bar(int(time.time() * 2))
-        else:
+        elif os.path.exists(s["file"]):
             mini_bar = anim_bar(9)
+        else:
+            mini_bar = "──────────"
 
         rows.append([
             InlineKeyboardButton(
