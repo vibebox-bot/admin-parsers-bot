@@ -24,8 +24,6 @@ from config import BOT_TOKEN, ALLOWED_USERS
 from datetime import datetime
 import pytz
 
-import os
-print("BOT CWD =", os.getcwd())
 
 last_edit = {}
 
@@ -117,23 +115,6 @@ SUPPLIERS = {
          
 }
 
-print("========== STATUS CHECK ==========")
-
-for k, s in SUPPLIERS.items():
-    print(k)
-    print("status:", s["status"])
-    print("exists:", os.path.exists(s["status"]))
-
-    if os.path.exists(s["status"]):
-        try:
-            with open(s["status"], "r", encoding="utf-8") as f:
-                print(f.read())
-        except Exception as e:
-            print("READ ERROR:", e)
-
-    print("----------------")
-
-print("==================================")
 
 RUNNING_PROCESSES = {}
 DASHBOARD_MESSAGES = {}
