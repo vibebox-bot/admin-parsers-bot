@@ -10,13 +10,6 @@ from datetime import datetime
 
 import pytz
 
-
-import socket
-
-print("HOSTNAME:", socket.gethostname())
-
-
-
 USER = sys.argv[1] if len(sys.argv) > 1 else "unknown"
 
 OUTPUT_DIR = os.path.abspath("output/4425-4426_Gold_Top")
