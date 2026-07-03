@@ -12,7 +12,7 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 OUTPUT_DIR = os.path.abspath("output/208")
 
-FILE_PATH = os.path.join(OUTPUT_DIR, "Харьковская_208_LIVE.xlsx")
+FILE_PATH = os.path.join(OUTPUT_DIR, "208_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
