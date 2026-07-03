@@ -55,6 +55,16 @@ def now():
 
 print("🔥 BOT STARTED")
 
+
+
+import socket
+
+print("HOSTNAME:", socket.gethostname())
+
+
+
+
+
 bot = Bot(token=BOT_TOKEN)
 
 import requests
