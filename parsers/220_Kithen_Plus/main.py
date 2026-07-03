@@ -21,7 +21,7 @@ from urllib3.util.retry import Retry
 BASE_URL = "https://lambix.prom.ua"
 CATALOG_URL = "https://lambix.prom.ua/ua/product_list"
 
-OUTPUT_FILE = "220_Kithen_Plus.xlsx"
+OUTPUT_FILE = "220_Kithen_Plus_LIVE.xlsx"
 STATUS_FILE = "220_Kithen_Plus_status.json"
 
 CATEGORY_LIMIT = None
