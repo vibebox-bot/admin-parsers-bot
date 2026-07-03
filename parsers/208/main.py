@@ -4,6 +4,11 @@ import json
 import requests
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
+from datetime import datetime
+
+import sys
+
+USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 OUTPUT_DIR = os.path.abspath("output/208")
 
@@ -23,10 +28,23 @@ CATEGORY_URL = None  # будет меняться динамически
 # =========================
 # STATUS
 # =========================
-def save_status(data):
-    with open(STATUS_PATH, "w", encoding="utf-8") as f:
+def save_status(running=False, progress=0, user="", file_path=""):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    data = {
+        "running": running,
+        "progress": progress,
+        "user": user,
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "file_path": file_path
+    }
+
+    tmp = STATUS_PATH + ".tmp"
+
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
+    os.replace(tmp, STATUS_PATH)
 
 # =========================
 # LOAD
@@ -236,12 +254,13 @@ def run_parser():
 
             print(f"[{progress}%] {data['title']}")
 
-            save_status({
-                "running": True,
-                "progress": progress,
-                "done": done,
-                "total": total
-            })
+            save_status(
+                running=True,
+                progress=progress,
+                user=USER,
+                file_path=FILE_PATH
+            )
+                        
 
             if done % 10 == 0:
                 wb.save(FILE_PATH)
@@ -250,12 +269,13 @@ def run_parser():
 
         wb.save(FILE_PATH)
 
-        save_status({
-            "running": False,
-            "progress": 100,
-            "done": done,
-            "total": total
-        })
+        save_status(
+            running=False,
+            progress=100,
+            user=USER,
+            file_path=FILE_PATH
+        )
+         
 
         print("✅ DONE")
 
