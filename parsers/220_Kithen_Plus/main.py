@@ -456,5 +456,9 @@ def main():
 # START
 # =====================================================
 
-if __name__ == "__main__":
+def run_parser():
     main()
+
+
+if __name__ == "__main__":
+    run_parser()
