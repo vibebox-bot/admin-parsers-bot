@@ -21,11 +21,14 @@ from urllib3.util.retry import Retry
 BASE_URL = "https://lambix.prom.ua"
 CATALOG_URL = "https://lambix.prom.ua/ua/product_list"
 
-OUTPUT_FILE = "220_Kithen_Plus_LIVE.xlsx"
-STATUS_FILE = "220_Kithen_Plus_status.json"
 
-CATEGORY_LIMIT = None
-# CATEGORY_LIMIT = 1
+OUTPUT_DIR = os.path.abspath("output/220_Kithen_Plus")
+FILE_PATH = os.path.join(OUTPUT_DIR, "220_Kithen_Plus_LIVE.xlsx")
+STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
+LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
+
+#CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 1
 
 
 HEADERS = {
