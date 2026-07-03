@@ -17,8 +17,6 @@ FILE_PATH = os.path.join(OUTPUT_DIR, "4425-4426_Gold_Top_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
-print("OUTPUT_DIR =", OUTPUT_DIR)
-print("FILE_PATH =", FILE_PATH)
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
