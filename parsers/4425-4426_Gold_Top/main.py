@@ -1,37 +1,25 @@
 import os
+import sys
 import json
 import time
 import requests
+
 from bs4 import BeautifulSoup
-from openpyxl import Workbook, load_workbook
+from openpyxl import Workbook
 from datetime import datetime
+
 import pytz
-import sys
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "unknown"
 
-import os
-
-BASE_DIR = "/app/output/4425-4426_Gold_Top"
-
-FILE_PATH = os.path.join(BASE_DIR, "4425-4426_Gold_Top_LIVE.xlsx")
-STATUS_PATH = os.path.join(BASE_DIR, "status.json")
-LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
-
-print("📌 REAL STATUS PATH:", STATUS_PATH)
-print("📌 BASE DIR:", BASE_DIR)
+OUTPUT_DIR = os.path.abspath("output/4425-4426_Gold_Top")
+FILE_PATH = os.path.join(OUTPUT_DIR, "4425-4426_Gold_Top_LIVE.xlsx")
+STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
+LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-
-os.makedirs(BASE_DIR, exist_ok=True)
-
-# тестовый файл
-with open(os.path.join(BASE_DIR, "TEST_WRITE.txt"), "w") as f:
-    f.write("OK FROM PARSER")
-
-print("🚀 START PARSER OK")
-print("STATUS PATH =", STATUS_PATH)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 #CATEGORY_LIMIT = None  # или 1 для теста
 CATEGORY_LIMIT = 1  # или 1 для теста
@@ -50,33 +38,18 @@ HEADERS = {
 session = requests.Session()
 
 
-def get_kiev_time():
-    return datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%Y-%m-%d %H:%M:%S")
-
-def set_status(running, progress, status, user, file_exists, found=0, written=0):
-    os.makedirs(BASE_DIR, exist_ok=True)
-
-    tmp = STATUS_PATH + ".tmp"
+def set_status(running=True, user="", file_path=""):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     data = {
         "running": running,
-        "progress": progress,
-        "status": status,
         "user": user,
-        "time": get_kiev_time(),
-        "file_exists": file_exists,
-        "found": found,
-        "written": written
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "file_path": file_path
     }
 
-    try:
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-        os.replace(tmp, STATUS_PATH)
-
-    except Exception as e:
-        print("⚠️ STATUS WRITE FAIL:", e)
+    with open(STATUS_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 # =========================
@@ -218,7 +191,6 @@ def get_products_from_category(url):
         if a:
             links.add(a["href"].split("?")[0])
 
-    print("FOUND LINKS:", len(links))
     return list(links)
 
 
@@ -279,46 +251,18 @@ def get_categories():
 # MAIN
 # =========================
 def main():
-    print("🚀 STARTED MAIN V777777777")
 
-    print("RUN FILE =", __file__)
-
-    os.makedirs(BASE_DIR, exist_ok=True)
-
-
-    # 🔥 СОЗДАЁМ status.json ЕСЛИ ЕГО НЕТ
-    if not os.path.exists(STATUS_PATH):
-        with open(STATUS_PATH, "w", encoding="utf-8") as f:
-            json.dump({
-                "running": False,
-                "progress": 0,
-                "found": 0,
-                "written": 0,
-                "time": "",
-                "user": USER,
-                "file_path": FILE_PATH
-            }, f, ensure_ascii=False, indent=2)
-
-    
-    
-    print("🧪 EXISTS XLS =", os.path.exists(FILE_PATH))
-    print("🧪 EXISTS STATUS =", os.path.exists(STATUS_PATH))
-    print("🧪 BASE_DIR =", BASE_DIR)
-
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     set_status(
         running=True,
-        progress=0,
-        status="running",
         user=USER,
-        file_exists=False,
-        found=0,
-        written=0
+        file_path=FILE_PATH
     )
-    
+        
     create_lock()    
 
-    os.makedirs(BASE_DIR, exist_ok=True)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     excel = ExcelWriter(FILE_PATH)
 
@@ -328,8 +272,6 @@ def main():
             return
 
         seen = set()
-        found = 0
-        written = 0
 
         categories = get_categories()
         done = 0
@@ -338,11 +280,6 @@ def main():
         if CATEGORY_LIMIT:
             categories = categories[:CATEGORY_LIMIT]
 
-        print(f"📦 Categories: {len(categories)}")
-
-
-
-
         for i, (cat_name, cat_url) in enumerate(categories, start=1):
             print(f"\n📁 CATEGORY: {cat_name}")
         
@@ -350,10 +287,8 @@ def main():
         
             for page in pages:
         
-                print(f"➡ PAGE: {page}")
-        
                 product_links = get_products_from_category(page)
-                found += len(product_links)
+                #found += len(product_links)
         
                 for link in product_links:
                     try:
@@ -374,24 +309,18 @@ def main():
                             data["url"]
                         )
         
-                        written += 1
-        
-                    
+                        #written += 1   
         
                     except Exception as e:
                         print("❌ PRODUCT ERROR:", e)
         
                 excel.save()
 
-        
+
         set_status(
             running=False,
-            progress=100,
-            status="done",
             user=USER,
-            file_exists=os.path.exists(FILE_PATH),
-            found=found,
-            written=written
+            file_path=FILE_PATH
         )
         
         
@@ -400,19 +329,12 @@ def main():
     except Exception as e:
         print("🔥 FATAL ERROR:", e)
 
-        print("💾 FINAL SAVE STATUS")
-
-
         set_status(
             running=False,
-            progress=100,
-            status="error",
             user=USER,
-            file_exists=os.path.exists(FILE_PATH),
-            found=found,
-            written=written
+            file_path=FILE_PATH
         )
-           
+         
 
     finally:
         excel.save()
