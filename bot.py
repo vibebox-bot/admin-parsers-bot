@@ -560,8 +560,13 @@ async def cb(call: types.CallbackQuery):
         
         try:
             dt = datetime.strptime(run_time, "%Y-%m-%d %H:%M:%S")
+        
+            # +3 часа
             dt = dt + timedelta(hours=3)
-            run_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+        
+            # формат без секунд
+            run_time = dt.strftime("%d.%m.%Y %H:%M")
+        
         except:
             pass
 
@@ -594,10 +599,16 @@ async def cb(call: types.CallbackQuery):
     
             mtime = os.path.getmtime(s["file"])
     
-            dt = datetime.fromtimestamp(
-                mtime
-            ).strftime("%d.%m.%Y %H:%M")
-    
+            from datetime import timedelta
+
+            dt = datetime.fromtimestamp(mtime)
+            
+            # +3 часа
+            dt = dt + timedelta(hours=3)
+            
+            dt_str = dt.strftime("%d.%m.%Y %H:%M")
+            
+            
             age = (
                 datetime.now() -
                 datetime.fromtimestamp(mtime)
@@ -612,7 +623,7 @@ async def cb(call: types.CallbackQuery):
                 "\n\n"
                 "📄 <b>Excel</b>\n"
                 f"├ Размер: {size_mb} МБ\n"
-                f"├ Обновлён: {dt}\n"
+                f"├ Обновлён: {dt_str}\n"
                 f"└ Состояние: {state}"
             )
     
