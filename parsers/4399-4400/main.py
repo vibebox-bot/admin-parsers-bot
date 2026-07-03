@@ -7,6 +7,10 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 
+import sys
+
+USER = sys.argv[1] if len(sys.argv) > 1 else "-"
+
 print("🔥 JUMPEX")
 
 BASE = "https://jumpex.com.ua"
@@ -78,32 +82,23 @@ def login():
 # =========================
 # STATUS
 # =========================
-
-
-def set_status():
+def save_status(running=False, progress=0, user="", file_path=""):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    with open(STATUS_PATH, "w", encoding="utf-8") as f:
-        json.dump({
-            "running": True,
-            "time": datetime.now().strftime("%d.%m %H:%M")
-        }, f, ensure_ascii=False, indent=2)
 
+    data = {
+        "running": running,
+        "progress": progress,
+        "user": user,
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "file_path": file_path
+    }
 
-def update_progress(p):
-    try:
-        if not os.path.exists(STATUS_PATH):
-            return
+    tmp = STATUS_PATH + ".tmp"
 
-        with open(STATUS_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
-        data["progress"] = p
-
-        with open(STATUS_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except:
-        pass
-
+    os.replace(tmp, STATUS_PATH)
 
 # =========================
 # HTTP
@@ -254,9 +249,14 @@ def parse_product(url):
 
 def run_parser():
 
-    set_status()
-
-    login()  # 🔥 ВАЖНО
+    save_status(
+        running=True,
+        progress=0,
+        user=USER,
+        file_path=FILE_PATH
+    )
+    
+    login()
 
     wb = Workbook()
     ws = wb.active
@@ -277,7 +277,12 @@ def run_parser():
 
     for i, cat in enumerate(cats, 1):
 
-        update_progress(int(i / total * 100))
+        save_status(
+            running=True,
+            progress=int(i / total * 100),
+            user=USER,
+            file_path=FILE_PATH
+        )
 
         products = load_products(cat)
 
@@ -315,11 +320,22 @@ def run_parser():
 
             time.sleep(0.2)
 
+    
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    wb.save(FILE_PATH)
 
+    tmp = FILE_PATH + ".tmp"
+    wb.save(tmp)
+    os.replace(tmp, FILE_PATH)
+    
+    save_status(
+        running=False,
+        progress=100,
+        user=USER,
+        file_path=FILE_PATH
+    )
+    
     print("DONE:", all_count)
-
+    
 
 if __name__ == "__main__":
     run_parser()
