@@ -229,99 +229,98 @@ def parse_category(cat_url):
             url = f"{cat_url}?page={page}"
             soup = get_soup(url)
 
-        
+
         # =========================
-        # 🔥 СЕЛЕКТОР КАРТОЧЕК
+        # 🔥 КАРТОЧКИ ТОВАРОВ
         # =========================
-        
-        possible = [
-            ".itemPosition",
-            ".hoverDiv",
-            "tr",
-            ".catalog_row",
-            ".item-list-swiper > *",
-            ".catItems > *",
-        ]
-        
-        for selector in possible:
-            cards = soup.select(selector)
-            print()
-            print("=" * 80)
-            print("SELECTOR:", selector)
-            print("FOUND:", len(cards))
-        
-            if cards:
-                print(cards[0].prettify()[:1500])
-        
-        # Печатаем первую карточку полностью
-        print(str(cards[0]))
-        
+
+        cards = soup.select(".paddingBlock")
+
+        print("=" * 80)
+        print("FOUND CARDS:", len(cards))
+
+        if not cards:
+            print("КАРТОЧКИ НЕ НАЙДЕНЫ НА СТРАНИЦЕ")
+            continue
+
+        print(cards[0].prettify()[:3000])
+
         for card in cards:
-        
+
             title = ""
             sku = ""
             status = ""
             price = ""
             url = ""
-        
+
             # -------------------
             # Название
             # -------------------
             title_el = card.select_one(".item-name")
-        
+
             if title_el:
                 title = clean(title_el.get_text())
-        
-                if title_el.get("href"):
-                    url = title_el["href"]
-                    if url.startswith("/"):
-                        url = BASE + url
-        
+
+                href = title_el.get("href")
+                if href:
+                    if href.startswith("/"):
+                        url = BASE + href
+                    else:
+                        url = href
+
             # -------------------
             # Артикул
             # -------------------
             sku_el = card.select_one(".sku-block .gray")
             if sku_el:
                 sku = clean(sku_el.get_text())
-        
+
             # -------------------
             # Наличие
             # -------------------
             status_el = card.select_one(".are-available")
             if status_el:
                 status = clean(status_el.get_text())
-        
+
             # -------------------
             # Цена дилера
             # -------------------
             for row in card.select(".price-table tr"):
-        
+
                 tds = row.select("td")
-        
+
                 if len(tds) < 2:
                     continue
-        
-                if "Комп. ДИЛЕР" in tds[0].get_text():
-                    price = clean(tds[1].get_text())
+
+                name = clean(tds[0].get_text())
+
+                if "Комп. ДИЛЕР" in name:
+
+                    spans = tds[1].select("span")
+
+                    if spans:
+                        price = clean(spans[0].get_text())
+                    else:
+                        price = clean(tds[1].get_text())
+
                     break
-        
-            print("TITLE :", title)
-            print("SKU   :", sku)
-            print("PRICE :", price)
-            print("URL   :", url)
+
             print("-" * 80)
-        
+            print("SKU   :", sku)
+            print("TITLE :", title)
+            print("PRICE :", price)
+            print("STATUS:", status)
+            print("URL   :", url)
+
             all_items.append([
                 sku,
                 title,
                 price,
                 status,
                 url
-            ])        
+            ])
 
     return all_items
-
-
 # =========================
 # MAIN
 # =========================
