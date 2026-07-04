@@ -443,6 +443,8 @@ def main():
 
     start_category = status.get("category", 0)
 
+    save_status(category_index)
+
     for category_index in range(start_category, len(categories)):
 
         category_url = categories[category_index]
@@ -452,6 +454,8 @@ def main():
         print(category_url)
 
         pages = get_pages(category_url)
+
+        
 
         for page in pages:
 
