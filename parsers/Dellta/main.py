@@ -186,7 +186,8 @@ def parse_category(cat_url):
         # =========================
         # 🔥 СЕЛЕКТОР КАРТОЧЕК
         # =========================
-        cards = soup.select(".ItemDiv, .swiper-slide")
+        #cards = soup.select(".ItemDiv, .swiper-slide")
+        cards = soup.select(".swiper-slide")
 
         print("ALL CARDS:", len(cards))
 
@@ -194,12 +195,15 @@ def parse_category(cat_url):
         # 🔥 ФИЛЬТР РЕАЛЬНЫХ ТОВАРОВ
         # =========================
         filtered_cards = []
+        
         for card in cards:
-            if card.select_one(".item-name"):
+            # swiper-slide иногда не содержит item-name напрямую
+            # но внутри него есть <a>
+            if card.select_one("a"):
                 filtered_cards.append(card)
-
+        
         cards = filtered_cards
-
+        
         print("FILTERED CARDS:", len(cards))
 
         # =========================
@@ -211,8 +215,8 @@ def parse_category(cat_url):
             if real:
                 card = real
 
-            title_el = card.select_one(".item-name")
-            title = clean(title_el.text if title_el else "")
+            title_el = card.select_one("a") or card.select_one(".item-name")
+            title = clean(title_el.get("title") or title_el.text if title_el else "")
 
             sku_el = card.select_one(".sku-block .gray")
             sku = clean(sku_el.text if sku_el else "")
