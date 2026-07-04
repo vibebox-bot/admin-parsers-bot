@@ -39,8 +39,8 @@ async def safe_edit_message(
     key = f"{chat_id}:{message_id}"
     now = time.time()
 
-    if now - last_edit.get(key, 0) < 1:
-        return  # не чаще чем раз в 3 сек
+    if now - last_edit.get(key, 0) < 0.3:
+        return    
 
     last_edit[key] = now
 
@@ -211,8 +211,10 @@ ensure_status()
 
 BLINK = [
     "🟡",
-    "🟨",
     "🟠",
+    "🔶",
+    "🟠",
+    "🟡",
     "🟨",
 ]
 
@@ -265,7 +267,7 @@ async def card_updater(chat_id, msg_id, key):
         text = f"{s['name']}\n\n"
         text += f" {stt}\n\n"
 
-        step = int(time.time() * 2)
+        step = int(time.time() * 6)
 
         text += anim_bar(step)
 
@@ -279,7 +281,7 @@ async def card_updater(chat_id, msg_id, key):
         except:
             pass
 
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.4)
 
 def status(st):
     if not st:
@@ -390,7 +392,7 @@ def dashboard_text():
 def kb_dashboard():
     rows = []
 
-    step = int(time.time() * 2)
+    step = int(time.time() * 6)
 
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
