@@ -209,6 +209,12 @@ def load_json(path):
 
 ensure_status()
 
+BLINK = ["🟡", "🟠", "🟢", "🟡"]
+
+def blink(step):
+    return BLINK[step % len(BLINK)]
+
+
 ANIM = [
     "▰▱▱▱▱▱▱▱▱▱",
     "▰▰▱▱▱▱▱▱▱▱",
@@ -373,15 +379,24 @@ def dashboard_text():
 def kb_dashboard():
     rows = []
 
+    step = int(time.time() * 2)
+
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
         stt, p = display_status(k, st, s["file"])
 
         if stt == "🟡 В РАБОТЕ":
-            mini_bar = anim_bar(int(time.time() * 2))
-            btn = f"{s['name']} | {stt} {mini_bar} {p}%"
+            icon = blink(step)
+        elif "ГОТОВО" in stt:
+            icon = "🟢"
+        elif "ОТМЕНЕНО" in stt:
+            icon = "⛔"
+        elif "ОШИБКА" in stt:
+            icon = "🔴"
         else:
-            btn = f"{s['name']} | {stt}"
+            icon = "⚪"
+
+        btn = f"{s['name']} {icon}"
 
         rows.append([
             InlineKeyboardButton(
