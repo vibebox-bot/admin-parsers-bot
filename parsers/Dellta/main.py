@@ -288,10 +288,10 @@ def run_parser():
 
             key = sku if sku else url
 
-            if key in seen:
-                continue
+            #if key in seen:
+                #continue
 
-            seen.add(key)
+            #seen.add(key)
 
             if not title:
                 continue
