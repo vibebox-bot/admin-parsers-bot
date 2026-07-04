@@ -4,19 +4,15 @@ import json
 import time
 import random
 import requests
-
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
-from urllib.parse import urlparse, urlunparse
-
 from openpyxl import Workbook, load_workbook
-
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-
 from datetime import datetime
 
 print("🟢 FILE LOADED: parser script imported")
+
 # =====================================================
 # НАСТРОЙКИ
 # =====================================================
@@ -24,21 +20,18 @@ print("🟢 FILE LOADED: parser script imported")
 BASE_URL = "https://lambix.prom.ua"
 CATALOG_URL = "https://lambix.prom.ua/ua/product_list"
 
-
 OUTPUT_DIR = os.path.abspath("output/220_Kithen_Plus")
 FILE_PATH = os.path.join(OUTPUT_DIR, "220_Kithen_Plus_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
-#CATEGORY_LIMIT = None
-#CATEGORY_LIMIT = 1
+# CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 1
 
 import sys
-
 USER = sys.argv[1] if len(sys.argv) > 1 else ""
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-
 
 HEADERS = {
     "User-Agent": (
@@ -47,7 +40,6 @@ HEADERS = {
         "Chrome/137.0 Safari/537.36"
     )
 }
-
 
 # =====================================================
 # SESSION
@@ -73,24 +65,13 @@ session.mount("http://", adapter)
 # =====================================================
 
 def load_status():
-
     if not os.path.exists(STATUS_PATH):
-        return {
-            "category": 0
-        }
-        
+        return {"category": 0}
     with open(STATUS_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
-def save_status(
-    category_index,
-    running=False,
-    progress=0,
-    canceled=False,
-    success=False
-):
-
+def save_status(category_index, running=False, progress=0, canceled=False, success=False):
     data = {
         "category": category_index,
         "running": running,
@@ -100,294 +81,132 @@ def save_status(
         "user": USER,
         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
-
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
-        json.dump(
-            data,
-            f,
-            ensure_ascii=False,
-            indent=4
-        )
-
+        json.dump(data, f, ensure_ascii=False, indent=4)
 
 # =====================================================
 # EXCEL
 # =====================================================
 
 def get_workbook():
-
     if os.path.exists(FILE_PATH):
-        os.remove(FILE_PATH)
+        wb = load_workbook(FILE_PATH)
+        ws = wb.active
+        return wb, ws
 
     wb = Workbook()
     ws = wb.active
-
-    ws.append([
-        "Название",
-        "Артикул",
-        "Цена",
-        "Наличие",
-        "Ссылка"
-    ])
-
+    ws.append(["Название", "Артикул", "Цена", "Наличие", "Ссылка"])
     wb.save(FILE_PATH)
-
     return wb, ws
-
 
 # =====================================================
 # REQUEST
 # =====================================================
 
 def get_soup(url):
-
     print(f"🌍 REQUEST: {url}")
-
     attempt = 0
-    
+
     while attempt < 5:
         attempt += 1
-    
         try:
             r = session.get(url, timeout=15)
             print(f"🌐 {url} -> {r.status_code}")
-    
+
             if r.status_code == 200:
                 return BeautifulSoup(r.text, "html.parser")
-    
+
         except Exception as e:
             print(e)
-    
+
         time.sleep(random.uniform(2, 4))
-    
+
     return None
-        
+
 # =====================================================
-# ПАГИНАТОР
+# КАТЕГОРИИ
 # =====================================================
 
-def get_pages(category_url):
-
-    soup = get_soup(category_url)
-
+def get_categories():
+    soup = get_soup(CATALOG_URL)
     if soup is None:
+        print("❌ Не удалось загрузить каталог")
         return []
 
-    last_page = 1
+    categories = []
+    blocks = soup.select("ul.b-product-groups-gallery li")
 
-    paginator = soup.select_one("[data-pagination-pages-count]")
-
-    if paginator:
-        last_page = int(
-            paginator["data-pagination-pages-count"]
-        )
-
-    print(f"📄 Найдено страниц: {last_page}")
-
-    pages = []
-
-    for i in range(1, last_page + 1):
-
-        if i == 1:
-            pages.append(category_url)
-
-        else:
-            pages.append(
-                f"{category_url}/page_{i}"
-            )
-
-    return pages
-
-# =====================================================
-# ТОВАРЫ НА СТРАНИЦЕ
-# =====================================================
-
-def get_products(page_url):
-
-    soup = get_soup(page_url)
-
-    if soup is None:
-        return []
-
-    products = []
-
-    cards = soup.select(
-        "li[data-product-id]"
-    )
-
-    for card in cards:
-
-        a = card.select_one(
-            "a.b-product-gallery__title"
-        )
-
+    for block in blocks:
+        a = block.select_one("a.b-product-groups-gallery__title")
         if not a:
             continue
 
         href = a.get("href")
-
         if not href:
             continue
 
-        products.append(
-            urljoin(BASE_URL, href)
-        )
+        categories.append(urljoin(BASE_URL, href))
 
-    print(f"🛒 Товаров на странице: {len(products)}")
+    if CATEGORY_LIMIT:
+        categories = categories[:CATEGORY_LIMIT]
 
-    if len(products) == 0:
-        print("⚠️ НЕТ ТОВАРОВ — возможно сайт блокирует или сломался селектор")
+    print(f"📂 Категорий найдено: {len(categories)}")
+    for i, c in enumerate(categories):
+        print(f"{i+1}. {c}")
 
-    return products
-
-
-# =====================================================
-# КАРТОЧКА ТОВАРА
-# =====================================================
-
-def clean_price(text):
-
-    if not text:
-        return ""
-
-    text = text.replace("\xa0", "")
-    text = text.replace("₴", "")
-    text = text.replace("/шт.", "")
-    text = text.strip()
-
-    return text
+    return categories
 
 
-def get_text(el):
+def get_subcategories(category_url):
+    soup = get_soup(category_url)
+    subs = []
 
-    if not el:
-        return ""
+    blocks = soup.select("ul.b-product-groups-gallery li")
 
-    return el.get_text(" ", strip=True)
+    for block in blocks:
+        a = block.select_one("a.b-product-groups-gallery__title")
+        if not a:
+            continue
 
+        href = a.get("href")
+        if href:
+            subs.append(urljoin(BASE_URL, href))
 
-def parse_product(url):
-
-    soup = get_soup(url)
-
-    if soup is None:
-        return {
-            "title": "",
-            "sku": "",
-            "price": "",
-            "availability": "",
-            "url": url
-        }
-    # -------------------------------
-    # Название
-    # -------------------------------
-
-    title = get_text(
-        soup.select_one(
-            'span[data-qaid="product_name"]'
-        )
-    )
-
-    # -------------------------------
-    # Артикул
-    # -------------------------------
-
-    sku = get_text(
-        soup.select_one(
-            'span[data-qaid="product_code"]'
-        )
-    )
-
-    # -------------------------------
-    # Цена
-    # БЕРЕМ ИМЕННО ИЗ КАРТОЧКИ
-    # -------------------------------
-
-    price = ""
-
-    price_tag = soup.select_one(
-        'span[data-qaid="wholesale_price"]'
-    )
-
-    if price_tag:
-
-        price = clean_price(
-            price_tag.get_text(strip=True)
-        )
-
-    # -------------------------------
-    # Наличие
-    # -------------------------------
-    
-    availability = ""
-    
-    state = soup.select_one('[data-qaid="presence_data"]')
-    
-    if state:
-        availability = state.get_text(" ", strip=True)
-    
-    
-
-    return {
-        "title": title,
-        "sku": sku,
-        "price": price,
-        "availability": availability,
-        "url": url
-    }
+    return subs
 
 
-# =====================================================
-# ЗАПИСЬ В EXCEL
-# =====================================================
+def process_category(category_url, ws, wb):
 
-def save_product(ws, wb, product):
+    if category_url in visited_categories:
+        return
 
-    ws.append([
-        product["title"],
-        product["sku"],
-        product["price"],
-        product["availability"],
-        product["url"]
-    ])
+    visited_categories.add(category_url)
 
-    wb.save(FILE_PATH)
+    print(f"📂 CATEGORY: {category_url}")
 
-    print(product["title"])
+    subcategories = get_subcategories(category_url)
 
-# =====================================================
-# MAIN
-# =====================================================
+    print(f"Подкатегорий найдено: {len(subcategories)}")
 
-def main():
+    for s in subcategories:
+        print("  ↳", s)
 
-    print("🚀 PARSER STARTED")
+    if subcategories:
 
-    if os.path.exists(STATUS_PATH):
-        os.remove(STATUS_PATH)
+        print(f"📁 Найдено подкатегорий: {len(subcategories)}")
 
-    with open(LOCK_FILE, "w", encoding="utf-8") as f:
-        f.write(str(os.getpid()))
+        for sub in subcategories:
+            process_category(sub, ws, wb)
 
-    save_status(
-        0,
-        running=True,
-        progress=0,
-        canceled=False,
-        success=False
-    )
+        return
 
-    wb, ws = get_workbook()
-
-    pages = get_pages(CATALOG_URL)
-
-    print(pages[:5])
-
-    print(f"📄 Всего страниц: {len(pages)}")
+    pages = get_pages(category_url)
 
     for page in pages:
 
-        print(f"\n📄 {page}")
+        print("\nСтраница:")
+        print(page)
 
         products = get_products(page)
 
@@ -403,19 +222,159 @@ def main():
 
             except Exception as e:
 
+                print("Ошибка товара:")
                 print(product_url)
                 print(e)
 
         time.sleep(random.uniform(1, 2))
 
+# =====================================================
+# ПАГИНАТОР
+# =====================================================
+
+def get_pages(category_url):
+    soup = get_soup(category_url)
+    last_page = 1
+
+    pager = soup.select(".b-pager a")
+
+    for a in pager:
+        txt = a.get_text(strip=True)
+        if txt.isdigit():
+            last_page = max(last_page, int(txt))
+
+    pages = []
+
+    for i in range(1, last_page + 1):
+        if i == 1:
+            pages.append(category_url)
+        else:
+            pages.append(category_url.rstrip("/") + f"/page_{i}")
+
+    print(f"Страниц: {len(pages)}")
+    return pages
+
+# =====================================================
+# ТОВАРЫ
+# =====================================================
+
+def get_products(page_url):
+    soup = get_soup(page_url)
+    products = []
+
+    cards = soup.select("li[data-product-id]")
+
+    for card in cards:
+        a = card.select_one("a.b-product-gallery__title")
+        if not a:
+            continue
+
+        href = a.get("href")
+        if href:
+            products.append(urljoin(BASE_URL, href))
+
+    print(f"🛒 Товаров на странице: {len(products)}")
+
+    if len(products) == 0:
+        print("⚠️ НЕТ ТОВАРОВ — возможно сайт блокирует или сломался селектор")
+
+    return products
+
+# =====================================================
+# ПАРС ТОВАРА
+# =====================================================
+
+def clean_price(text):
+    if not text:
+        return ""
+    text = text.replace("\xa0", "")
+    text = text.replace("₴", "")
+    text = text.replace("/шт.", "")
+    return text.strip()
+
+
+def get_text(el):
+    if not el:
+        return ""
+    return el.get_text(" ", strip=True)
+
+
+def parse_product(url):
+    soup = get_soup(url)
+
+    title = get_text(soup.select_one('span[data-qaid="product_name"]'))
+    sku = get_text(soup.select_one('span[data-qaid="product_code"]'))
+
+    price = ""
+    price_tag = soup.select_one('span[data-qaid="wholesale_price"]')
+    if price_tag:
+        price = clean_price(price_tag.get_text(strip=True))
+
+    availability = ""
+    state = soup.select_one('[data-qaid="presence_data"]')
+    if state:
+        availability = state.get_text(" ", strip=True)
+
+    return {
+        "title": title,
+        "sku": sku,
+        "price": price,
+        "availability": availability,
+        "url": url
+    }
+
+# =====================================================
+# EXCEL SAVE
+# =====================================================
+
+def save_product(ws, wb, product):
+    ws.append([
+        product["title"],
+        product["sku"],
+        product["price"],
+        product["availability"],
+        product["url"]
+    ])
+    wb.save(FILE_PATH)
+    print(product["title"])
+
+# =====================================================
+# MAIN
+# =====================================================
+
+def main():
+    print("🔥 ENTER MAIN()")
+    print("🚀 PARSER STARTED")
+    print(f"👤 USER: {USER}")
+
+    with open(LOCK_FILE, "w", encoding="utf-8") as f:
+        f.write(str(os.getpid()))
+
+    save_status(0, running=True)
+
+    status = load_status()
+    wb, ws = get_workbook()
+
+    categories = get_categories()
+    start_category = status.get("category", 0)
+
+    for category_index in range(start_category, len(categories)):
+        category_url = categories[category_index]
+
+        print("\n" + "=" * 70)
+        print(f"Категория {category_index + 1}/{len(categories)}")
+        print(category_url)
+
+        process_category(category_url, ws, wb)
+
     print("\n==========================")
     print("ПАРСИНГ ЗАВЕРШЕН")
     print("==========================")
 
-
 # =====================================================
 # START
 # =====================================================
+
 def run_parser():
     main()
 
