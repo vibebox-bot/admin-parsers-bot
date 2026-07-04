@@ -66,6 +66,7 @@ session = requests.Session()
 session.headers.update(HEADERS)
 session.mount("https://", adapter)
 session.mount("http://", adapter)
+visited_categories = set()
 
 
 # =====================================================
@@ -241,7 +242,18 @@ def get_subcategories(category_url):
 
 def process_category(category_url, ws, wb):
 
+    if category_url in visited_categories:
+        return
+
+    visited_categories.add(category_url)
+
+    print(f"📂 CATEGORY: {category_url}")
+
     subcategories = get_subcategories(category_url)
+
+    print(f"Подкатегорий найдено: {len(subcategories)}")
+        for s in subcategories:
+        print("  ↳", s)
 
     if subcategories:
 
@@ -499,15 +511,18 @@ def main():
 
     start_category = status.get("category", 0)
 
+
     for category_index in range(start_category, len(categories)):
 
         category_url = categories[category_index]
-
+    
         print("\n" + "=" * 70)
         print(f"Категория {category_index + 1}/{len(categories)}")
         print(category_url)
-
-    process_category(category_url, ws, wb)
+    
+        process_category(category_url, ws, wb)
+    
+        save_status(category_index + 1)
 
     print("\n==========================")
     print("ПАРСИНГ ЗАВЕРШЕН")
