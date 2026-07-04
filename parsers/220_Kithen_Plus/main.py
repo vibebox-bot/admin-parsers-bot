@@ -252,7 +252,8 @@ def process_category(category_url, ws, wb):
     subcategories = get_subcategories(category_url)
 
     print(f"Подкатегорий найдено: {len(subcategories)}")
-        for s in subcategories:
+
+    for s in subcategories:
         print("  ↳", s)
 
     if subcategories:
@@ -260,7 +261,6 @@ def process_category(category_url, ws, wb):
         print(f"📁 Найдено подкатегорий: {len(subcategories)}")
 
         for sub in subcategories:
-
             process_category(sub, ws, wb)
 
         return
@@ -286,6 +286,7 @@ def process_category(category_url, ws, wb):
 
             except Exception as e:
 
+                print("Ошибка товара:")
                 print(product_url)
                 print(e)
 
