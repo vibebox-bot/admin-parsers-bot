@@ -7,6 +7,7 @@ import requests
 
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
+from urllib.parse import urlparse, urlunparse
 
 from openpyxl import Workbook, load_workbook
 
@@ -21,7 +22,7 @@ print("🟢 FILE LOADED: parser script imported")
 # =====================================================
 
 BASE_URL = "https://lambix.prom.ua"
-CATALOG_URL = "https://lambix.prom.ua/ua/product_list"
+CATALOG_URL = "https://lambix.prom.ua/ua/product_list?availability=availability"
 
 
 OUTPUT_DIR = os.path.abspath("output/220_Kithen_Plus")
@@ -66,8 +67,6 @@ session = requests.Session()
 session.headers.update(HEADERS)
 session.mount("https://", adapter)
 session.mount("http://", adapter)
-visited_categories = set()
-
 
 # =====================================================
 # STATUS
@@ -166,131 +165,6 @@ def get_soup(url):
         time.sleep(random.uniform(2, 4))
     
     return None
-
-# =====================================================
-# КАТЕГОРИИ
-# =====================================================
-
-def get_categories():
-
-    soup = get_soup(CATALOG_URL)
-
-    if soup is None:
-        print("❌ Не удалось загрузить каталог")
-        return []
-
-    categories = []
-
-    blocks = soup.select("ul.b-product-groups-gallery li")
-
-    for block in blocks:
-
-        a = block.select_one(
-            "a.b-product-groups-gallery__title"
-        )
-
-        if not a:
-            continue
-
-        href = a.get("href")
-
-        if not href:
-            continue
-
-        categories.append(
-            urljoin(BASE_URL, href)
-        )
-
-    if CATEGORY_LIMIT:
-
-        categories = categories[:CATEGORY_LIMIT]
-
-    print(f"📂 Категорий найдено: {len(categories)}")
-
-    for i, c in enumerate(categories):
-        print(f"{i+1}. {c}")
-
-    return categories
-
-
-def get_subcategories(category_url):
-
-    soup = get_soup(category_url)
-
-    subs = []
-
-    blocks = soup.select("ul.b-product-groups-gallery li")
-
-    for block in blocks:
-
-        a = block.select_one(
-            "a.b-product-groups-gallery__title"
-        )
-
-        if not a:
-            continue
-
-        href = a.get("href")
-
-        if href:
-            subs.append(
-                urljoin(BASE_URL, href)
-            )
-
-    return subs
-    
-
-def process_category(category_url, ws, wb):
-
-    if category_url in visited_categories:
-        return
-
-    visited_categories.add(category_url)
-
-    print(f"📂 CATEGORY: {category_url}")
-
-    subcategories = get_subcategories(category_url)
-
-    print(f"Подкатегорий найдено: {len(subcategories)}")
-
-    for s in subcategories:
-        print("  ↳", s)
-
-    if subcategories:
-
-        print(f"📁 Найдено подкатегорий: {len(subcategories)}")
-
-        for sub in subcategories:
-            process_category(sub, ws, wb)
-
-        return
-
-    pages = get_pages(category_url)
-
-    for page in pages:
-
-        print("\nСтраница:")
-        print(page)
-
-        products = get_products(page)
-
-        for product_url in products:
-
-            try:
-
-                product = parse_product(product_url)
-
-                save_product(ws, wb, product)
-
-                time.sleep(random.uniform(0.5, 1.2))
-
-            except Exception as e:
-
-                print("Ошибка товара:")
-                print(product_url)
-                print(e)
-
-        time.sleep(random.uniform(1, 2))
         
 # =====================================================
 # ПАГИНАТОР
@@ -319,17 +193,32 @@ def get_pages(category_url):
 
     pages = []
 
+
+    parsed = urlparse(category_url)
+
+    base_path = parsed.path.rstrip("/")
+    
+    query = parsed.query
+    
+    pages = []
+    
     for i in range(1, last_page + 1):
-
+    
         if i == 1:
-
+    
             pages.append(category_url)
-
+    
         else:
-
+    
             pages.append(
-                category_url.rstrip("/") +
-                f"/page_{i}"
+                urlunparse((
+                    parsed.scheme,
+                    parsed.netloc,
+                    f"{base_path}/page_{i}",
+                    "",
+                    query,
+                    ""
+                ))
             )
 
     print(f"Страниц: {len(pages)}")
@@ -487,9 +376,8 @@ def save_product(ws, wb, product):
 # =====================================================
 
 def main():
+
     print("🔥 ENTER MAIN()")
-
-
     print("🚀 PARSER STARTED")
     print(f"👤 USER: {USER}")
 
@@ -504,26 +392,34 @@ def main():
         success=False
     )
 
-    status = load_status()
-
     wb, ws = get_workbook()
 
-    categories = get_categories()
+    pages = get_pages(CATALOG_URL)
 
-    start_category = status.get("category", 0)
+    print(f"📄 Всего страниц: {len(pages)}")
 
+    for page in pages:
 
-    for category_index in range(start_category, len(categories)):
+        print(f"\n📄 {page}")
 
-        category_url = categories[category_index]
-    
-        print("\n" + "=" * 70)
-        print(f"Категория {category_index + 1}/{len(categories)}")
-        print(category_url)
-    
-        process_category(category_url, ws, wb)
-    
-        save_status(category_index + 1)
+        products = get_products(page)
+
+        for product_url in products:
+
+            try:
+
+                product = parse_product(product_url)
+
+                save_product(ws, wb, product)
+
+                time.sleep(random.uniform(0.5, 1.2))
+
+            except Exception as e:
+
+                print(product_url)
+                print(e)
+
+        time.sleep(random.uniform(1, 2))
 
     print("\n==========================")
     print("ПАРСИНГ ЗАВЕРШЕН")
