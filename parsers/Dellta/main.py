@@ -186,33 +186,41 @@ def parse_category(cat_url):
             url = f"{cat_url}?page={page}"
             soup = get_soup(url)
 
-        cards = soup.select("div")
+        cards = soup.select(".ItemDiv, .swiper-slide")
         print("ALL DIVS:", len(cards))
 
         for card in cards:
-            title = clean(card.select_one(".item-name") and card.select_one(".item-name").text)
-
-            sku = clean(card.select_one(".sku-block .gray") and card.select_one(".sku-block .gray").text)
-
-            status = clean(card.select_one(".sku-block .are-available") and card.select_one(".sku-block .are-available").text)
-
+        
+            real = card.select_one(".ItemDiv")
+            if real:
+                card = real
+        
+            title_el = card.select_one(".item-name")
+            title = clean(title_el.text if title_el else "")
+        
+            sku_el = card.select_one(".sku-block .gray")
+            sku = clean(sku_el.text if sku_el else "")
+        
+            status_el = card.select_one(".sku-block .are-available")
+            status = clean(status_el.text if status_el else "")
+        
             price = ""
-
             for row in card.select(".price-table tr"):
                 tds = row.select("td")
                 if len(tds) >= 2:
                     name = clean(tds[0].text)
                     if "Комп. ДИЛЕР" in name:
                         price = clean(tds[1].text)
-
-            url_tag = card.select_one(".item-name")
+        
+            url_el = card.select_one(".item-name")
             url = ""
-            if url_tag and url_tag.get("href"):
-                url = url_tag.get("href")
+            if url_el and url_el.get("href"):
+                url = url_el.get("href")
                 if url.startswith("/"):
                     url = BASE + url
-
+        
             all_items.append([sku, title, price, status, url])
+
 
     return all_items
 
