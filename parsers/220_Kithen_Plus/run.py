@@ -1,3 +1,4 @@
+print("🧪 RUN.PY LOADED")
 from main import run_parser
 
 if __name__ == "__main__":
