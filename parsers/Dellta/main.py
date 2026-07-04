@@ -43,28 +43,45 @@ def login():
 
     login_url = BASE + "/login"
 
+    # 1. GET страницу (ВАЖНО для cookies + возможных токенов)
     r = session.get(login_url)
     soup = BeautifulSoup(r.text, "html.parser")
 
+    # 2. собираем hidden поля (если есть csrf / token)
     payload = {}
 
     for inp in soup.select("form input"):
         name = inp.get("name")
-        if not name:
-            continue
-        payload[name] = inp.get("value", "")
+        if name:
+            payload[name] = inp.get("value", "")
 
-    payload["username"] = EMAIL
-    payload["passwd"] = PASSWORD
-    payload["remember"] = "yes"
+    # 3. подставляем логин/пароль (ВАЖНО: правильные name из HTML)
+    payload["email_auth"] = EMAIL
+    payload["pass_auth"] = PASSWORD
 
-    r = session.post(BASE + "/user/loginsave", data=payload, allow_redirects=True)
+    # иногда нужно:
+    payload["remember"] = "on"
 
-    if "/login" not in r.url:
+    # 4. отправляем именно AJAX endpoint (как в форме)
+    login_action = BASE + "/themes/default/ajax/login.php"
+
+    r2 = session.post(
+        login_action,
+        data=payload,
+        headers={
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": login_url
+        }
+    )
+
+    print("STATUS:", r2.status_code)
+    print("RESPONSE:", r2.text[:300])
+
+    # 5. проверка успеха (очень важно)
+    if "error" not in r2.text.lower():
         print("LOGIN OK")
     else:
         print("LOGIN FAILED")
-
 
 # =========================
 # STATUS
