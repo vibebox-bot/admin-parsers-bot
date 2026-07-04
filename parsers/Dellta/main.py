@@ -121,7 +121,7 @@ def clean(t):
 # CATEGORIES
 # =========================
 def get_categories():
-    r = session.get(BASE_URL)
+    r = session.get(BASE)
     soup = BeautifulSoup(r.text, "html.parser")
 
     categories = []
@@ -138,17 +138,16 @@ def get_categories():
             continue
 
         if href.startswith("/"):
-            href = BASE_URL.rstrip("/") + href
+            href = BASE.rstrip("/") + href
 
         categories.append(href)
 
-    print(f"CATEGORIES: {len(categories)}")
+    print("CATEGORIES:", len(categories))
 
     for c in categories:
         print(c)
 
     return categories
-
 
 # =========================
 # LAST PAGE DETECTION
