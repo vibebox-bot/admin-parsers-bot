@@ -125,19 +125,19 @@ def get_categories():
 
     cats = []
 
-    for a in soup.select("a[href*='catalog'], a[href*='category'], .catalog a"):
+    for a in soup.select("a[href]"):
         href = a.get("href")
 
         if not href:
             continue
 
-        if href.startswith("/"):
-            href = BASE + href
+        if "/invertoryi-" in href or "/inventory" in href:
+            if href.startswith("/"):
+                href = BASE + href
 
-        if href not in cats:
             cats.append(href)
 
-    return cats
+    return list(set(cats))
 
 
 # =========================
