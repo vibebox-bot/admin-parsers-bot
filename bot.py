@@ -324,7 +324,7 @@ def display_status(key, st, file_path):
     size = os.path.getsize(file_path)
 
     # файл почти пустой
-    if size < 1024:
+    if size < 50:
         return "🔴 ОШИБКА", 0
 
     # всё хорошо
@@ -373,34 +373,22 @@ def kb_dashboard():
 
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
-
         stt, p = display_status(k, st, s["file"])
 
-
-        if st.get("running"):
+        if stt == "🟡 В РАБОТЕ":
             mini_bar = anim_bar(int(time.time() * 2))
-        elif os.path.exists(s["file"]):
-            mini_bar = anim_bar(9)
+            btn = f"{s['name']} | {stt} {mini_bar} {p}%"
         else:
-            mini_bar = ""
+            btn = f"{s['name']} | {stt}"
 
         rows.append([
             InlineKeyboardButton(
-    
-                if stt == "🟡 В РАБОТЕ":
-                    btn = f"{s['name']} | {stt} {mini_bar} {p}%"
-                else:
-                    btn = f"{s['name']} | {stt}"
-                
-                rows.append([
-                    InlineKeyboardButton(
-                        text=btn,
-                        callback_data=f"open_{k}"
-                    )
-                ])
+                text=btn,
+                callback_data=f"open_{k}"
+            )
+        ])
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
-
 
 def kb_supplier(key, running=False):
 
@@ -589,13 +577,6 @@ async def cb(call: types.CallbackQuery):
     
         user = st.get("user", "-")
 
-
-
-
-
-        
-        
-
         from datetime import timedelta
 
         run_time = st.get("time", "-")
@@ -612,25 +593,17 @@ async def cb(call: types.CallbackQuery):
         except:
             pass
 
-
-
-
-
-
-
-        
-        #run_time = st.get("time", "-")
     
         text = f"📦 <b>{s['name']}</b>\n\n"
-    
-        text += f"📌  {stt}\n"
+        text += f"📌 {stt}\n"
         text += f"👤 <b>Пользователь:</b> {user}\n"
         text += f"🕒 <b>Запуск:</b> {run_time}\n\n"
-
-        if st.get("running"):
-            text += "\n" + anim_bar(int(time.time() * 2))
-        elif os.path.exists(s["file"]):
-            text += "\n" + anim_bar(9)
+        
+        if stt == "🟡 В РАБОТЕ":
+            text += anim_bar(int(time.time() * 2))
+        
+        elif stt == "🟢 ГОТОВО":
+            text += anim_bar(9)
             
         if os.path.exists(s["file"]):
     
