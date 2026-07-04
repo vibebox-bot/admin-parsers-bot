@@ -148,27 +148,23 @@ def get_soup(url):
     print(f"🌍 REQUEST: {url}")
 
     attempt = 0
-
+    
     while attempt < 5:
         attempt += 1
     
         try:
-
             r = session.get(url, timeout=15)
             print(f"🌐 {url} -> {r.status_code}")
-
+    
             if r.status_code == 200:
-
-                return BeautifulSoup(r.text, "lxml")
-
-            print(f"Ошибка {r.status_code}: {url}")
-
+                return BeautifulSoup(r.text, "html.parser")
+    
         except Exception as e:
-
             print(e)
-
+    
         time.sleep(random.uniform(2, 4))
-
+    
+    return None
 
 # =====================================================
 # КАТЕГОРИИ
@@ -177,6 +173,10 @@ def get_soup(url):
 def get_categories():
 
     soup = get_soup(CATALOG_URL)
+
+    if soup is None:
+        print("❌ Не удалось загрузить каталог")
+        return []
 
     categories = []
 
