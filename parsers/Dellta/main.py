@@ -163,7 +163,8 @@ def parse_category(cat_url):
     all_items = []
 
     first_page = get_soup(cat_url)
-    html = str(first_page)
+    with open("debug.html", "w", encoding="utf-8") as f:
+        f.write(str(first_page))
 
     pos = html.find("price-table")
     print(html[pos-3000:pos+5000])
