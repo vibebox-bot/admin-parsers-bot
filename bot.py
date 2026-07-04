@@ -26,7 +26,14 @@ import pytz
 
 last_edit = {}
 
-async def safe_edit_message(chat_id, message_id, text, kb=None):
+async def safe_edit_message(
+    chat_id,
+    message_id,
+    text,
+    kb=None,
+    parse_mode=None
+):
+    
     import time
 
     key = f"{chat_id}:{message_id}"
@@ -38,11 +45,13 @@ async def safe_edit_message(chat_id, message_id, text, kb=None):
     last_edit[key] = now
 
     try:
-        await bot.safe_edit_message(
+
+        await bot.edit_message_text(
             chat_id=chat_id,
             message_id=message_id,
             text=text,
-            reply_markup=kb
+            reply_markup=kb,
+            parse_mode=parse_mode
         )
     except:
         pass
@@ -546,11 +555,13 @@ async def cb(call: types.CallbackQuery):
     # BACK
     if data == "back":
 
+
         msg = await call.message.edit_text(
             dashboard_text(),
-            reply_markup=kb_dashboard()
+            reply_markup=kb_dashboard(),
+            parse_mode="HTML"
         )
-
+        
         DASHBOARD_MESSAGES[
             call.message.chat.id
         ] = msg.message_id
@@ -814,7 +825,7 @@ async def dashboard_updater():
             
             try:
 
-                await bot.safe_edit_message(
+                await safe_edit_message(
                     chat_id=chat_id,
                     message_id=msg_id,
                     text=dashboard_text(),
