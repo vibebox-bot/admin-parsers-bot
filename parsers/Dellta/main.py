@@ -158,67 +158,15 @@ def get_last_page(soup):
 # PARSE CATEGORY
 # =========================
 def parse_category(cat_url):
+
     print("CATEGORY:", cat_url)
 
     all_items = []
 
     first_page = get_soup(cat_url)
 
-    html = str(first_page)
-
-    import re
-
-    classes = sorted(set(re.findall(r'class="([^"]+)"', html)))
-    
-    for c in classes:
-        if (
-            "item" in c.lower()
-            or "product" in c.lower()
-            or "catalog" in c.lower()
-            or "hover" in c.lower()
-            or "position" in c.lower()
-        ):
-            print(c)
-
-    for s in [
-        'class="hoverDiv',
-        "class='hoverDiv",
-        'class="itemPosition',
-        'class="itemPosition ',
-        'itemPosition',
-    ]:
-        pos = html.find(s)
-        print(s, pos)
-        
-        break
-    
-    with open("debug.html", "w", encoding="utf-8") as f:
-        f.write(html)
-    
-    pos = html.find("price-table")
-    if pos != -1:
-        print(html[pos-3000:pos+5000])
-    
-    print("ItemDiv:", html.find("ItemDiv"))
-    print("hoverDiv:", html.find("hoverDiv"))
-    print("item-name:", html.find("item-name"))
-    print("price-table:", html.find("price-table"))
-
-
-    print("RAW HAS ItemDiv:", ".ItemDiv" in str(first_page))
-    print("RAW HAS swiper:", "swiper-slide" in str(first_page))
-
-    slides = first_page.select(".swiper-slide")
-
-    if slides:
-        print(slides[0].parent.prettify()[:5000])
-
-    print("ITEMS .ItemDiv:", len(first_page.select(".ItemDiv")))
-    print("ITEMS swiper-slide:", len(first_page.select(".swiper-slide")))
-
-    open("debug_category.html", "w", encoding="utf-8").write(str(first_page))
-
     last_page = get_last_page(first_page)
+
     print("PAGES:", last_page)
 
     for page in range(1, last_page + 1):
@@ -226,24 +174,15 @@ def parse_category(cat_url):
         if page == 1:
             soup = first_page
         else:
-            url = f"{cat_url}?page={page}"
-            soup = get_soup(url)
-
+            soup = get_soup(f"{cat_url}?page={page}")
 
         # =========================
-        # 🔥 КАРТОЧКИ ТОВАРОВ
+        # КАРТОЧКИ ТОВАРОВ
         # =========================
 
         cards = soup.select(".paddingBlock")
 
-        print("=" * 80)
         print("FOUND CARDS:", len(cards))
-
-        if not cards:
-            print("КАРТОЧКИ НЕ НАЙДЕНЫ НА СТРАНИЦЕ")
-            continue
-
-        print(cards[0].prettify()[:3000])
 
         for card in cards:
 
@@ -253,61 +192,55 @@ def parse_category(cat_url):
             price = ""
             url = ""
 
-            # -------------------
-            # Название
-            # -------------------
-            title_el = card.select_one(".item-name")
+            # --------------------
+            # Название + ссылка
+            # --------------------
+            title_el = card.select_one("a.item-name")
 
             if title_el:
+
                 title = clean(title_el.get_text())
 
-                href = title_el.get("href")
-                if href:
-                    if href.startswith("/"):
-                        url = BASE + href
-                    else:
-                        url = href
+                href = title_el.get("href", "")
 
-            # -------------------
+                if href:
+
+                    if href.startswith("/"):
+                        href = BASE + href
+
+                    url = href
+
+            # --------------------
             # Артикул
-            # -------------------
+            # --------------------
             sku_el = card.select_one(".sku-block .gray")
+
             if sku_el:
                 sku = clean(sku_el.get_text())
 
-            # -------------------
+            # --------------------
             # Наличие
-            # -------------------
-            status_el = card.select_one(".are-available")
+            # --------------------
+            status_el = card.select_one(".sku-block .are-available")
+
             if status_el:
                 status = clean(status_el.get_text())
 
-            # -------------------
-            # Цена дилера
-            # -------------------
-            for row in card.select(".price-table tr"):
+            # --------------------
+            # Цена Комп. ДИЛЕР
+            # --------------------
+            dealer_row = card.select_one("tr.line-1")
 
-                tds = row.select("td")
+            if dealer_row:
 
-                if len(tds) < 2:
-                    continue
+                price_el = dealer_row.select_one("span.active")
 
-                name = clean(tds[0].get_text())
+                if price_el:
+                    price = clean(price_el.get_text())
 
-                if "Комп. ДИЛЕР" in name:
-
-                    spans = tds[1].select("span")
-
-                    if spans:
-                        price = clean(spans[0].get_text())
-                    else:
-                        price = clean(tds[1].get_text())
-
-                    break
-
-            print("-" * 80)
-            print("SKU   :", sku)
+            print("----------------------------------------")
             print("TITLE :", title)
+            print("SKU   :", sku)
             print("PRICE :", price)
             print("STATUS:", status)
             print("URL   :", url)
@@ -321,6 +254,7 @@ def parse_category(cat_url):
             ])
 
     return all_items
+    
 # =========================
 # MAIN
 # =========================
