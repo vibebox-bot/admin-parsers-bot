@@ -158,15 +158,15 @@ def get_last_page(soup):
 # PARSE CATEGORY
 # =========================
 def parse_category(cat_url):
-    print("HTML SIZE:", len(soup.text))
-    
-    open("cat_debug.html", "w", encoding="utf-8").write(str(soup))
-    
     print("CATEGORY:", cat_url)
 
     all_items = []
 
     first_page = get_soup(cat_url)
+
+    # ✅ DEBUG ТУТ (а не до soup)
+    print("HTML SIZE:", len(str(first_page)))
+    open("cat_debug.html", "w", encoding="utf-8").write(str(first_page))
 
     last_page = get_last_page(first_page)
 
@@ -183,7 +183,6 @@ def parse_category(cat_url):
         cards = soup.select(".ItemDiv")
 
         for card in cards:
-
             title = clean(card.select_one(".item-name") and card.select_one(".item-name").text)
 
             sku = clean(card.select_one(".sku-block .gray") and card.select_one(".sku-block .gray").text)
