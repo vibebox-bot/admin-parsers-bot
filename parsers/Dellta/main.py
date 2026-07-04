@@ -176,11 +176,8 @@ def parse_category(cat_url):
         else:
             soup = get_soup(f"{cat_url}?page={page}")
 
-        # =========================
-        # КАРТОЧКИ ТОВАРОВ
-        # =========================
-
-        cards = soup.select(".paddingBlock")
+        # Карточки товаров
+        cards = soup.select("tr.itemPosition")
 
         print("FOUND CARDS:", len(cards))
 
@@ -192,10 +189,11 @@ def parse_category(cat_url):
             price = ""
             url = ""
 
-            # --------------------
+            # =========================
             # Название + ссылка
-            # --------------------
-            title_el = card.select_one("a.item-name")
+            # =========================
+
+            title_el = card.select_one("td.td_2 a[href]")
 
             if title_el:
 
@@ -203,42 +201,39 @@ def parse_category(cat_url):
 
                 href = title_el.get("href", "")
 
-                if href:
+                if href.startswith("/"):
+                    href = BASE + href
 
-                    if href.startswith("/"):
-                        href = BASE + href
+                url = href
 
-                    url = href
-
-            # --------------------
+            # =========================
             # Артикул
-            # --------------------
-            sku_el = card.select_one(".sku-block .gray")
+            # =========================
+
+            sku_el = card.select_one(".gray")
 
             if sku_el:
                 sku = clean(sku_el.get_text())
 
-            # --------------------
+            # =========================
             # Наличие
-            # --------------------
-            status_el = card.select_one(".sku-block .are-available")
+            # =========================
+
+            status_el = card.select_one(".are-available")
 
             if status_el:
                 status = clean(status_el.get_text())
 
-            # --------------------
-            # Цена Комп. ДИЛЕР
-            # --------------------
-            dealer_row = card.select_one("tr.line-1")
+            # =========================
+            # Цена дилера
+            # =========================
 
-            if dealer_row:
+            price_el = card.select_one("tr.line-1 span.active")
 
-                price_el = dealer_row.select_one("span.active")
+            if price_el:
+                price = clean(price_el.get_text())
 
-                if price_el:
-                    price = clean(price_el.get_text())
-
-            print("----------------------------------------")
+            print("-" * 70)
             print("TITLE :", title)
             print("SKU   :", sku)
             print("PRICE :", price)
