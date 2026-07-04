@@ -186,8 +186,18 @@ def parse_category(cat_url):
             url = f"{cat_url}?page={page}"
             soup = get_soup(url)
 
+
         cards = soup.select(".ItemDiv, .swiper-slide")
         print("ALL DIVS:", len(cards))
+        
+        # 🔥 ДОБАВЬ ЭТО СРАЗУ ПОСЛЕ SELECT
+        filtered_cards = []
+        
+        for card in cards:
+            if card.select_one(".item-name"):
+                filtered_cards.append(card)
+        
+        cards = filtered_cards
 
         for card in cards:
         
