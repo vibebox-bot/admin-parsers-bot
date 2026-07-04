@@ -39,7 +39,7 @@ async def safe_edit_message(
     key = f"{chat_id}:{message_id}"
     now = time.time()
 
-    if now - last_edit.get(key, 0) < 3:
+    if now - last_edit.get(key, 0) < 1:
         return  # не чаще чем раз в 3 сек
 
     last_edit[key] = now
@@ -209,26 +209,37 @@ def load_json(path):
 
 ensure_status()
 
-BLINK = ["🟡", "🟠", "🟢", "🟡"]
+BLINK = [
+    "🟡",
+    "🟨",
+    "🟠",
+    "🟨",
+]
 
 def blink(step):
     return BLINK[step % len(BLINK)]
 
 
 ANIM = [
-    "▰▱▱▱▱▱▱▱▱▱",
-    "▰▰▱▱▱▱▱▱▱▱",
-    "▰▰▰▱▱▱▱▱▱▱",
-    "▰▰▰▰▱▱▱▱▱▱",
-    "▰▰▰▰▰▱▱▱▱▱",
-    "▰▰▰▰▰▰▱▱▱▱",
-    "▰▰▰▰▰▰▰▱▱▱",
-    "▰▰▰▰▰▰▰▰▱▱",
-    "▰▰▰▰▰▰▰▰▰▱",
-    "▰▰▰▰▰▰▰▰▰▰",
+    "■■□□□□□□□□",
+    "□■■□□□□□□□",
+    "□□■■□□□□□□",
+    "□□□■■□□□□□",
+    "□□□□■■□□□□",
+    "□□□□□■■□□□",
+    "□□□□□□■■□□",
+    "□□□□□□□■■□",
+    "□□□□□□□□■■",
+    "□□□□□□□■■□",
+    "□□□□□□■■□□",
+    "□□□□□■■□□□",
+    "□□□□■■□□□□",
+    "□□□■■□□□□□",
+    "□□■■□□□□□□",
+    "□■■□□□□□□□",
 ]
 
-def anim_bar(step: int):
+def anim_bar(step):
     return ANIM[step % len(ANIM)]
 
 # =========================
@@ -252,7 +263,7 @@ async def card_updater(chat_id, msg_id, key):
 
         # 🧠 ВАЖНО: создаём text заново
         text = f"{s['name']}\n\n"
-        text += f"📌 {stt}\n\n"
+        text += f" {stt}\n\n"
 
         step = int(time.time() * 2)
 
@@ -370,7 +381,7 @@ def dashboard_text():
         t += f"{s['name']} {icon}\n"
 
         if icon == "🟡":
-            t += f"{anim_bar(int(time.time()*2))} {p}%\n"
+            t += f"{anim_bar(int(time.time()*4))}\n"
 
         t += "\n"
 
@@ -616,7 +627,7 @@ async def cb(call: types.CallbackQuery):
 
     
         text = f"📦 <b>{s['name']}</b>\n\n"
-        text += f"📌 {stt}\n"
+        text += f" {stt}\n"
         text += f"👤 <b>Пользователь:</b> {user}\n"
         text += f"🕒 <b>Запуск:</b> {run_time}\n\n"
         
@@ -851,7 +862,7 @@ async def dashboard_updater():
             except Exception:
                 pass
 
-        await asyncio.sleep(5)
+        await asyncio.sleep(1)
         
 
 # =========================
