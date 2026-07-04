@@ -337,34 +337,48 @@ def dashboard_text():
     t = "📊 Дашборд парсеров\n\n"
 
     for k, s in SUPPLIERS.items():
+
         st = load_json(s["status"])
-
         stt, p = display_status(k, st, s["file"])
-
-        warn = ""
-
-        if st and not st.get("running") and os.path.exists(s["file"]):
-
-            kyiv = pytz.timezone("Europe/Kyiv")
-
-            age = (
-                now() - datetime.fromtimestamp(os.path.getmtime(s["file"]))
-            ).days
-           
-            if age >= 3:
-                warn = "⚠️"
 
         if st.get("running"):
             mini_bar = anim_bar(int(time.time() * 2))
-        elif os.path.exists(s["file"]):
-            mini_bar = anim_bar(9)
         else:
             mini_bar = ""
 
+        t += f"{s['name']}\n"
+
         if stt == "🟡 В РАБОТЕ":
-            t += f"{s['name']}\n{stt} {mini_bar} {p}%\n\n"
+            t += f"{stt} {mini_bar} {p}%\n"
         else:
-            t += f"{s['name']}\n{stt}\n\n"
+            t += f"{stt}\n"
+
+        info = []
+
+        # Пользователь
+        user = st.get("user", "")
+        if user:
+            info.append(f"👤 {user}")
+
+        # Файл существует
+        if os.path.exists(s["file"]):
+
+            size = round(
+                os.path.getsize(s["file"]) / 1024 / 1024,
+                2
+            )
+
+            dt = datetime.fromtimestamp(
+                os.path.getmtime(s["file"])
+            ).strftime("%d.%m %H:%M")
+
+            info.append(f"📅 {dt}")
+            info.append(f"📄 {size} МБ")
+
+        if info:
+            t += " • ".join(info) + "\n"
+
+        t += "\n"
 
     return t
 
