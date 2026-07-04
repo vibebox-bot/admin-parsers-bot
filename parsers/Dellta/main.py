@@ -186,51 +186,34 @@ def parse_category(cat_url):
         # =========================
         # 🔥 СЕЛЕКТОР КАРТОЧЕК
         # =========================
-        #cards = soup.select(".ItemDiv, .swiper-slide")
-        cards = soup.select(".swiper-slide")
-
+        cards = soup.select(".ItemDiv")
+        
         print("ALL CARDS:", len(cards))
-
-        # =========================
-        # 🔥 ФИЛЬТР РЕАЛЬНЫХ ТОВАРОВ
-        # =========================
-        filtered_cards = []
         
-        for card in cards:
-            # swiper-slide иногда не содержит item-name напрямую
-            # но внутри него есть <a>
-            if card.select_one("a"):
-                filtered_cards.append(card)
+        for i, card in enumerate(cards):
+            print("----")
+            print(i)
         
-        cards = filtered_cards
+            title_el = card.select_one(".item-name")
+            title = clean(title_el.text if title_el else "")
         
-        print("FILTERED CARDS:", len(cards))
-
-        # =========================
-        # 🔥 ПАРСИНГ ТОВАРОВ
-        # =========================
-        for card in cards:
-
-            real = card.select_one(".ItemDiv")
-            if real:
-                card = real
-
-            title_el = card.select_one("a") or card.select_one(".item-name")
-            title = clean(title_el.get("title") or title_el.text if title_el else "")
-
             sku_el = card.select_one(".sku-block .gray")
             sku = clean(sku_el.text if sku_el else "")
-
+        
             status_el = card.select_one(".sku-block .are-available")
             status = clean(status_el.text if status_el else "")
-
+        
             price = ""
             for row in card.select(".price-table tr"):
                 tds = row.select("td")
                 if len(tds) >= 2:
-                    name = clean(tds[0].text)
-                    if "Комп. ДИЛЕР" in name:
+                    if "Комп. ДИЛЕР" in tds[0].text:
                         price = clean(tds[1].text)
+        
+            print("TITLE:", title)
+            print("SKU:", sku)
+            print("PRICE:", price)
+
 
             url_el = card.select_one(".item-name")
             url = ""
