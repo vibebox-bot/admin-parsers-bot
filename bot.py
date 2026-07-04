@@ -152,7 +152,20 @@ def ensure_status():
                     "time": ""
                 }, f, ensure_ascii=False, indent=2)
 
+        else:
+            st = load_json(s["status"])
+
+            # если lock-файла нет — значит парсер уже не работает
+            if not os.path.exists(s["lock"]):
+
+                st["running"] = False
+                st["canceled"] = False
+
+                with open(s["status"], "w", encoding="utf-8") as f:
+                    json.dump(st, f, ensure_ascii=False, indent=2)
+
 ensure_status()
+
 # =========================
 # HELPERS
 # =========================
@@ -218,7 +231,7 @@ async def card_updater(chat_id, msg_id, key):
         s = SUPPLIERS[key]
         st = load_json(s["status"])
 
-        stt, p = display_status(st, s["file"])
+        stt, p = display_status(key, st, s["file"])
 
         # 🧠 ВАЖНО: создаём text заново
         text = f"{s['name']}\n\n"
@@ -292,12 +305,25 @@ async def safe_edit(call, text, kb=None):
         await call.message.answer(text, reply_markup=kb)
 
 
-def display_status(st, file_path):
+def display_status(key, st, file_path):
 
     if not st:
         return "⚪ НЕТ ДАННЫХ", 0
 
-    if st.get("running"):
+    running = False
+
+    # процесс реально существует
+    if key in RUNNING_PROCESSES:
+        running = True
+
+    # после перезапуска бота
+    elif (
+        st.get("running")
+        and os.path.exists(SUPPLIERS[key]["lock"])
+    ):
+        running = True
+
+    if running:
         return "🟡 В РАБОТЕ", int(st.get("progress", 0))
 
     if os.path.exists(file_path):
@@ -314,7 +340,7 @@ def dashboard_text():
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
 
-        stt, p = display_status(st, s["file"])
+        stt, p = display_status(key, st, s["file"])
 
         warn = ""
 
@@ -347,7 +373,7 @@ def kb_dashboard():
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
 
-        stt, p = display_status(st, s["file"])
+        stt, p = display_status(key, st, s["file"])
 
 
         if st.get("running"):
@@ -550,7 +576,7 @@ async def cb(call: types.CallbackQuery):
     
         DASHBOARD_OPENED.add(call.message.chat.id)
     
-        stt, p = display_status(st, s["file"])
+        stt, p = display_status(key, st, s["file"])
     
         user = st.get("user", "-")
 
@@ -695,14 +721,26 @@ async def cb(call: types.CallbackQuery):
         try:
             # запускаем парсер
             code = await run_parser(key, call.from_user.full_name)
-
-            # если его НЕ отменили вручную
+            
             st = load_json(s["status"]) or {}
+            
+            st["running"] = False
+            st["canceled"] = False
+            st["progress"] = 100
+            
+            with open(s["status"], "w", encoding="utf-8") as f:
+                json.dump(st, f, ensure_ascii=False, indent=2)
+            
+            if os.path.exists(s["lock"]):
+                try:
+                    os.remove(s["lock"])
+                except:
+                    pass
             
             await call.message.edit_text(
                 "✅ ГОТОВО\n" + anim_bar(9),
                 reply_markup=kb_supplier(key, False)
-            )
+            )            
 
         except Exception as e:
 
@@ -753,6 +791,15 @@ async def cb(call: types.CallbackQuery):
                 os.remove(s["lock"])
             except:
                 pass
+
+        st = load_json(s["status"])
+        
+        st["running"] = False
+        st["progress"] = 0
+        st["canceled"] = True
+        
+        with open(s["status"], "w", encoding="utf-8") as f:
+            json.dump(st, f, ensure_ascii=False, indent=2)
 
         await safe_edit(call, "⛔ ОТМЕНЕНО\n" + anim_bar(0), kb_supplier(key, False))
         return
