@@ -18,13 +18,14 @@ BASE = "https://b2b.delltalife.com"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = None  # None = все категории
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "123456"
 
-OUTPUT_DIR = os.path.abspath("output/delltalife")
-FILE_PATH = os.path.join(OUTPUT_DIR, "delltalife.xlsx")
+OUTPUT_DIR = os.path.abspath("output/Dellta")
+FILE_PATH = os.path.join(OUTPUT_DIR, "Dellta_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 
 HEADERS = {
