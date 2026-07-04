@@ -334,49 +334,28 @@ def display_status(key, st, file_path):
 # DASHBOARD
 # =========================
 def dashboard_text():
-    t = "📊 Дашборд парсеров\n\n"
+    t = "📊 <b>Дашборд парсеров</b>\n\n"
 
     for k, s in SUPPLIERS.items():
 
         st = load_json(s["status"])
         stt, p = display_status(k, st, s["file"])
 
-        if st.get("running"):
-            mini_bar = anim_bar(int(time.time() * 2))
+        if "🟢" in stt:
+            icon = "🟢"
+        elif "🟡" in stt:
+            icon = "🟡"
+        elif "⛔" in stt:
+            icon = "⛔"
+        elif "🔴" in stt:
+            icon = "🔴"
         else:
-            mini_bar = ""
+            icon = "⚪"
 
-        t += f"{s['name']}\n"
+        t += f"{s['name']} {icon}\n"
 
-        if stt == "🟡 В РАБОТЕ":
-            t += f"{stt} {mini_bar} {p}%\n"
-        else:
-            t += f"{stt}\n"
-
-        info = []
-
-        # Пользователь
-        user = st.get("user", "")
-        if user:
-            info.append(f"👤 {user}")
-
-        # Файл существует
-        if os.path.exists(s["file"]):
-
-            size = round(
-                os.path.getsize(s["file"]) / 1024 / 1024,
-                2
-            )
-
-            dt = datetime.fromtimestamp(
-                os.path.getmtime(s["file"])
-            ).strftime("%d.%m %H:%M")
-
-            info.append(f"📅 {dt}")
-            info.append(f"📄 {size} МБ")
-
-        if info:
-            t += " • ".join(info) + "\n"
+        if icon == "🟡":
+            t += f"{anim_bar(int(time.time()*2))} {p}%\n"
 
         t += "\n"
 
@@ -475,9 +454,11 @@ async def start(message: types.Message):
     if not is_allowed(message.from_user.id):
         return
 
+
     msg = await message.answer(
         dashboard_text(),
-        reply_markup=kb_dashboard()
+        reply_markup=kb_dashboard(),
+        parse_mode="HTML"
     )
 
     DASHBOARD_MESSAGES[message.chat.id] = msg.message_id
@@ -832,13 +813,15 @@ async def dashboard_updater():
                 continue
             
             try:
+
                 await bot.safe_edit_message(
                     chat_id=chat_id,
                     message_id=msg_id,
                     text=dashboard_text(),
-                    reply_markup=kb_dashboard()
+                    reply_markup=kb_dashboard(),
+                    parse_mode="HTML"
                 )
-
+                
             except Exception:
                 pass
 
