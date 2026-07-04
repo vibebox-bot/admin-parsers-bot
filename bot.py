@@ -127,6 +127,13 @@ SUPPLIERS = {
             "status": path("output/220_Kithen_Plus/status.json"),
             "lock": path("output/220_Kithen_Plus/lock.txt"),
         },
+        "Dellta": {
+            "name": "📦 Dellta",
+            "script": "parsers/Dellta/run.py",
+            "file": path("output/Dellta/Dellta_LIVE.xlsx"),
+            "status": path("output/Dellta/status.json"),
+            "lock": path("output/Dellta/lock.txt"),
+        },
          
 }
 
