@@ -18,7 +18,7 @@ BASE = "https://b2b.delltalife.com"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 2
+CATEGORY_LIMIT = 1
 #CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
