@@ -232,7 +232,9 @@ def parse_category(cat_url):
             
             status = ""
             
-            status_el = card.select_one("td.td_2 .col-auto .are-available")
+            status_el = card.select_one(
+                "td.td_2 .font-12 div[class^='are-']"
+            )
             
             if status_el:
                 status = status_el.get_text(" ", strip=True)
