@@ -30,6 +30,12 @@ LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 #CATEGORY_LIMIT = None
 CATEGORY_LIMIT = 1
 
+import sys
+
+USER = sys.argv[1] if len(sys.argv) > 1 else ""
+
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
 
 HEADERS = {
     "User-Agent": (
@@ -75,14 +81,27 @@ def load_status():
         return json.load(f)
 
 
-def save_status(category_index):
+def save_status(
+    category_index,
+    running=False,
+    progress=0,
+    canceled=False,
+    success=False
+):
 
-    with open(STATUS_PATH, "w", encoding="utf-8") as f:    
+    data = {
+        "category": category_index,
+        "running": running,
+        "progress": progress,
+        "canceled": canceled,
+        "success": success,
+        "user": USER,
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
 
+    with open(STATUS_PATH, "w", encoding="utf-8") as f:
         json.dump(
-            {
-                "category": category_index
-            },
+            data,
             f,
             ensure_ascii=False,
             indent=4
@@ -404,6 +423,17 @@ def save_product(ws, wb, product):
 # =====================================================
 
 def main():
+
+    with open(LOCK_FILE, "w", encoding="utf-8") as f:
+        f.write(str(os.getpid()))
+
+    save_status(
+        0,
+        running=True,
+        progress=0,
+        canceled=False,
+        success=False
+    )
 
     status = load_status()
 
