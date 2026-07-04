@@ -163,16 +163,21 @@ def parse_category(cat_url):
     all_items = []
 
     first_page = get_soup(cat_url)
+
+    html = str(first_page)
+    
     with open("debug.html", "w", encoding="utf-8") as f:
-        f.write(str(first_page))
-
+        f.write(html)
+    
     pos = html.find("price-table")
-    print(html[pos-3000:pos+5000])
-
+    if pos != -1:
+        print(html[pos-3000:pos+5000])
+    
     print("ItemDiv:", html.find("ItemDiv"))
     print("hoverDiv:", html.find("hoverDiv"))
     print("item-name:", html.find("item-name"))
     print("price-table:", html.find("price-table"))
+
 
     print("RAW HAS ItemDiv:", ".ItemDiv" in str(first_page))
     print("RAW HAS swiper:", "swiper-slide" in str(first_page))
