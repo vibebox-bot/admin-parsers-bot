@@ -229,50 +229,86 @@ def parse_category(cat_url):
             url = f"{cat_url}?page={page}"
             soup = get_soup(url)
 
+        
         # =========================
         # 🔥 СЕЛЕКТОР КАРТОЧЕК
         # =========================
-
-
+        
         cards = soup.select(".itemPosition")
-
+        
         print("=" * 80)
+        print(f"PAGE {page}")
         print("ALL CARDS:", len(cards))
         print("=" * 80)
         
-        if cards:
-            print(cards[0].prettify()[:10000])
-            return []
+        if not cards:
+            continue
         
-            title_el = card.select_one(".item-name")
-            title = clean(title_el.text if title_el else "")
+        # Печатаем первую карточку полностью
+        print(str(cards[0]))
         
-            sku_el = card.select_one(".sku-block .gray")
-            sku = clean(sku_el.text if sku_el else "")
+        for card in cards:
         
-            status_el = card.select_one(".sku-block .are-available")
-            status = clean(status_el.text if status_el else "")
-        
+            title = ""
+            sku = ""
+            status = ""
             price = ""
-            for row in card.select(".price-table tr"):
-                tds = row.select("td")
-                if len(tds) >= 2:
-                    if "Комп. ДИЛЕР" in tds[0].text:
-                        price = clean(tds[1].text)
-        
-            print("TITLE:", title)
-            print("SKU:", sku)
-            print("PRICE:", price)
-
-
-            url_el = card.select_one(".item-name")
             url = ""
-            if url_el and url_el.get("href"):
-                url = url_el.get("href")
-                if url.startswith("/"):
-                    url = BASE + url
-
-            all_items.append([sku, title, price, status, url])
+        
+            # -------------------
+            # Название
+            # -------------------
+            title_el = card.select_one(".item-name")
+        
+            if title_el:
+                title = clean(title_el.get_text())
+        
+                if title_el.get("href"):
+                    url = title_el["href"]
+                    if url.startswith("/"):
+                        url = BASE + url
+        
+            # -------------------
+            # Артикул
+            # -------------------
+            sku_el = card.select_one(".sku-block .gray")
+            if sku_el:
+                sku = clean(sku_el.get_text())
+        
+            # -------------------
+            # Наличие
+            # -------------------
+            status_el = card.select_one(".are-available")
+            if status_el:
+                status = clean(status_el.get_text())
+        
+            # -------------------
+            # Цена дилера
+            # -------------------
+            for row in card.select(".price-table tr"):
+        
+                tds = row.select("td")
+        
+                if len(tds) < 2:
+                    continue
+        
+                if "Комп. ДИЛЕР" in tds[0].get_text():
+                    price = clean(tds[1].get_text())
+                    break
+        
+            print("TITLE :", title)
+            print("SKU   :", sku)
+            print("PRICE :", price)
+            print("URL   :", url)
+            print("-" * 80)
+        
+            all_items.append([
+                sku,
+                title,
+                price,
+                status,
+                url
+            ])        
 
     return all_items
 
