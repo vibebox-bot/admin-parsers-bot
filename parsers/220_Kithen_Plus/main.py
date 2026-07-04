@@ -212,6 +212,73 @@ def get_categories():
     return categories
 
 
+def get_subcategories(category_url):
+
+    soup = get_soup(category_url)
+
+    subs = []
+
+    blocks = soup.select("ul.b-product-groups-gallery li")
+
+    for block in blocks:
+
+        a = block.select_one(
+            "a.b-product-groups-gallery__title"
+        )
+
+        if not a:
+            continue
+
+        href = a.get("href")
+
+        if href:
+            subs.append(
+                urljoin(BASE_URL, href)
+            )
+
+    return subs
+    
+
+def process_category(category_url, ws, wb):
+
+    subcategories = get_subcategories(category_url)
+
+    if subcategories:
+
+        print(f"📁 Найдено подкатегорий: {len(subcategories)}")
+
+        for sub in subcategories:
+
+            process_category(sub, ws, wb)
+
+        return
+
+    pages = get_pages(category_url)
+
+    for page in pages:
+
+        print("\nСтраница:")
+        print(page)
+
+        products = get_products(page)
+
+        for product_url in products:
+
+            try:
+
+                product = parse_product(product_url)
+
+                save_product(ws, wb, product)
+
+                time.sleep(random.uniform(0.5, 1.2))
+
+            except Exception as e:
+
+                print(product_url)
+                print(e)
+
+        time.sleep(random.uniform(1, 2))
+        
 # =====================================================
 # ПАГИНАТОР
 # =====================================================
@@ -365,45 +432,15 @@ def parse_product(url):
     # -------------------------------
     # Наличие
     # -------------------------------
-
+    
     availability = ""
-
-    state = soup.select_one(
-        ".b-product-state"
-    )
-
+    
+    state = soup.select_one('[data-qaid="presence_data"]')
+    
     if state:
-
-        availability = get_text(state)
-
-    else:
-
-        state = soup.select_one(
-            '[data-qaid="product_presence"]'
-        )
-
-        if state:
-
-            availability = get_text(state)
-
-        else:
-
-            state = soup.select_one(
-                ".b-data-list__item"
-            )
-
-            if state:
-
-                txt = state.get_text(" ", strip=True)
-
-                if "В наявності" in txt:
-                    availability = "В наявності"
-
-                elif "Немає в наявності" in txt:
-                    availability = "Немає в наявності"
-
-                elif "Під замовлення" in txt:
-                    availability = "Під замовлення"
+        availability = state.get_text(" ", strip=True)
+    
+    
 
     return {
         "title": title,
@@ -470,36 +507,7 @@ def main():
         print(f"Категория {category_index + 1}/{len(categories)}")
         print(category_url)
 
-        pages = get_pages(category_url)
-
-        
-
-        for page in pages:
-
-            print("\nСтраница:")
-            print(page)
-
-            products = get_products(page)
-
-            for product_url in products:
-
-                try:
-
-                    product = parse_product(product_url)
-
-                    save_product(ws, wb, product)
-
-                    time.sleep(random.uniform(0.5, 1.2))
-
-                except Exception as e:
-
-                    print("Ошибка товара:")
-                    print(product_url)
-                    print(e)
-
-            time.sleep(random.uniform(1, 2))
-
-        save_status(category_index + 1)
+    process_category(category_url, ws, wb)
 
     print("\n==========================")
     print("ПАРСИНГ ЗАВЕРШЕН")
