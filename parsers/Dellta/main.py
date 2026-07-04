@@ -166,7 +166,30 @@ def parse_category(cat_url):
 
     html = str(first_page)
 
-    for m in re.finditer("hoverDiv", html):
+    import re
+
+    classes = sorted(set(re.findall(r'class="([^"]+)"', html)))
+    
+    for c in classes:
+        if (
+            "item" in c.lower()
+            or "product" in c.lower()
+            or "catalog" in c.lower()
+            or "hover" in c.lower()
+            or "position" in c.lower()
+        ):
+            print(c)
+
+    for s in [
+        'class="hoverDiv',
+        "class='hoverDiv",
+        'class="itemPosition',
+        'class="itemPosition ',
+        'itemPosition',
+    ]:
+        pos = html.find(s)
+        print(s, pos)
+        
         print("FOUND:", m.start())
         print(html[m.start()-500:m.start()+3000])
         break
