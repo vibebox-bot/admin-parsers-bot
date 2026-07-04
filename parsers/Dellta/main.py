@@ -121,23 +121,33 @@ def clean(t):
 # CATEGORIES
 # =========================
 def get_categories():
-    soup = get_soup(BASE)
+    r = session.get(BASE_URL)
+    soup = BeautifulSoup(r.text, "html.parser")
 
-    cats = []
+    categories = []
 
-    for a in soup.select("a[href]"):
+    container = soup.select_one("div.brandsOnMain")
+
+    if not container:
+        return categories
+
+    for a in container.select("a.COMitem"):
         href = a.get("href")
 
         if not href:
             continue
 
-        if "/invertoryi-" in href or "/inventory" in href:
-            if href.startswith("/"):
-                href = BASE + href
+        if href.startswith("/"):
+            href = BASE_URL.rstrip("/") + href
 
-            cats.append(href)
+        categories.append(href)
 
-    return list(set(cats))
+    print(f"CATEGORIES: {len(categories)}")
+
+    for c in categories:
+        print(c)
+
+    return categories
 
 
 # =========================
