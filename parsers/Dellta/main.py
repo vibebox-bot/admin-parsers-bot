@@ -229,11 +229,13 @@ def parse_category(cat_url):
             # =========================
             # Наличие
             # =========================
-
-            status_el = card.select_one(".are-available")
-
+            
+            status = ""
+            
+            status_el = card.select_one("td.td_2 .col-auto .are-available")
+            
             if status_el:
-                status = clean(status_el.get_text())
+                status = status_el.get_text(" ", strip=True)
 
             # =========================
             # Цена дилера
