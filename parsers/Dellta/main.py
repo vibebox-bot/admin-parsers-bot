@@ -190,8 +190,6 @@ def parse_category(cat_url):
         pos = html.find(s)
         print(s, pos)
         
-        print("FOUND:", m.start())
-        print(html[m.start()-500:m.start()+3000])
         break
     
     with open("debug.html", "w", encoding="utf-8") as f:
@@ -235,10 +233,11 @@ def parse_category(cat_url):
         # 🔥 СЕЛЕКТОР КАРТОЧЕК
         # =========================
 
-
-        cards = soup.select(".swiper-slide")
-
+        cards = soup.select(".itemPosition")
         print("ALL CARDS:", len(cards))
+        
+        if cards:
+            print(cards[0].prettify()[:12000])
         
         for i, card in enumerate(cards):
             print("-----")
