@@ -158,6 +158,10 @@ def get_last_page(soup):
 # PARSE CATEGORY
 # =========================
 def parse_category(cat_url):
+    print("HTML SIZE:", len(soup.text))
+    
+    open("cat_debug.html", "w", encoding="utf-8").write(str(soup))
+    
     print("CATEGORY:", cat_url)
 
     all_items = []
