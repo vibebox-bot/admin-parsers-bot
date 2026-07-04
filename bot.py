@@ -164,8 +164,6 @@ def ensure_status():
                 with open(s["status"], "w", encoding="utf-8") as f:
                     json.dump(st, f, ensure_ascii=False, indent=2)
 
-ensure_status()
-
 # =========================
 # HELPERS
 # =========================
@@ -197,6 +195,7 @@ def load_json(path):
             "time": ""
         }
 
+ensure_status()
 
 ANIM = [
     "▰▱▱▱▱▱▱▱▱▱",
