@@ -188,7 +188,14 @@ def parse_category(cat_url):
 
 
         cards = soup.select(".ItemDiv, .swiper-slide")
-        print("ALL DIVS:", len(cards))
+
+        for i, c in enumerate(cards):
+            print("----")
+            print(i)
+            print("item-name:", c.select_one(".item-name"))
+            print("price-table:", c.select_one(".price-table"))
+            print(c.text[:200])
+                print("ALL DIVS:", len(cards))
         
         # 🔥 ДОБАВЬ ЭТО СРАЗУ ПОСЛЕ SELECT
         filtered_cards = []
