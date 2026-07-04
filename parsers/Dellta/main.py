@@ -159,15 +159,18 @@ def get_last_page(soup):
 # =========================
 def parse_category(cat_url):
     print("CATEGORY:", cat_url)
+    
 
     all_items = []
 
+
     first_page = get_soup(cat_url)
 
-    # ✅ DEBUG ТУТ (а не до soup)
-    print("HTML SIZE:", len(str(first_page)))
-    open("cat_debug.html", "w", encoding="utf-8").write(str(first_page))
-
+    print("ITEMS .ItemDiv:", len(first_page.select(".ItemDiv")))
+    print("ITEMS swiper-slide:", len(first_page.select(".swiper-slide")))
+    
+    open("debug_category.html", "w", encoding="utf-8").write(str(first_page))
+    
     last_page = get_last_page(first_page)
 
     print("PAGES:", last_page)
