@@ -233,16 +233,16 @@ def parse_category(cat_url):
         # 🔥 СЕЛЕКТОР КАРТОЧЕК
         # =========================
 
+
         cards = soup.select(".itemPosition")
+
+        print("=" * 80)
         print("ALL CARDS:", len(cards))
+        print("=" * 80)
         
         if cards:
-            print(cards[0].prettify()[:12000])
-        
-        for i, card in enumerate(cards):
-            print("-----")
-            print(card.prettify()[:2000])
-            break
+            print(cards[0].prettify()[:10000])
+            return []
         
             title_el = card.select_one(".item-name")
             title = clean(title_el.text if title_el else "")
