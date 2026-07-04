@@ -150,6 +150,7 @@ def get_soup(url):
         try:
 
             r = session.get(url, timeout=40)
+            print(f"🌐 {url} -> {r.status_code}")
 
             if r.status_code == 200:
 
@@ -198,7 +199,10 @@ def get_categories():
 
         categories = categories[:CATEGORY_LIMIT]
 
-    print(f"Категорий найдено: {len(categories)}")
+    print(f"📂 Категорий найдено: {len(categories)}")
+
+    for i, c in enumerate(categories):
+        print(f"{i+1}. {c}")
 
     return categories
 
@@ -279,7 +283,10 @@ def get_products(page_url):
             urljoin(BASE_URL, href)
         )
 
-    print(f"Товаров на странице: {len(products)}")
+    print(f"🛒 Товаров на странице: {len(products)}")
+
+    if len(products) == 0:
+        print("⚠️ НЕТ ТОВАРОВ — возможно сайт блокирует или сломался селектор")
 
     return products
 
@@ -425,6 +432,9 @@ def save_product(ws, wb, product):
 # =====================================================
 
 def main():
+
+    print("🚀 PARSER STARTED")
+    print(f"👤 USER: {USER}")
 
     with open(LOCK_FILE, "w", encoding="utf-8") as f:
         f.write(str(os.getpid()))
