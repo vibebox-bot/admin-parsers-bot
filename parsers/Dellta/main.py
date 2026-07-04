@@ -183,7 +183,9 @@ def parse_category(cat_url):
         if page == 1:
             soup = first_page
         else:
-            soup = get_soup(f"{cat_url}?page={page}")
+            page_url = cat_url.rstrip("/") + f"/page={page}/"
+            soup = get_soup(page_url)
+
 
         # Карточки товаров
         cards = soup.select("tr.itemPosition")
