@@ -234,15 +234,24 @@ def parse_category(cat_url):
         # 🔥 СЕЛЕКТОР КАРТОЧЕК
         # =========================
         
-        cards = soup.select(".itemPosition")
+        possible = [
+            ".itemPosition",
+            ".hoverDiv",
+            "tr",
+            ".catalog_row",
+            ".item-list-swiper > *",
+            ".catItems > *",
+        ]
         
-        print("=" * 80)
-        print(f"PAGE {page}")
-        print("ALL CARDS:", len(cards))
-        print("=" * 80)
+        for selector in possible:
+            cards = soup.select(selector)
+            print()
+            print("=" * 80)
+            print("SELECTOR:", selector)
+            print("FOUND:", len(cards))
         
-        if not cards:
-            continue
+            if cards:
+                print(cards[0].prettify()[:1500])
         
         # Печатаем первую карточку полностью
         print(str(cards[0]))
