@@ -26,26 +26,11 @@ import pytz
 
 last_edit = {}
 
-async def safe_edit_message(
-    chat_id,
-    message_id,
-    text,
-    kb=None,
-    parse_mode=None
-):
-    
-    import time
-
+async def safe_edit_message(chat_id, message_id, text, kb=None, parse_mode=None):
     key = f"{chat_id}:{message_id}"
-    now = time.time()
-
-    if now - last_edit.get(key, 0) < 0.3:
-        return    
-
-    last_edit[key] = now
+    last_edit[key] = time.time()
 
     try:
-
         await bot.edit_message_text(
             chat_id=chat_id,
             message_id=message_id,
@@ -55,7 +40,6 @@ async def safe_edit_message(
         )
     except:
         pass
-
 
 def now():
     return datetime.now()
@@ -288,7 +272,7 @@ async def card_updater(chat_id, msg_id, key):
         except:
             pass
 
-        await asyncio.sleep(0.4)
+        await asyncio.sleep(3)
 
 def status(st):
     if not st:
@@ -399,7 +383,7 @@ def dashboard_text():
 def kb_dashboard():
     rows = []
 
-    step = int(time.time() * 6)
+    step = int(time.time() * 8)
 
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
@@ -559,7 +543,7 @@ async def run_parser(key, user):
             if proc.returncode is not None:
                 break
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(3)
 
         stdout, stderr = await proc.communicate()
 
@@ -871,7 +855,7 @@ async def dashboard_updater():
             except Exception:
                 pass
 
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.3)
         
 
 # =========================
