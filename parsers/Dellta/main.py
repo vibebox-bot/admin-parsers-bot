@@ -18,8 +18,8 @@ BASE = "https://b2b.delltalife.com"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 1
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "123456"
@@ -144,8 +144,8 @@ def get_categories():
 
     #print("CATEGORIES:", len(categories))
 
-    for c in categories:
-        print(c)
+    #for c in categories:
+        #print(c)
 
     return categories
 
