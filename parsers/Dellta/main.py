@@ -78,7 +78,7 @@ def login():
     #print("RESPONSE:", r2.text[:300])
 
     # 5. проверка успеха (очень важно)
-    if "error" not in r2.text.lower():
+    #if "error" not in r2.text.lower():
         #print("LOGIN OK")
     #else:
         #print("LOGIN FAILED")
