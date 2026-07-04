@@ -1,5 +1,5 @@
-print("🧪 RUN.PY LOADED")
-from main import run_parser
+from main import main
 
 if __name__ == "__main__":
-    run_parser()
+    print("▶️ RUN ENTRY")
+    main()
