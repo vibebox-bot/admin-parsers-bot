@@ -22,7 +22,7 @@ print("🟢 FILE LOADED: parser script imported")
 # =====================================================
 
 BASE_URL = "https://lambix.prom.ua"
-CATALOG_URL = "https://lambix.prom.ua/ua/product_list?availability=availability"
+CATALOG_URL = "https://lambix.prom.ua/ua/product_list"
 
 
 OUTPUT_DIR = os.path.abspath("output/220_Kithen_Plus")
@@ -31,7 +31,7 @@ STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
 #CATEGORY_LIMIT = None
-CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = 1
 
 import sys
 
@@ -117,11 +117,7 @@ def save_status(
 def get_workbook():
 
     if os.path.exists(FILE_PATH):
-
-        wb = load_workbook(FILE_PATH)
-        ws = wb.active
-
-        return wb, ws
+        os.remove(FILE_PATH)
 
     wb = Workbook()
     ws = wb.active
@@ -193,12 +189,7 @@ def get_pages(category_url):
 
     pages = []
 
-
     parsed = urlparse(category_url)
-
-    base_path = parsed.path.rstrip("/")
-    
-    query = parsed.query
     
     pages = []
     
@@ -214,9 +205,9 @@ def get_pages(category_url):
                 urlunparse((
                     parsed.scheme,
                     parsed.netloc,
-                    f"{base_path}/page_{i}",
+                    parsed.path.rstrip("/") + f"/page_{i}",
                     "",
-                    query,
+                    "",
                     ""
                 ))
             )
@@ -232,6 +223,9 @@ def get_pages(category_url):
 def get_products(page_url):
 
     soup = get_soup(page_url)
+
+    if soup is None:
+        return []
 
     products = []
 
@@ -294,6 +288,14 @@ def parse_product(url):
 
     soup = get_soup(url)
 
+    if soup is None:
+        return {
+            "title": "",
+            "sku": "",
+            "price": "",
+            "availability": "",
+            "url": url
+        }
     # -------------------------------
     # Название
     # -------------------------------
@@ -377,9 +379,10 @@ def save_product(ws, wb, product):
 
 def main():
 
-    print("🔥 ENTER MAIN()")
     print("🚀 PARSER STARTED")
-    print(f"👤 USER: {USER}")
+
+    if os.path.exists(STATUS_PATH):
+        os.remove(STATUS_PATH)
 
     with open(LOCK_FILE, "w", encoding="utf-8") as f:
         f.write(str(os.getpid()))
