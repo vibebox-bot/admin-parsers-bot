@@ -306,29 +306,25 @@ async def safe_edit(call, text, kb=None):
 
 def display_status(key, st, file_path):
 
-    if not st:
-        return "⚪ НЕТ ДАННЫХ", 0
-
-    running = False
-
-    # процесс реально существует
+    # 1. если процесс реально работает
     if key in RUNNING_PROCESSES:
-        running = True
-
-    # после перезапуска бота
-    elif (
-        st.get("running")
-        and os.path.exists(SUPPLIERS[key]["lock"])
-    ):
-        running = True
-
-    if running:
         return "🟡 В РАБОТЕ", int(st.get("progress", 0))
 
-    if os.path.exists(file_path):
-        return "🟢 ГОТОВО", 100
+    # 2. отменён
+    if st.get("canceled"):
+        return "⛔ ОТМЕНЕНО", int(st.get("progress", 0))
 
-    return "⚪ ФАЙЛ ОТСУТСТВУЕТ", 0
+    # 3. файла нет
+    if not os.path.exists(file_path):
+        return "⚪ ФАЙЛ ОТСУТСТВУЕТ", 0
+
+    # 4. файл пустой
+    if os.path.getsize(file_path) < 100:
+        return "❌ ОШИБКА", int(st.get("progress", 0))
+
+    # 5. успешно
+    return "🟢 ГОТОВО", 100
+
 
 # =========================
 # DASHBOARD
