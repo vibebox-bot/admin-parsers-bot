@@ -322,9 +322,11 @@ def display_status(key, st, file_path):
     if os.path.getsize(file_path) < 100:
         return "❌ ОШИБКА", int(st.get("progress", 0))
 
+    if st.get("progress") != 100:
+        return "❌ ОШИБКА", int(st.get("progress", 0))
+
     # 5. успешно
     return "🟢 ГОТОВО", 100
-
 
 # =========================
 # DASHBOARD
@@ -720,9 +722,18 @@ async def cb(call: types.CallbackQuery):
             st = load_json(s["status"]) or {}
             
             st["running"] = False
-            st["canceled"] = False
-            st["progress"] = 100
             
+            if code == "canceled":
+                st["canceled"] = True
+            
+            elif code == 0:
+                st["canceled"] = False
+                st["progress"] = 100
+            
+            else:
+                st["canceled"] = False
+                st["progress"] = 0
+ 
             with open(s["status"], "w", encoding="utf-8") as f:
                 json.dump(st, f, ensure_ascii=False, indent=2)
             
