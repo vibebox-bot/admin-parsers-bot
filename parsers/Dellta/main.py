@@ -165,6 +165,9 @@ def parse_category(cat_url):
     first_page = get_soup(cat_url)
     html = str(first_page)
 
+    pos = html.find("price-table")
+    print(html[pos-3000:pos+5000])
+
     print("ItemDiv:", html.find("ItemDiv"))
     print("hoverDiv:", html.find("hoverDiv"))
     print("item-name:", html.find("item-name"))
