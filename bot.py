@@ -149,8 +149,11 @@ def ensure_status():
                     "running": False,
                     "progress": 0,
                     "user": "",
-                    "time": ""
+                    "time": "",
+                    "canceled": False,
+                    "success": False
                 }, f, ensure_ascii=False, indent=2)
+                
 
         else:
             st = load_json(s["status"])
@@ -306,27 +309,19 @@ async def safe_edit(call, text, kb=None):
 
 def display_status(key, st, file_path):
 
-    # 1. если процесс реально работает
     if key in RUNNING_PROCESSES:
         return "🟡 В РАБОТЕ", int(st.get("progress", 0))
 
-    # 2. отменён
     if st.get("canceled"):
         return "⛔ ОТМЕНЕНО", int(st.get("progress", 0))
 
-    # 3. файла нет
     if not os.path.exists(file_path):
         return "⚪ ФАЙЛ ОТСУТСТВУЕТ", 0
 
-    # 4. файл пустой
-    if os.path.getsize(file_path) < 100:
-        return "❌ ОШИБКА", int(st.get("progress", 0))
+    if st.get("success"):
+        return "🟢 ГОТОВО", 100
 
-    if st.get("progress") != 100:
-        return "❌ ОШИБКА", int(st.get("progress", 0))
-
-    # 5. успешно
-    return "🟢 ГОТОВО", 100
+    return "❌ ОШИБКА", int(st.get("progress", 0))
 
 # =========================
 # DASHBOARD
@@ -725,14 +720,17 @@ async def cb(call: types.CallbackQuery):
             
             if code == "canceled":
                 st["canceled"] = True
+                st["success"] = False
             
             elif code == 0:
                 st["canceled"] = False
                 st["progress"] = 100
+                st["success"] = True
             
             else:
                 st["canceled"] = False
                 st["progress"] = 0
+                st["success"] = False
  
             with open(s["status"], "w", encoding="utf-8") as f:
                 json.dump(st, f, ensure_ascii=False, indent=2)
