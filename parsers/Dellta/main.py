@@ -159,10 +159,8 @@ def get_last_page(soup):
 # =========================
 def parse_category(cat_url):
     print("CATEGORY:", cat_url)
-    
 
     all_items = []
-
 
     first_page = get_soup(cat_url)
 
@@ -171,11 +169,10 @@ def parse_category(cat_url):
 
     print("ITEMS .ItemDiv:", len(first_page.select(".ItemDiv")))
     print("ITEMS swiper-slide:", len(first_page.select(".swiper-slide")))
-    
-    open("debug_category.html", "w", encoding="utf-8").write(str(first_page))
-    
-    last_page = get_last_page(first_page)
 
+    open("debug_category.html", "w", encoding="utf-8").write(str(first_page))
+
+    last_page = get_last_page(first_page)
     print("PAGES:", last_page)
 
     for page in range(1, last_page + 1):
@@ -186,41 +183,43 @@ def parse_category(cat_url):
             url = f"{cat_url}?page={page}"
             soup = get_soup(url)
 
-
+        # =========================
+        # 🔥 СЕЛЕКТОР КАРТОЧЕК
+        # =========================
         cards = soup.select(".ItemDiv, .swiper-slide")
 
-        for i, c in enumerate(cards):
-            print("----")
-            print(i)
-            print("item-name:", c.select_one(".item-name"))
-            print("price-table:", c.select_one(".price-table"))
-            print(c.text[:200])
-                print("ALL DIVS:", len(cards))
-        
-        # 🔥 ДОБАВЬ ЭТО СРАЗУ ПОСЛЕ SELECT
+        print("ALL CARDS:", len(cards))
+
+        # =========================
+        # 🔥 ФИЛЬТР РЕАЛЬНЫХ ТОВАРОВ
+        # =========================
         filtered_cards = []
-        
         for card in cards:
             if card.select_one(".item-name"):
                 filtered_cards.append(card)
-        
+
         cards = filtered_cards
 
+        print("FILTERED CARDS:", len(cards))
+
+        # =========================
+        # 🔥 ПАРСИНГ ТОВАРОВ
+        # =========================
         for card in cards:
-        
+
             real = card.select_one(".ItemDiv")
             if real:
                 card = real
-        
+
             title_el = card.select_one(".item-name")
             title = clean(title_el.text if title_el else "")
-        
+
             sku_el = card.select_one(".sku-block .gray")
             sku = clean(sku_el.text if sku_el else "")
-        
+
             status_el = card.select_one(".sku-block .are-available")
             status = clean(status_el.text if status_el else "")
-        
+
             price = ""
             for row in card.select(".price-table tr"):
                 tds = row.select("td")
@@ -228,16 +227,15 @@ def parse_category(cat_url):
                     name = clean(tds[0].text)
                     if "Комп. ДИЛЕР" in name:
                         price = clean(tds[1].text)
-        
+
             url_el = card.select_one(".item-name")
             url = ""
             if url_el and url_el.get("href"):
                 url = url_el.get("href")
                 if url.startswith("/"):
                     url = BASE + url
-        
-            all_items.append([sku, title, price, status, url])
 
+            all_items.append([sku, title, price, status, url])
 
     return all_items
 
