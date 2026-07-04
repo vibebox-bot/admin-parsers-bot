@@ -80,7 +80,7 @@ def login():
     # 5. проверка успеха (очень важно)
     if "error" not in r2.text.lower():
         #print("LOGIN OK")
-    else:
+    #else:
         #print("LOGIN FAILED")
 
 # =========================
