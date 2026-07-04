@@ -163,9 +163,20 @@ def parse_category(cat_url):
     all_items = []
 
     first_page = get_soup(cat_url)
+    html = str(first_page)
+
+    print("ItemDiv:", html.find("ItemDiv"))
+    print("hoverDiv:", html.find("hoverDiv"))
+    print("item-name:", html.find("item-name"))
+    print("price-table:", html.find("price-table"))
 
     print("RAW HAS ItemDiv:", ".ItemDiv" in str(first_page))
     print("RAW HAS swiper:", "swiper-slide" in str(first_page))
+
+    slides = first_page.select(".swiper-slide")
+
+    if slides:
+        print(slides[0].parent.prettify()[:5000])
 
     print("ITEMS .ItemDiv:", len(first_page.select(".ItemDiv")))
     print("ITEMS swiper-slide:", len(first_page.select(".swiper-slide")))
