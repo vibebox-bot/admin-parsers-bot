@@ -309,19 +309,26 @@ async def safe_edit(call, text, kb=None):
 
 def display_status(key, st, file_path):
 
+    # работает прямо сейчас
     if key in RUNNING_PROCESSES:
-        return "🟡 В РАБОТЕ", int(st.get("progress", 0))
+        return "🟡 В РАБОТЕ", st.get("progress", 0)
 
+    # отменили
     if st.get("canceled"):
-        return "⛔ ОТМЕНЕНО", int(st.get("progress", 0))
+        return "⛔ ОТМЕНЕНО", 0
 
+    # файла нет
     if not os.path.exists(file_path):
-        return "⚪ ФАЙЛ ОТСУТСТВУЕТ", 0
+        return "⚪ НЕТ ФАЙЛА", 0
 
-    if st.get("success"):
-        return "🟢 ГОТОВО", 100
+    size = os.path.getsize(file_path)
 
-    return "❌ ОШИБКА", int(st.get("progress", 0))
+    # файл почти пустой
+    if size < 1024:
+        return "🔴 ОШИБКА", 0
+
+    # всё хорошо
+    return "🟢 ГОТОВО", 100
 
 # =========================
 # DASHBOARD
@@ -354,8 +361,10 @@ def dashboard_text():
         else:
             mini_bar = ""
 
-
-        t += f"{s['name']}\n{stt} {mini_bar} {p}% {warn}\n\n"
+        if stt == "🟡 В РАБОТЕ":
+            t += f"{s['name']}\n{stt} {mini_bar} {p}%\n\n"
+        else:
+            t += f"{s['name']}\n{stt}\n\n"
 
     return t
 
@@ -377,10 +386,18 @@ def kb_dashboard():
 
         rows.append([
             InlineKeyboardButton(
-                text=f"{s['name']} | {stt} {mini_bar} {p}%",
-                callback_data=f"open_{k}"
-            )
-        ])
+    
+                if stt == "🟡 В РАБОТЕ":
+                    btn = f"{s['name']} | {stt} {mini_bar} {p}%"
+                else:
+                    btn = f"{s['name']} | {stt}"
+                
+                rows.append([
+                    InlineKeyboardButton(
+                        text=btn,
+                        callback_data=f"open_{k}"
+                    )
+                ])
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -606,7 +623,7 @@ async def cb(call: types.CallbackQuery):
     
         text = f"📦 <b>{s['name']}</b>\n\n"
     
-        text += f"📌 <b>Статус:</b> {stt}\n"
+        text += f"📌  {stt}\n"
         text += f"👤 <b>Пользователь:</b> {user}\n"
         text += f"🕒 <b>Запуск:</b> {run_time}\n\n"
 
