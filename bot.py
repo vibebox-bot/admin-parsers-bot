@@ -339,7 +339,7 @@ def dashboard_text():
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
 
-        stt, p = display_status(key, st, s["file"])
+        stt, p = display_status(k, st, s["file"])
 
         warn = ""
 
@@ -372,7 +372,7 @@ def kb_dashboard():
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
 
-        stt, p = display_status(key, st, s["file"])
+        stt, p = display_status(k, st, s["file"])
 
 
         if st.get("running"):
