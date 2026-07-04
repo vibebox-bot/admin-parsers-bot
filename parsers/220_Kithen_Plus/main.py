@@ -170,49 +170,31 @@ def get_pages(category_url):
 
     soup = get_soup(category_url)
 
+    if soup is None:
+        return []
+
     last_page = 1
 
-    pager = soup.select(
-        ".b-pager a"
-    )
+    paginator = soup.select_one("[data-pagination-pages-count]")
 
-    for a in pager:
+    if paginator:
+        last_page = int(
+            paginator["data-pagination-pages-count"]
+        )
 
-        txt = a.get_text(strip=True)
-
-        if txt.isdigit():
-
-            last_page = max(
-                last_page,
-                int(txt)
-            )
+    print(f"📄 Найдено страниц: {last_page}")
 
     pages = []
 
-    parsed = urlparse(category_url)
-    
-    pages = []
-    
     for i in range(1, last_page + 1):
-    
-        if i == 1:
-    
-            pages.append(category_url)
-    
-        else:
-    
-            pages.append(
-                urlunparse((
-                    parsed.scheme,
-                    parsed.netloc,
-                    parsed.path.rstrip("/") + f"/page_{i}",
-                    "",
-                    "",
-                    ""
-                ))
-            )
 
-    print(f"Страниц: {len(pages)}")
+        if i == 1:
+            pages.append(category_url)
+
+        else:
+            pages.append(
+                f"{category_url}/page_{i}"
+            )
 
     return pages
 
@@ -398,6 +380,8 @@ def main():
     wb, ws = get_workbook()
 
     pages = get_pages(CATALOG_URL)
+
+    print(pages[:5])
 
     print(f"📄 Всего страниц: {len(pages)}")
 
