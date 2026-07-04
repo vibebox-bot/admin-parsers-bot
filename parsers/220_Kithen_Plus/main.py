@@ -145,11 +145,15 @@ def get_workbook():
 
 def get_soup(url):
 
-    while True:
+    print(f"🌍 REQUEST: {url}")
 
+    attempt = 0
+
+    while attempt < 5:
+    
         try:
 
-            r = session.get(url, timeout=40)
+            r = session.get(url, timeout=15)
             print(f"🌐 {url} -> {r.status_code}")
 
             if r.status_code == 200:
@@ -432,6 +436,8 @@ def save_product(ws, wb, product):
 # =====================================================
 
 def main():
+
+    print("🔥 ENTER MAIN()")
 
     print("🚀 PARSER STARTED")
     print(f"👤 USER: {USER}")
