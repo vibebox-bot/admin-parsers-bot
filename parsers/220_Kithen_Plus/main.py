@@ -11,6 +11,8 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from datetime import datetime
 
+visited_categories = set()
+
 print("🟢 FILE LOADED: parser script imported")
 
 # =====================================================
@@ -187,14 +189,8 @@ def process_category(category_url, ws, wb):
 
     subcategories = get_subcategories(category_url)
 
-    print(f"Подкатегорий найдено: {len(subcategories)}")
-
-    for s in subcategories:
-        print("  ↳", s)
-
     if subcategories:
-
-        print(f"📁 Найдено подкатегорий: {len(subcategories)}")
+        print(f"📁 Подкатегорий: {len(subcategories)}")
 
         for sub in subcategories:
             process_category(sub, ws, wb)
@@ -205,26 +201,20 @@ def process_category(category_url, ws, wb):
 
     for page in pages:
 
-        print("\nСтраница:")
-        print(page)
+        print("\n📄 PAGE:", page)
 
         products = get_products(page)
 
         for product_url in products:
 
             try:
-
                 product = parse_product(product_url)
-
                 save_product(ws, wb, product)
 
                 time.sleep(random.uniform(0.5, 1.2))
 
             except Exception as e:
-
-                print("Ошибка товара:")
-                print(product_url)
-                print(e)
+                print("Ошибка товара:", product_url, e)
 
         time.sleep(random.uniform(1, 2))
 
