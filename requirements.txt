@@ -4,3 +4,4 @@ beautifulsoup4
 openpyxl
 pytz
 playwright
+psutil
