@@ -39,7 +39,7 @@ session.headers.update(HEADERS)
 # LOGIN
 # =========================
 def login():
-    print("LOGIN...")
+    #print("LOGIN...")
 
     login_url = BASE + "/login"
 
@@ -74,14 +74,14 @@ def login():
         }
     )
 
-    print("STATUS:", r2.status_code)
-    print("RESPONSE:", r2.text[:300])
+    #print("STATUS:", r2.status_code)
+    #print("RESPONSE:", r2.text[:300])
 
     # 5. проверка успеха (очень важно)
     if "error" not in r2.text.lower():
-        print("LOGIN OK")
+        #print("LOGIN OK")
     else:
-        print("LOGIN FAILED")
+        #print("LOGIN FAILED")
 
 # =========================
 # STATUS
@@ -142,7 +142,7 @@ def get_categories():
 
         categories.append(href)
 
-    print("CATEGORIES:", len(categories))
+    #print("CATEGORIES:", len(categories))
 
     for c in categories:
         print(c)
@@ -168,7 +168,7 @@ def get_last_page(soup):
 # =========================
 def parse_category(cat_url):
 
-    print("CATEGORY:", cat_url)
+    #print("CATEGORY:", cat_url)
 
     all_items = []
 
@@ -176,7 +176,7 @@ def parse_category(cat_url):
 
     last_page = get_last_page(first_page)
 
-    print("PAGES:", last_page)
+    #print("PAGES:", last_page)
 
     for page in range(1, last_page + 1):
 
@@ -190,7 +190,7 @@ def parse_category(cat_url):
         # Карточки товаров
         cards = soup.select("tr.itemPosition")
 
-        print("FOUND CARDS:", len(cards))
+        #print("FOUND CARDS:", len(cards))
 
         for card in cards:
 
@@ -244,13 +244,6 @@ def parse_category(cat_url):
             if price_el:
                 price = clean(price_el.get_text())
 
-            print("-" * 70)
-            print("TITLE :", title)
-            print("SKU   :", sku)
-            print("PRICE :", price)
-            print("STATUS:", status)
-            print("URL   :", url)
-
             all_items.append([
                 sku,
                 title,
@@ -278,7 +271,7 @@ def run_parser():
 
     cats = get_categories()
 
-    print("CATEGORIES:", len(cats))
+    #print("CATEGORIES:", len(cats))
 
     if CATEGORY_LIMIT:
         cats = cats[:CATEGORY_LIMIT]
@@ -305,7 +298,7 @@ def run_parser():
 
             ws.append([sku, title, price, status, url])
 
-        print(f"DONE CATEGORY {i}/{total} -> {len(items)} items")
+        #print(f"DONE CATEGORY {i}/{total} -> {len(items)} items")
 
         time.sleep(0.3)
 
