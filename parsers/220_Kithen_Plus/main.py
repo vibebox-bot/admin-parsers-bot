@@ -15,7 +15,7 @@ from urllib3.util.retry import Retry
 
 from datetime import datetime
 
-
+print("🟢 FILE LOADED: parser script imported")
 # =====================================================
 # НАСТРОЙКИ
 # =====================================================
@@ -436,8 +436,8 @@ def save_product(ws, wb, product):
 # =====================================================
 
 def main():
-
     print("🔥 ENTER MAIN()")
+
 
     print("🚀 PARSER STARTED")
     print(f"👤 USER: {USER}")
@@ -510,8 +510,8 @@ def main():
 # =====================================================
 # START
 # =====================================================
-
 def run_parser():
+    print("🚀 run_parser() ENTERED")
     main()
 
 
