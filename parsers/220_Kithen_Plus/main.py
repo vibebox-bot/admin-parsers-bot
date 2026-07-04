@@ -150,6 +150,7 @@ def get_soup(url):
     attempt = 0
 
     while attempt < 5:
+        attempt += 1
     
         try:
 
@@ -460,8 +461,6 @@ def main():
     categories = get_categories()
 
     start_category = status.get("category", 0)
-
-    save_status(category_index)
 
     for category_index in range(start_category, len(categories)):
 
