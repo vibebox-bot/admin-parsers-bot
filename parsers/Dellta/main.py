@@ -165,6 +165,11 @@ def parse_category(cat_url):
     first_page = get_soup(cat_url)
 
     html = str(first_page)
+
+    for m in re.finditer("hoverDiv", html):
+        print("FOUND:", m.start())
+        print(html[m.start()-500:m.start()+3000])
+        break
     
     with open("debug.html", "w", encoding="utf-8") as f:
         f.write(html)
