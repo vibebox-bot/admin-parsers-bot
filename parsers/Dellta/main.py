@@ -166,6 +166,9 @@ def parse_category(cat_url):
 
     first_page = get_soup(cat_url)
 
+    print("RAW HAS ItemDiv:", ".ItemDiv" in str(first_page))
+    print("RAW HAS swiper:", "swiper-slide" in str(first_page))
+
     print("ITEMS .ItemDiv:", len(first_page.select(".ItemDiv")))
     print("ITEMS swiper-slide:", len(first_page.select(".swiper-slide")))
     
@@ -183,7 +186,8 @@ def parse_category(cat_url):
             url = f"{cat_url}?page={page}"
             soup = get_soup(url)
 
-        cards = soup.select(".ItemDiv")
+        cards = soup.select("div")
+        print("ALL DIVS:", len(cards))
 
         for card in cards:
             title = clean(card.select_one(".item-name") and card.select_one(".item-name").text)
