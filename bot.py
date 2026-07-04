@@ -710,6 +710,16 @@ async def cb(call: types.CallbackQuery):
             reply_markup=kb_supplier(key, True)
         )
 
+            st = load_json(s["status"])
+            
+            st["running"] = True
+            st["success"] = False
+            st["canceled"] = False
+            st["progress"] = 0
+            
+            with open(s["status"], "w", encoding="utf-8") as f:
+                json.dump(st, f, ensure_ascii=False, indent=2)
+        
         try:
             # запускаем парсер
             code = await run_parser(key, call.from_user.full_name)
