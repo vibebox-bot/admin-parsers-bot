@@ -195,7 +195,7 @@ def parse_category(cat_url):
 
     rows = soup.select("tr.itemPosition.simple")
 
-    print("FOUND ROWS:", len(rows))
+    #print("FOUND ROWS:", len(rows))
 
     items = []
 
@@ -295,6 +295,7 @@ def run_parser():
 
         cats = get_categories()
         #print("DEBUG CATS:", cats)
+        print(f"📂 Категорий: {len(cats)}")
 
         if CATEGORY_LIMIT:
             cats = cats[:CATEGORY_LIMIT]
