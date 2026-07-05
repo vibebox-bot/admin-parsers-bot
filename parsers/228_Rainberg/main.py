@@ -219,8 +219,6 @@ def process_category(category_url, ws, wb):
 
     visited_categories.add(category_url)
 
-    #print(f"📂 CATEGORY: {category_url}")
-
     # ==========================================
     # Сначала товары текущей категории
     # ==========================================
@@ -229,30 +227,13 @@ def process_category(category_url, ws, wb):
 
     for page in pages:
 
-        #print("\n📄 PAGE:", page)
-
         products = get_products(page)
 
-        for product_url in products:
+        for product in products:
+            save_product(ws, product)
 
-            try:
-                product = parse_product(product_url)
-
-                key = product["sku"].strip() if product["sku"] else product["url"]
-                
-                if key in seen:
-                    continue
-                
-                seen.add(key)
-                
-                save_product(ws, product)
-
-                time.sleep(random.uniform(0.5, 1.2))
-
-            except Exception as e:
-                print("Ошибка товара:", product_url, e)
-
-        time.sleep(random.uniform(1, 2))
+        # небольшая пауза между страницами
+        time.sleep(random.uniform(0.2, 0.5))
 
     # ==========================================
     # Потом все вложенные категории
@@ -260,12 +241,8 @@ def process_category(category_url, ws, wb):
 
     subcategories = get_subcategories(category_url)
 
-    if subcategories:
-
-        #print(f"📁 Подкатегорий: {len(subcategories)}")
-
-        for sub in subcategories:
-            process_category(sub, ws, wb)
+    for sub in subcategories:
+        process_category(sub, ws, wb)
 
 # =====================================================
 # ПАГИНАТОР
@@ -300,24 +277,51 @@ def get_pages(category_url):
 # =====================================================
 
 def get_products(page_url):
+
     soup = get_soup(page_url)
+
     products = []
 
     cards = soup.select("li[data-product-id]")
 
     for card in cards:
+
+        title = get_text(card.select_one("a.b-product-gallery__title"))
+
+        sku = get_text(card.select_one(".b-product-gallery__sku"))
+
+        price = clean_price(
+            get_text(card.select_one(".b-product-gallery__current-price"))
+        )
+
+        availability = get_text(
+            card.select_one('[data-qaid="presence_data"]')
+        )
+
         a = card.select_one("a.b-product-gallery__title")
-        if not a:
+
+        url = ""
+
+        if a:
+            href = a.get("href")
+
+            if href:
+                url = urljoin(BASE_URL, href)
+
+        key = sku if sku else url
+
+        if key in seen:
             continue
 
-        href = a.get("href")
-        if href:
-            products.append(urljoin(BASE_URL, href))
+        seen.add(key)
 
-    #print(f"🛒 Товаров на странице: {len(products)}")
-
-    if len(products) == 0:
-        #print("⚠️ НЕТ ТОВАРОВ — возможно сайт блокирует или сломался селектор")
+        products.append({
+            "title": title,
+            "sku": sku,
+            "price": price,
+            "availability": availability,
+            "url": url
+        })
 
     return products
 
@@ -339,30 +343,6 @@ def get_text(el):
         return ""
     return el.get_text(" ", strip=True)
 
-
-def parse_product(url):
-    soup = get_soup(url)
-
-    title = get_text(soup.select_one('span[data-qaid="product_name"]'))
-    sku = get_text(soup.select_one('span[data-qaid="product_code"]'))
-
-    price = ""
-    price_tag = soup.select_one('span[data-qaid="wholesale_price"]')
-    if price_tag:
-        price = clean_price(price_tag.get_text(strip=True))
-
-    availability = ""
-    state = soup.select_one('[data-qaid="presence_data"]')
-    if state:
-        availability = state.get_text(" ", strip=True)
-
-    return {
-        "title": title,
-        "sku": sku,
-        "price": price,
-        "availability": availability,
-        "url": url
-    }
 
 # =====================================================
 # EXCEL SAVE
@@ -428,7 +408,7 @@ def main():
             file_path=FILE_PATH
         )
 
-        print(f"✅ Готово. Всего товаров: {saved_count}")
+        print(f"✅ Готово")
 
 
     finally:
