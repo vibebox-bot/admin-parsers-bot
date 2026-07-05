@@ -142,6 +142,9 @@ def get_soup(url):
 
             r = session.get(url, timeout=30)
 
+            print("STATUS:", r.status_code)
+            print("URL AFTER:", r.url)
+            
             if r.status_code == 200:
                 return BeautifulSoup(r.text, "html.parser")
 
@@ -218,18 +221,22 @@ def parse_category(cat_url):
     all_items = []
 
     first_page = get_soup(cat_url)
-
-    # ОТЛАДКА
-    print(first_page.title)
-
+    
+    print("CATEGORY:", cat_url)
+    print("TITLE:", first_page.title)
+    
+    cards = first_page.select("div.ds-module-item.product-layout")
+    print("FOUND:", len(cards))
+    
     with open("debug.html", "w", encoding="utf-8") as f:
         f.write(str(first_page))
-
+    
     last_page = get_last_page(first_page)
-
+    
     print(f"📄 Pages: {last_page}")
-
+    
     return all_items
+
     
 # =========================
 # MAIN
