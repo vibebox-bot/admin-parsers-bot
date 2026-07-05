@@ -220,6 +220,9 @@ def process_root_catalog(ws):
         for product in products:
             save_product(ws, product)
 
+        time.sleep(random.uniform(0.2, 0.5))
+        
+
 def process_category(category_url, ws, wb):
 
     if category_url in visited_categories:
