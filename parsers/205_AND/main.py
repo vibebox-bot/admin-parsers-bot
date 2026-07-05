@@ -18,8 +18,8 @@ BASE = "https://andopt2.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 2
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 2
+CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
