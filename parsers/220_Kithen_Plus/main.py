@@ -12,6 +12,7 @@ from urllib3.util.retry import Retry
 from datetime import datetime
 
 visited_categories = set()
+TOTAL_PRODUCTS = 0
 
 print("🟢 FILE LOADED: parser script imported")
 
@@ -136,20 +137,23 @@ def get_workbook():
 # =====================================================
 
 def get_soup(url):
-    print(f"🌍 REQUEST: {url}")
+
     attempt = 0
 
     while attempt < 5:
         attempt += 1
+
         try:
+
             r = session.get(url, timeout=15)
-            print(f"🌐 {url} -> {r.status_code}")
 
             if r.status_code == 200:
                 return BeautifulSoup(r.text, "html.parser")
 
+            print(f"⚠️ HTTP {r.status_code}")
+
         except Exception as e:
-            print(e)
+            print("❌", e)
 
         time.sleep(random.uniform(2, 4))
 
@@ -224,7 +228,7 @@ def process_category(category_url, ws, wb):
 
     for page in pages:
 
-        print("\n📄 PAGE:", page)
+        #print("\n📄 PAGE:", page)
 
         products = get_products(page)
 
@@ -299,7 +303,7 @@ def get_products(page_url):
         if href:
             products.append(urljoin(BASE_URL, href))
 
-    print(f"🛒 Товаров на странице: {len(products)}")
+    #print(f"🛒 Товаров на странице: {len(products)}")
 
     if len(products) == 0:
         print("⚠️ НЕТ ТОВАРОВ — возможно сайт блокирует или сломался селектор")
@@ -354,6 +358,9 @@ def parse_product(url):
 # =====================================================
 
 def save_product(ws, product):
+
+    global TOTAL_PRODUCTS
+
     ws.append([
         product["title"],
         product["sku"],
@@ -362,6 +369,10 @@ def save_product(ws, product):
         product["url"]
     ])
 
+    TOTAL_PRODUCTS += 1
+
+    if TOTAL_PRODUCTS % 50 == 0:
+        print(f"📦 Сохранено товаров: {TOTAL_PRODUCTS}")
 # =====================================================
 # MAIN
 # =====================================================
