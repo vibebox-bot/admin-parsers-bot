@@ -219,92 +219,15 @@ def parse_category(cat_url):
 
     first_page = get_soup(cat_url)
 
+    # ОТЛАДКА
+    print(first_page.title)
+
+    with open("debug.html", "w", encoding="utf-8") as f:
+        f.write(str(first_page))
+
     last_page = get_last_page(first_page)
 
     print(f"📄 Pages: {last_page}")
-
-    for page in range(1, last_page + 1):
-
-        if page == 1:
-            soup = first_page
-        else:
-            soup = get_soup(f"{cat_url}?page={page}")
-
-        cards = soup.select("div.ds-module-item.product-layout")
-
-        print(f"Page {page}: {len(cards)} products")
-
-        for card in cards:
-
-            title = ""
-            sku = ""
-            price = ""
-            status = ""
-            url = ""
-
-            # =====================
-            # Название + ссылка
-            # =====================
-
-            title_el = card.select_one("a.ds-module-title")
-
-            if title_el:
-
-                title = clean(title_el.get_text())
-
-                href = title_el.get("href", "").strip()
-
-                if href.startswith("/"):
-                    href = BASE + href
-
-                url = href
-
-            # =====================
-            # SKU
-            # =====================
-
-            sku_el = card.select_one(".ds-module-code")
-
-            if sku_el:
-
-                sku = clean(sku_el.get_text())
-                sku = sku.replace("Код товара:", "").strip()
-
-            # =====================
-            # Цена
-            # =====================
-
-            price_el = card.select_one(".ds-price-new")
-
-            if price_el:
-                price = clean(price_el.get_text())
-
-            # =====================
-            # Наличие
-            # =====================
-
-            stock = card.select_one(".ds-module-stock")
-
-            if stock:
-
-                status = clean(stock.get_text())
-
-            else:
-
-                btn = card.select_one(".ds-module-cart button")
-
-                if btn:
-                    status = clean(btn.get_text())
-
-            all_items.append([
-                sku,
-                title,
-                price,
-                status,
-                url
-            ])
-
-    return all_items
     
 # =========================
 # MAIN
