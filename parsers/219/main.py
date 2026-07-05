@@ -148,24 +148,40 @@ def clean(t):
 # CATEGORIES
 # =========================
 def get_categories():
+
     soup = get_soup(BASE)
 
     cats = []
 
-    for li in soup.select("ul.firstUl li"):
-        a = li.find("a")
-        if not a:
-            continue
+    # MAGNIT FIX: categories may be in different container
+    selectors = [
+        "ul.firstUl li a",
+        "ul.catalog-menu li a",
+        "nav ul li a",
+        ".catalog-menu a"
+    ]
 
-        href = a.get("href", "").strip()
+    for sel in selectors:
+        links = soup.select(sel)
 
-        if href.startswith("/"):
-            href = BASE + href
+        if links:
+            for a in links:
+                href = a.get("href", "").strip()
 
-        cats.append({
-            "name": clean(a.get_text()),
-            "url": href
-        })
+                if not href:
+                    continue
+
+                if href.startswith("/"):
+                    href = BASE + href
+
+                cats.append({
+                    "name": clean(a.get_text()),
+                    "url": href
+                })
+
+            break  # нашли — выходим
+
+    print("CATEGORIES FOUND:", len(cats))
 
     return cats
     
@@ -298,6 +314,7 @@ def run_parser():
         seen = set()
 
         cats = get_categories()
+        print("DEBUG CATS:", cats)
 
         if CATEGORY_LIMIT:
             cats = cats[:CATEGORY_LIMIT]
