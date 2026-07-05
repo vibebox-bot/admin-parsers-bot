@@ -185,21 +185,6 @@ def get_categories():
 
     return cats
     
-# =========================
-# LAST PAGE DETECTION
-# =========================
-def get_last_page(soup):
-
-    pages = []
-
-    for a in soup.select("ul.pagination a"):
-        href = a.get("href", "")
-
-        m = re.search(r"[?&]page=(\d+)", href)
-        if m:
-            pages.append(int(m.group(1)))
-
-    return max(pages) if pages else 1
     
 # =========================
 # PARSE CATEGORY
@@ -208,86 +193,63 @@ def parse_category(cat_url):
 
     all_items = []
 
-    base_url = cat_url
+    soup = get_soup(cat_url)
 
-    # FIX URL LIMIT
-    first_url = base_url + "?limit=100" if "?" not in base_url else base_url + "&limit=100"
+    # MAGNIT: иногда список внутри CatalogList
+    cards = soup.select("tr.itemPosition.simple")
 
-    first_page = get_soup(first_url)
-    last_page = get_last_page(first_page)
+    if not cards:
+        cards = soup.select(".CatalogList tr.itemPosition.simple")
 
-    for page in range(1, last_page + 1):
+    print(f"FOUND PRODUCTS: {len(cards)}")
 
-        if page == 1:
-            url = first_url
-        else:
-            url = f"{base_url}&limit=100&page={page}"
+    for card in cards:
 
-        soup = get_soup(url)
+        title = ""
+        price = ""
+        status = ""
+        url_product = ""
+        product_id = ""
 
-        # MAIN FIX: MAGNIT STRUCTURE
-        cards = soup.select("tr.itemPosition.simple")
+        # TITLE
+        title_el = card.select_one("td.td_3 a")
 
-        # fallback (на случай другого контейнера)
-        if not cards:
-            cards = soup.select(".CatalogList tr.itemPosition.simple")
+        if title_el:
+            title = clean(title_el.get_text())
 
-        for card in cards:
+            product_id = title_el.get("data-id", "").strip()
 
-            title = ""
-            price = ""
-            status = ""
-            url_product = ""
-            product_id = ""
+            href = title_el.get("href", "").strip()
 
-            # ======================
-            # TITLE + URL + ID
-            # ======================
-            title_el = card.select_one("td.td_3 a")
+            if href and not href.startswith("#"):
+                if href.startswith("/"):
+                    url_product = BASE + href
+                else:
+                    url_product = href
 
-            if title_el:
-                title = clean(title_el.get_text())
+        # PRICE
+        price_el = card.select_one("td.td_5")
 
-                product_id = title_el.get("data-id", "").strip()
+        if price_el:
+            price = clean(price_el.get_text())
 
-                href = title_el.get("href", "").strip()
+        # STATUS
+        status_el = card.select_one("td.td_4 .in_box_1")
 
-                # IMPORTANT: quickLook (#) ignore
-                if href and not href.startswith("#"):
-                    if href.startswith("/"):
-                        url_product = BASE + href
-                    else:
-                        url_product = href
+        if status_el:
+            status = clean(status_el.get_text())
 
-            # ======================
-            # PRICE (USD block)
-            # ======================
-            price_el = card.select_one("td.td_5 .bold.block")
+        # fallback URL
+        if not url_product and product_id:
+            url_product = f"https://magnitopt.com.ua/?product_id={product_id}"
 
-            if price_el:
-                price = clean(price_el.get_text())
-
-            # ======================
-            # STATUS / BOX INFO
-            # ======================
-            status_el = card.select_one("td.td_4 .in_box_1")
-
-            if status_el:
-                status = clean(status_el.get_text())
-
-            # ======================
-            # FALLBACK PRODUCT URL
-            # ======================
-            if not url_product and product_id:
-                url_product = f"https://magnitopt.com.ua/?product_id={product_id}"
-
-            all_items.append([
-                "",          # SKU (нет на сайте)
-                title,
-                price,
-                status,
-                url_product
-            ])
+        all_items.append([
+            "",  # SKU нет
+            title,
+            price,
+            status,
+            url_product
+        ])
 
     return all_items
   
