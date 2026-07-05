@@ -191,78 +191,75 @@ def get_categories():
 # =========================
 def parse_category(cat_url):
 
-    all_items = []
-
     soup = get_soup(cat_url)
 
-    # карточки товаров
-    cards = soup.select("tr.itemPosition.simple")
+    rows = soup.select("tr.itemPosition.simple")
 
-    # fallback если структура чуть другая
-    if not cards:
-        cards = soup.select(".CatalogList tr.itemPosition.simple")
+    print("FOUND ROWS:", len(rows))
 
-    print(f"FOUND PRODUCTS: {len(cards)}")
+    items = []
 
-    for card in cards:
+    for row in rows:
 
+        # =========================
+        # SKU (td_2)
+        # =========================
         sku = ""
+        sku_el = row.select_one("td.td_2")
+        if sku_el:
+            sku = clean(sku_el.get_text())
+
+        # =========================
+        # TITLE (td_3)
+        # =========================
         title = ""
-        price = ""
-        status = ""
         url_product = ""
         product_id = ""
 
-        # ======================
-        # SKU (Арт)
-        # ======================
-        sku_el = card.select_one(".sku")
-        if sku_el:
-            sku = clean(sku_el.get_text())
-            sku = sku.replace("Арт:", "").strip()
-
-        # ======================
-        # TITLE + URL
-        # ======================
-        title_el = card.select_one("a.ItemName")
+        title_el = row.select_one("td.td_3 a")
 
         if title_el:
             title = clean(title_el.get_text())
             product_id = title_el.get("data-id", "").strip()
 
-            href = title_el.get("href", "").strip()
-
-            # игнор quickLook (#)
-            if href and not href.startswith("#"):
-                if href.startswith("/"):
-                    url_product = BASE + href
-                else:
-                    url_product = href
-
-        # ======================
-        # PRICE
-        # ======================
-        price_el = card.select_one(".price1")
+        # =========================
+        # PRICE (td_5 -> first span.bold)
+        # =========================
+        price = ""
+        price_el = row.select_one("td.td_5 span.bold.block")
 
         if price_el:
             price = clean(price_el.get_text())
 
-        # ======================
-        # STATUS (наличие)
-        # ======================
-        if card.select_one("button.radButton.sy"):
-            status = "В наличии"
+        # =========================
+        # STATUS (ВАЖНО: логика кнопок)
+        # =========================
+        status = ""
 
-        elif card.select_one("button.notify"):
+        if row.select_one("button.notify"):
             status = "Нет в наличии"
 
-        # ======================
-        # fallback URL
-        # ======================
-        if not url_product and product_id:
-            url_product = f"https://magnitopt.com.ua/?product_id={product_id}"
+        elif row.select_one("div.not-available"):
+            status = "Нет в наличии"
 
-        all_items.append([
+        elif row.select_one("div.are-available"):
+            status = "В наличии"
+
+        elif row.select_one("button.radButton.sy"):
+            status = "В наличии"
+
+        else:
+            status = "Неизвестно"
+
+        # =========================
+        # URL fallback
+        # =========================
+        if product_id:
+            url_product = f"https://magnitopt.com.ua/?product_id={product_id}"
+        else:
+            url_product = ""
+
+        items.append([
             sku,
             title,
             price,
@@ -270,7 +267,7 @@ def parse_category(cat_url):
             url_product
         ])
 
-    return all_items
+    return items
   
 # =========================
 # MAIN
