@@ -18,7 +18,7 @@ BASE = "https://venera7km.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = 2
 #CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
@@ -141,9 +141,6 @@ def get_soup(url):
         try:
 
             r = session.get(url, timeout=30)
-
-            print("STATUS:", r.status_code)
-            print("URL AFTER:", r.url)
             
             if r.status_code == 200:
                 return BeautifulSoup(r.text, "html.parser")
@@ -222,22 +219,70 @@ def parse_category(cat_url):
 
     first_page = get_soup(cat_url)
     
-    print("CATEGORY:", cat_url)
-    print("TITLE:", first_page.title)
-    
-    cards = first_page.select("div.ds-module-item.product-layout")
-    print("FOUND:", len(cards))
-    
-    with open("debug.html", "w", encoding="utf-8") as f:
-        f.write(str(first_page))
-    
     last_page = get_last_page(first_page)
     
     print(f"📄 Pages: {last_page}")
     
-    return all_items
-
+    for page in range(1, last_page + 1):
     
+        if page == 1:
+            soup = first_page
+        else:
+            soup = get_soup(f"{cat_url}?page={page}")
+    
+        cards = soup.select("div.ds-module-item.product-layout")
+    
+        print(f"Page {page}: {len(cards)} products")
+    
+        for card in cards:
+    
+            title = ""
+            sku = ""
+            price = ""
+            status = ""
+            url = ""
+    
+            title_el = card.select_one("a.ds-module-title")
+    
+            if title_el:
+                title = clean(title_el.get_text())
+    
+                href = title_el.get("href", "").strip()
+    
+                if href.startswith("/"):
+                    href = BASE + href
+    
+                url = href
+    
+            sku_el = card.select_one(".ds-module-code")
+    
+            if sku_el:
+                sku = clean(sku_el.get_text()).replace("Код товара:", "").strip()
+    
+            price_el = card.select_one(".ds-price-new")
+    
+            if price_el:
+                price = clean(price_el.get_text())
+    
+            stock = card.select_one(".ds-module-stock")
+    
+            if stock:
+                status = clean(stock.get_text())
+            else:
+                btn = card.select_one(".ds-module-cart button")
+                if btn:
+                    status = clean(btn.get_text())
+    
+            all_items.append([
+                sku,
+                title,
+                price,
+                status,
+                url
+            ])
+    
+    return all_items
+  
 # =========================
 # MAIN
 # =========================
