@@ -13,6 +13,7 @@ from datetime import datetime
 
 visited_categories = set()
 TOTAL_PRODUCTS = 0
+seen = set()
 
 print("🟢 FILE LOADED: parser script imported")
 
@@ -236,6 +237,14 @@ def process_category(category_url, ws, wb):
 
             try:
                 product = parse_product(product_url)
+
+                key = product["sku"].strip() if product["sku"] else product["url"]
+                
+                if key in seen:
+                    continue
+                
+                seen.add(key)
+                
                 save_product(ws, product)
 
                 time.sleep(random.uniform(0.5, 1.2))
