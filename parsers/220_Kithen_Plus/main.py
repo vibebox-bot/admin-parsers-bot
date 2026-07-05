@@ -27,7 +27,7 @@ FILE_PATH = os.path.join(OUTPUT_DIR, "220_Kithen_Plus_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
-# CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = None
 CATEGORY_LIMIT = 1
 
 import sys
