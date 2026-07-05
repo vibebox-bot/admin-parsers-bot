@@ -270,15 +270,17 @@ def parse_category(cat_url):
             if price_el:
                 price = clean(price_el.get_text())
 
+
+
             status = ""
 
-            stock = card.find(
-                "span",
-                class_=lambda c: c and any(x.startswith("quantity__") for x in c)
-            )
-            
-            if stock:
-                status = clean(stock.get_text())
+            for span in card.select(".us-module-caption span"):
+                text = clean(span.get_text())
+                if text:
+                    status = text
+                    break
+
+            status = ""
 
     
             all_items.append([
