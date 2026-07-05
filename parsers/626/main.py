@@ -228,6 +228,8 @@ def parse_category(cat_url):
     last_page = get_last_page(first_page)
 
     print(f"📄 Pages: {last_page}")
+
+    return all_items
     
 # =========================
 # MAIN
