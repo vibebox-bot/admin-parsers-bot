@@ -24,8 +24,8 @@ CATEGORY_LIMIT = 1
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "785931"
 
-OUTPUT_DIR = os.path.abspath("output/D-Top")
-FILE_PATH = os.path.join(OUTPUT_DIR, "D-Top_LIVE.xlsx")
+OUTPUT_DIR = os.path.abspath("output/219")
+FILE_PATH = os.path.join(OUTPUT_DIR, "219_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
