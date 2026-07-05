@@ -71,7 +71,8 @@ def set_lock(state):
 # =========================
 def login():
 
-    login_url = BASE + "/login-ru"
+    #login_url = BASE + "/login-ru"
+    login_url = BASE + "/index.php?route=account/login"
 
     # Получаем страницу логина (куки + возможные hidden поля)
     r = session.get(login_url)
