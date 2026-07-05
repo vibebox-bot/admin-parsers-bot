@@ -166,7 +166,7 @@ def get_categories():
 
     categories = []
 
-    menu = soup.select_one("ul.ds-menu-catalog-items")
+    menu = soup.select_one("#oct-menu-ul")
 
     if not menu:
         return categories
@@ -174,7 +174,7 @@ def get_categories():
     # только первый уровень
     for li in menu.find_all("li", recursive=False):
 
-        a = li.select_one("a.ds-menu-maincategories-item-title")
+        a = li.select("> a.oct-menu-a")
 
         if not a:
             continue
@@ -192,7 +192,7 @@ def get_categories():
     print(f"📂 Categories: {len(categories)}")
 
     return categories
-
+    
 # =========================
 # LAST PAGE DETECTION
 # =========================
