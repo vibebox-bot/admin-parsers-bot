@@ -145,7 +145,14 @@ SUPPLIERS = {
             "file": path("output/205_AND/205_AND_LIVE.xlsx"),
             "status": path("output/205_AND/status.json"),
             "lock": path("output/205_AND/lock.txt"),
-        },    
+        },
+        "Харьковская D-Top": {
+            "name": "📦 Харьковская D-Top",
+            "script": "parsers/D-Top/run.py",
+            "file": path("output/D-Top/D-Top_LIVE.xlsx"),
+            "status": path("output/D-Top/status.json"),
+            "lock": path("output/D-Top/lock.txt"),
+        },     
          
 }
 
