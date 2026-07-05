@@ -231,7 +231,7 @@ def parse_category(cat_url):
         else:
             soup = get_soup(f"{cat_url}?page={page}")
     
-        cards = soup.select("div.ds-module-item.product-layout")
+        cards = soup.select("div.product-layout")
     
         #print(f"Page {page}: {len(cards)} products")
     
@@ -242,37 +242,38 @@ def parse_category(cat_url):
             price = ""
             status = ""
             url = ""
-    
-            title_el = card.select_one("a.ds-module-title")
-    
+
+
+            title_el = card.select_one(".us-module-title a")
+            
             if title_el:
+            
                 title = clean(title_el.get_text())
-    
+            
                 href = title_el.get("href", "").strip()
-    
+            
                 if href.startswith("/"):
                     href = BASE + href
-    
+            
                 url = href
+ 
     
-            sku_el = card.select_one(".ds-module-code")
-    
+            
+            sku_el = card.select_one(".us-product-list-description")
+
             if sku_el:
-                sku = clean(sku_el.get_text()).replace("Код товара:", "").strip()
-    
-            price_el = card.select_one(".ds-price-new")
+                sku = clean(sku_el.get_text())
+                sku = sku.replace("Артикул -", "").strip()
+            
+            price_el = card.select_one(".us-module-price-actual")
     
             if price_el:
                 price = clean(price_el.get_text())
-    
-            stock = card.select_one(".ds-module-stock")
-    
-            if stock:
-                status = clean(stock.get_text())
-            else:
-                btn = card.select_one(".ds-module-cart button")
-                if btn:
-                    status = clean(btn.get_text())
+
+
+            stock = card.select_one(".quantity__in-stock")
+
+            status = clean(stock.get_text()) if stock else ""
     
             all_items.append([
                 sku,
