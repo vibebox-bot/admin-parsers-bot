@@ -318,7 +318,8 @@ def get_products(page_url):
             if href:
                 url = urljoin(BASE_URL, href)
 
-        key = sku if sku else url
+        #key = sku if sku else url
+        key = (title, price)
 
         if key in seen:
             continue
