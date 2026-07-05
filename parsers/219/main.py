@@ -11,7 +11,7 @@ import sys
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 Харьковская D-Top")
+print("🔥 Харьковская 219 Магнит")
 
 BASE = "http://www.dtopelectronic.com.ua"
 
@@ -370,7 +370,7 @@ def run_parser():
 
         save_status(False, 100, USER, FILE_PATH)
 
-        print("✅ Готово. Харьковская D-Top")
+        print("✅ Готово. Харьковская 219 Магнит")
 
     finally:
 
