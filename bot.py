@@ -118,6 +118,13 @@ SUPPLIERS = {
             "status": path("output/Dellta/status.json"),
             "lock": path("output/Dellta/lock.txt"),
         },
+        "Харьковская 239": {
+            "name": "📦 Харьковская 239",
+            "script": "parsers/239/run.py",
+            "file": path("output/239/239_LIVE.xlsx"),
+            "status": path("output/239/status.json"),
+            "lock": path("output/239/lock.txt"),
+        },    
          
 }
 
