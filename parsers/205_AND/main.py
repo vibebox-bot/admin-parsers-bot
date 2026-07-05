@@ -280,8 +280,6 @@ def parse_category(cat_url):
                     status = text
                     break
 
-            status = ""
-
     
             all_items.append([
                 sku,
