@@ -15,8 +15,6 @@ visited_categories = set()
 TOTAL_PRODUCTS = 0
 seen = set()
 
-print("🟢 228_Rainberg")
-
 # =====================================================
 # НАСТРОЙКИ
 # =====================================================
@@ -29,8 +27,8 @@ FILE_PATH = os.path.join(OUTPUT_DIR, "228_Rainberg_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
-#CATEGORY_LIMIT = None
-CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 1
 
 import sys
 USER = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -188,8 +186,8 @@ def get_categories():
         categories = categories[:CATEGORY_LIMIT]
 
     print(f"📂 Категорий найдено: {len(categories)}")
-    for i, c in enumerate(categories):
-        print(f"{i+1}. {c}")
+    #for i, c in enumerate(categories):
+        #print(f"{i+1}. {c}")
 
     return categories
 
@@ -368,7 +366,7 @@ def save_product(ws, product):
 
 def main():
     #print("🔥 ENTER MAIN()")
-    #print("🚀 PARSER STARTED")
+    print("🚀 STARTED Харьковская 228 Rainberg")
     #print(f"👤 USER: {USER}")
 
     if is_locked():
@@ -406,7 +404,7 @@ def main():
             file_path=FILE_PATH
         )
 
-        print(f"✅ Готово")
+        print("✅ Готово. Харьковская 228 Rainberg")
 
 
     finally:
