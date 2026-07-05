@@ -157,12 +157,13 @@ def get_categories():
         if not a:
             continue
 
-        href = a.get("href", "")
+        href = a.get("href", "").strip()
+
         if href.startswith("/"):
             href = BASE + href
 
         cats.append({
-            "name": a.get_text(strip=True),
+            "name": clean(a.get_text()),
             "url": href
         })
 
@@ -193,7 +194,8 @@ def parse_category(cat_url):
 
     base_url = cat_url
 
-    first_url = base_url + "&limit=100"
+    # FIX URL LIMIT
+    first_url = base_url + "?limit=100" if "?" not in base_url else base_url + "&limit=100"
 
     first_page = get_soup(first_url)
     last_page = get_last_page(first_page)
@@ -207,19 +209,23 @@ def parse_category(cat_url):
 
         soup = get_soup(url)
 
-        cards = soup.select(".CatalogList .itemPosition")
+        # MAIN FIX: MAGNIT STRUCTURE
+        cards = soup.select("tr.itemPosition.simple")
+
+        # fallback (на случай другого контейнера)
+        if not cards:
+            cards = soup.select(".CatalogList tr.itemPosition.simple")
 
         for card in cards:
 
             title = ""
-            sku = ""
             price = ""
             status = ""
             url_product = ""
             product_id = ""
 
             # ======================
-            # TITLE
+            # TITLE + URL + ID
             # ======================
             title_el = card.select_one("td.td_3 a")
 
@@ -229,6 +235,8 @@ def parse_category(cat_url):
                 product_id = title_el.get("data-id", "").strip()
 
                 href = title_el.get("href", "").strip()
+
+                # IMPORTANT: quickLook (#) ignore
                 if href and not href.startswith("#"):
                     if href.startswith("/"):
                         url_product = BASE + href
@@ -236,7 +244,7 @@ def parse_category(cat_url):
                         url_product = href
 
             # ======================
-            # PRICE (USD)
+            # PRICE (USD block)
             # ======================
             price_el = card.select_one("td.td_5 .bold.block")
 
@@ -244,7 +252,7 @@ def parse_category(cat_url):
                 price = clean(price_el.get_text())
 
             # ======================
-            # STATUS / AVAILABILITY
+            # STATUS / BOX INFO
             # ======================
             status_el = card.select_one("td.td_4 .in_box_1")
 
@@ -252,13 +260,13 @@ def parse_category(cat_url):
                 status = clean(status_el.get_text())
 
             # ======================
-            # FALLBACK URL (if no href)
+            # FALLBACK PRODUCT URL
             # ======================
             if not url_product and product_id:
-                url_product = f"https://magnitopt.com.ua/product/{product_id}"
+                url_product = f"https://magnitopt.com.ua/?product_id={product_id}"
 
             all_items.append([
-                sku,
+                "",          # SKU (нет на сайте)
                 title,
                 price,
                 status,
