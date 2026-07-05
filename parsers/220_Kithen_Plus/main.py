@@ -382,8 +382,6 @@ def save_product(ws, product):
 
     TOTAL_PRODUCTS += 1
 
-    if TOTAL_PRODUCTS % 50 == 0:
-        #print(f"📦 Сохранено товаров: {TOTAL_PRODUCTS}")
 # =====================================================
 # MAIN
 # =====================================================
