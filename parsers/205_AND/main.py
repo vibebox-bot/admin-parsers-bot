@@ -218,10 +218,8 @@ def parse_category(cat_url):
 
     all_items = []
 
-    # 🔥 нормализуем URL категории
-    base_cat_url = cat_url + "&limit=100"
-
-    first_page = get_soup(base_cat_url)
+    # первая страница без limit
+    first_page = get_soup(cat_url)
 
     last_page = get_last_page(first_page)
 
@@ -230,9 +228,9 @@ def parse_category(cat_url):
     for page in range(1, last_page + 1):
 
         if page == 1:
-            url = base_cat_url
+            url = cat_url
         else:
-            url = f"{base_cat_url}&page={page}"
+            url = f"{cat_url}&page={page}"
 
         soup = get_soup(url)
 
@@ -248,9 +246,7 @@ def parse_category(cat_url):
             status = ""
             url_product = ""
 
-            # =====================
             # TITLE + URL
-            # =====================
             title_el = card.select_one(".us-module-title a")
 
             if title_el:
@@ -263,36 +259,23 @@ def parse_category(cat_url):
 
                 url_product = href
 
-            # =====================
             # SKU
-            # =====================
             sku_el = card.select_one(".us-product-list-description")
 
             if sku_el:
-                sku = clean(sku_el.get_text())
-                sku = sku.replace("Артикул -", "").strip()
+                sku = clean(sku_el.get_text()).replace("Артикул -", "").strip()
 
-            # =====================
             # PRICE
-            # =====================
             price_el = card.select_one(".us-module-price-actual")
 
             if price_el:
                 price = clean(price_el.get_text())
 
-            # =====================
-            # STATUS (САМЫЙ ВАЖНЫЙ ФИКС)
-            # =====================
-            status = ""
+            # STATUS
+            status_el = card.select_one(".quantity__ends, .quantity__in-stock")
 
-            status_el = card.select_one(".us-module-caption span")
+            status = clean(status_el.get_text()) if status_el else ""
 
-            if status_el:
-                status = clean(status_el.get_text())
-
-            # =====================
-            # RESULT
-            # =====================
             all_items.append([
                 sku,
                 title,
