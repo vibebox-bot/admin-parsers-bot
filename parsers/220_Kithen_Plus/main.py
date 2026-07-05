@@ -209,6 +209,16 @@ def get_subcategories(category_url):
 
     return subs
 
+def process_root_catalog(ws):
+
+    pages = get_pages(CATALOG_URL)
+
+    for page in pages:
+
+        products = get_products(page)
+
+        for product in products:
+            save_product(ws, product)
 
 def process_category(category_url, ws, wb):
 
@@ -407,6 +417,8 @@ def main():
         wb, ws = get_workbook()
 
         categories = get_categories()
+        # сначала собрать товары из общего каталога
+        process_root_catalog(ws)
 
         for category_index, category_url in enumerate(categories, 1):
 
