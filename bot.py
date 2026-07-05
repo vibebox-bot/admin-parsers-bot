@@ -138,7 +138,14 @@ SUPPLIERS = {
             "file": path("output/626/626_LIVE.xlsx"),
             "status": path("output/626/status.json"),
             "lock": path("output/626/lock.txt"),
-        },     
+        },
+        "Харьковская 205 AND": {
+            "name": "📦 Харьковская 205 AND",
+            "script": "parsers/205_AND/run.py",
+            "file": path("output/205_AND/205_AND_LIVE.xlsx"),
+            "status": path("output/205_AND/status.json"),
+            "lock": path("output/205_AND/lock.txt"),
+        },    
          
 }
 
