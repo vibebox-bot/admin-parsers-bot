@@ -207,7 +207,7 @@ def parse_category(cat_url):
 
         soup = get_soup(url)
 
-        cards = soup.select("tr.itemPosition.simple")
+        cards = soup.select(".CatalogList .itemPosition")
 
         for card in cards:
 
