@@ -18,8 +18,8 @@ BASE = "http://www.dtopelectronic.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 2
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
@@ -165,15 +165,15 @@ def get_categories():
 
     categories = []
 
-    menu = soup.select_one("#oct-menu-ul")
+    menu = soup.select_one("ul.menu__collapse.main-menu__collapse")
 
     if not menu:
         return categories
 
-    # только первый уровень
-    for li in menu.find_all("li", recursive=False):
+    # берем только 1 уровень (главные категории)
+    for li in menu.select("li.menu__level-1-li"):
 
-        a = li.select_one("a.oct-menu-a")
+        a = li.select_one("a.menu__level-1-a")
 
         if not a:
             continue
@@ -197,7 +197,7 @@ def get_categories():
 # =========================
 def get_last_page(soup):
 
-    pages = [1]
+    pages = []
 
     for a in soup.select("ul.pagination a"):
 
@@ -208,8 +208,11 @@ def get_last_page(soup):
         if m:
             pages.append(int(m.group(1)))
 
-    return max(pages)
+    if not pages:
+        return 1
 
+    return max(pages)
+    
 # =========================
 # PARSE CATEGORY
 # =========================
@@ -217,8 +220,12 @@ def parse_category(cat_url):
 
     all_items = []
 
-    # первая страница без limit
-    first_page = get_soup(cat_url)
+    base_url = cat_url
+
+    # всегда стартуем с первой страницы
+    first_url = base_url + "&limit=100"
+
+    first_page = get_soup(first_url)
 
     last_page = get_last_page(first_page)
 
@@ -227,13 +234,13 @@ def parse_category(cat_url):
     for page in range(1, last_page + 1):
 
         if page == 1:
-            url = cat_url
+            url = first_url
         else:
-            url = f"{cat_url}&page={page}"
+            url = f"{base_url}&limit=100&page={page}"
 
         soup = get_soup(url)
 
-        cards = soup.select("div.product-layout")
+        cards = soup.select("div.product-thumb")
 
         print(f"Page {page}: {len(cards)} products")
 
@@ -246,7 +253,7 @@ def parse_category(cat_url):
             url_product = ""
 
             # TITLE + URL
-            title_el = card.select_one(".us-module-title a")
+            title_el = card.select_one(".product-thumb__name")
 
             if title_el:
                 title = clean(title_el.get_text())
@@ -259,25 +266,22 @@ def parse_category(cat_url):
                 url_product = href
 
             # SKU
-            sku_el = card.select_one(".us-product-list-description")
+            sku_el = card.select_one(".product-thumb__model")
 
             if sku_el:
-                sku = clean(sku_el.get_text()).replace("Артикул -", "").strip()
+                sku = clean(sku_el.get_text())
+                sku = sku.replace("Код товара:", "").strip()
 
             # PRICE
-            price_el = card.select_one(".us-module-price-actual")
+            price_el = card.select_one(".product-thumb__price")
 
             if price_el:
                 price = clean(price_el.get_text())
 
-            # STATUS
-            status = ""
-            
-            for span in card.select(".us-module-caption span"):
-                text = clean(span.get_text())
-                if text:
-                    status = text
-                    break
+            # STATUS (ВАЖНО — БЕЗ ГАДАНИЯ)
+            status_el = card.select_one(".qty-indicator__text")
+
+            status = clean(status_el.get_text()) if status_el else ""
 
             all_items.append([
                 sku,
