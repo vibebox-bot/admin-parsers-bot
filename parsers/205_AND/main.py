@@ -270,10 +270,16 @@ def parse_category(cat_url):
             if price_el:
                 price = clean(price_el.get_text())
 
+            status = ""
 
-            stock = card.select_one(".quantity__in-stock")
+            stock = card.find(
+                "span",
+                class_=lambda c: c and any(x.startswith("quantity__") for x in c)
+            )
+            
+            if stock:
+                status = clean(stock.get_text())
 
-            status = clean(stock.get_text()) if stock else ""
     
             all_items.append([
                 sku,
@@ -361,7 +367,7 @@ def run_parser():
 
         save_status(False, 100, USER, FILE_PATH)
 
-        print("✅ Готово. Фабричная 626")
+        print("✅ Готово.Харьковская 205 AND")
 
     finally:
 
