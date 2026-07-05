@@ -216,15 +216,9 @@ def process_category(category_url, ws, wb):
 
     print(f"📂 CATEGORY: {category_url}")
 
-    subcategories = get_subcategories(category_url)
-
-    if subcategories:
-        print(f"📁 Подкатегорий: {len(subcategories)}")
-
-        for sub in subcategories:
-            process_category(sub, ws, wb)
-
-        return
+    # ==========================================
+    # Сначала товары текущей категории
+    # ==========================================
 
     pages = get_pages(category_url)
 
@@ -246,6 +240,19 @@ def process_category(category_url, ws, wb):
                 print("Ошибка товара:", product_url, e)
 
         time.sleep(random.uniform(1, 2))
+
+    # ==========================================
+    # Потом все вложенные категории
+    # ==========================================
+
+    subcategories = get_subcategories(category_url)
+
+    if subcategories:
+
+        print(f"📁 Подкатегорий: {len(subcategories)}")
+
+        for sub in subcategories:
+            process_category(sub, ws, wb)
 
 # =====================================================
 # ПАГИНАТОР
