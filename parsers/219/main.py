@@ -309,17 +309,17 @@ def run_parser():
                 FILE_PATH
             )
 
-            items = parse_category(cat)
+            items = parse_category(cat["url"])
 
             for sku, title, price, status, url in items:
 
                 #key = sku if sku else url
-                key = (title, price)
+                #key = (title, price)
 
-                if key in seen:
-                    continue
+                #if key in seen:
+                    #continue
 
-                seen.add(key)
+                #seen.add(key)
 
                 if not title:
                     continue
