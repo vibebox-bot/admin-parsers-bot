@@ -272,25 +272,27 @@ def process_category(category_url, ws, wb):
 # =====================================================
 
 def get_pages(category_url):
+
     soup = get_soup(category_url)
-    last_page = 1
 
-    pager = soup.select(".b-pager a")
+    pages = [category_url]
 
-    for a in pager:
-        txt = a.get_text(strip=True)
-        if txt.isdigit():
-            last_page = max(last_page, int(txt))
+    pager = soup.select_one("[data-pagination-pages-count]")
 
-    pages = []
+    if not pager:
+        print("Страниц: 1")
+        return pages
 
-    for i in range(1, last_page + 1):
-        if i == 1:
-            pages.append(category_url)
-        else:
-            pages.append(category_url.rstrip("/") + f"/page_{i}")
+    try:
+        last_page = int(pager["data-pagination-pages-count"])
+    except:
+        last_page = 1
 
-    print(f"Страниц: {len(pages)}")
+    for i in range(2, last_page + 1):
+        pages.append(category_url.rstrip("/") + f"/page_{i}")
+
+    print(f"Страниц: {last_page}")
+
     return pages
 
 # =====================================================
