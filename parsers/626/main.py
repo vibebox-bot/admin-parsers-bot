@@ -170,10 +170,10 @@ def get_categories():
     if not menu:
         return categories
 
-    for li in menu.select("> li.ds-menu-catalog-item"):
+    # только первый уровень
+    for li in menu.find_all("li", recursive=False):
 
-        # Берем только ссылку первого уровня
-        a = li.select_one(":scope > a.ds-menu-maincategories-item-title")
+        a = li.select_one("a.ds-menu-maincategories-item-title")
 
         if not a:
             continue
