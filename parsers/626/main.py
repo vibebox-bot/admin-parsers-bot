@@ -11,21 +11,21 @@ import sys
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 STARTED Masterberg")
+print("🔥 Фабричная 626")
 
-BASE = "https://masterberg.com.ua"
+BASE = "https://venera7km.com.ua"
 
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 2
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
 
-OUTPUT_DIR = os.path.abspath("output/239")
-FILE_PATH = os.path.join(OUTPUT_DIR, "239_LIVE.xlsx")
+OUTPUT_DIR = os.path.abspath("output/626")
+FILE_PATH = os.path.join(OUTPUT_DIR, "626_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "239.lock")
 
@@ -71,41 +71,44 @@ def set_lock(state):
 # =========================
 def login():
 
-    login_url = BASE + "/login/"
+    login_url = BASE + "/login-ru"
 
+    # Получаем страницу логина (куки + возможные hidden поля)
     r = session.get(login_url)
-
     soup = BeautifulSoup(r.text, "html.parser")
 
     payload = {}
 
-    for inp in soup.select("form input"):
+    form = soup.select_one("form")
 
-        name = inp.get("name")
+    if form:
+        for inp in form.select("input"):
+            name = inp.get("name")
+            if name:
+                payload[name] = inp.get("value", "")
 
-        if name:
-            payload[name] = inp.get("value", "")
-
+    # Подставляем логин
     payload["email"] = EMAIL
     payload["password"] = PASSWORD
 
+    # Отправляем форму
     session.post(
         login_url,
         data=payload,
         headers={
             "Referer": login_url
-        }
+        },
+        allow_redirects=True
     )
 
-    #print("STATUS:", r2.status_code)
-    #print("RESPONSE:", r2.text[:300])
+    # Можно проверить успешность авторизации
+    account = session.get(BASE)
 
-    # 5. проверка успеха (очень важно)
-    #if "error" not in r2.text.lower():
-        #print("LOGIN OK")
-    #else:
-        #print("LOGIN FAILED")
-
+    if "logout" in account.text.lower() or "выход" in account.text.lower():
+        print("✅ LOGIN OK")
+    else:
+        print("⚠ LOGIN CHECK")
+        
 # =========================
 # STATUS
 # =========================
@@ -156,43 +159,47 @@ def clean(t):
 # =========================
 # CATEGORIES
 # =========================
-# =========================
-# CATEGORIES
-# =========================
 def get_categories():
 
     soup = get_soup(BASE)
 
     categories = []
 
-    for a in soup.select("#menu-list a.dropdown-img"):
+    menu = soup.select_one("ul.ds-menu-catalog-items")
+
+    if not menu:
+        return categories
+
+    for li in menu.select("> li.ds-menu-catalog-item"):
+
+        # Берем только ссылку первого уровня
+        a = li.select_one(":scope > a.ds-menu-maincategories-item-title")
+
+        if not a:
+            continue
 
         href = a.get("href", "").strip()
 
         if not href:
             continue
 
-        if href.startswith("javascript"):
-            continue
+        if href.startswith("/"):
+            href = BASE + href
 
-        if href.startswith("http"):
-            url = href
-        else:
-            url = BASE.rstrip("/") + "/" + href.lstrip("/")
+        categories.append(href)
 
-        if url not in categories:
-            categories.append(url)
+    print(f"📂 Categories: {len(categories)}")
 
     return categories
 
 # =========================
-# LAST PAGE
+# LAST PAGE DETECTION
 # =========================
 def get_last_page(soup):
 
     pages = [1]
 
-    for a in soup.select("ul.pagination a[href]"):
+    for a in soup.select("ul.pagination a"):
 
         href = a.get("href", "")
 
@@ -208,26 +215,24 @@ def get_last_page(soup):
 # =========================
 def parse_category(cat_url):
 
-    items = []
+    all_items = []
 
-    first = get_soup(cat_url)
+    first_page = get_soup(cat_url)
 
-    last_page = get_last_page(first)
+    last_page = get_last_page(first_page)
+
+    print(f"📄 Pages: {last_page}")
 
     for page in range(1, last_page + 1):
 
         if page == 1:
-            soup = first
+            soup = first_page
         else:
+            soup = get_soup(f"{cat_url}?page={page}")
 
-            if "?" in cat_url:
-                url = cat_url + f"&page={page}"
-            else:
-                url = cat_url + f"/?page={page}"
+        cards = soup.select("div.ds-module-item.product-layout")
 
-            soup = get_soup(url)
-
-        cards = soup.select("div.product-layout")
+        print(f"Page {page}: {len(cards)} products")
 
         for card in cards:
 
@@ -237,46 +242,61 @@ def parse_category(cat_url):
             status = ""
             url = ""
 
-            # -----------------
-            # TITLE + URL
-            # -----------------
+            # =====================
+            # Название + ссылка
+            # =====================
 
-            a = card.select_one(".product-name a")
+            title_el = card.select_one("a.ds-module-title")
 
-            if a:
+            if title_el:
 
-                title = clean(a.get_text())
+                title = clean(title_el.get_text())
 
-                url = a.get("href", "")
+                href = title_el.get("href", "").strip()
 
-            # -----------------
+                if href.startswith("/"):
+                    href = BASE + href
+
+                url = href
+
+            # =====================
             # SKU
-            # -----------------
+            # =====================
 
-            sku_el = card.select_one(".product-model")
+            sku_el = card.select_one(".ds-module-code")
 
             if sku_el:
+
                 sku = clean(sku_el.get_text())
+                sku = sku.replace("Код товара:", "").strip()
 
-            # -----------------
-            # PRICE
-            # -----------------
+            # =====================
+            # Цена
+            # =====================
 
-            price_el = card.select_one("p.price span")
+            price_el = card.select_one(".ds-price-new")
 
             if price_el:
                 price = clean(price_el.get_text())
 
-            # -----------------
-            # STATUS
-            # -----------------
+            # =====================
+            # Наличие
+            # =====================
 
-            btn = card.select_one(".actions .cart button span")
+            stock = card.select_one(".ds-module-stock")
 
-            if btn:
-                status = clean(btn.get_text())
+            if stock:
 
-            items.append([
+                status = clean(stock.get_text())
+
+            else:
+
+                btn = card.select_one(".ds-module-cart button")
+
+                if btn:
+                    status = clean(btn.get_text())
+
+            all_items.append([
                 sku,
                 title,
                 price,
@@ -284,7 +304,7 @@ def parse_category(cat_url):
                 url
             ])
 
-    return items
+    return all_items
     
 # =========================
 # MAIN
