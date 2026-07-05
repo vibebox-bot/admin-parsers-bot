@@ -15,8 +15,6 @@ visited_categories = set()
 TOTAL_PRODUCTS = 0
 seen = set()
 
-print("🟢 220_Kithen_Plus")
-
 # =====================================================
 # НАСТРОЙКИ
 # =====================================================
@@ -188,8 +186,8 @@ def get_categories():
         categories = categories[:CATEGORY_LIMIT]
 
     print(f"📂 Категорий найдено: {len(categories)}")
-    for i, c in enumerate(categories):
-        print(f"{i+1}. {c}")
+    #for i, c in enumerate(categories):
+        #print(f"{i+1}. {c}")
 
     return categories
 
@@ -388,7 +386,8 @@ def save_product(ws, product):
 
 def main():
     #print("🔥 ENTER MAIN()")
-    #print("🚀 PARSER STARTED")
+    print("🚀 PARSER STARTED")
+    print("🚀 STARTED Харьковская 220 Kithen Plus")
     #print(f"👤 USER: {USER}")
 
     if is_locked():
@@ -426,7 +425,7 @@ def main():
             file_path=FILE_PATH
         )
 
-        print(f"✅ Готово")
+        print(f"✅ Готово. Харьковская 220 Kithen Plus")
 
 
     finally:
