@@ -15,7 +15,7 @@ visited_categories = set()
 TOTAL_PRODUCTS = 0
 seen = set()
 
-print("🟢 FILE LOADED: parser script imported")
+print("🟢 220_Kithen_Plus")
 
 # =====================================================
 # НАСТРОЙКИ
@@ -29,8 +29,8 @@ FILE_PATH = os.path.join(OUTPUT_DIR, "220_Kithen_Plus_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
-#CATEGORY_LIMIT = None
-CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 1
 
 import sys
 USER = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -189,7 +189,7 @@ def get_categories():
 
     print(f"📂 Категорий найдено: {len(categories)}")
     for i, c in enumerate(categories):
-        print(f"{i+1}. {c}")
+        #print(f"{i+1}. {c}")
 
     return categories
 
@@ -219,7 +219,7 @@ def process_category(category_url, ws, wb):
 
     visited_categories.add(category_url)
 
-    print(f"📂 CATEGORY: {category_url}")
+    #print(f"📂 CATEGORY: {category_url}")
 
     # ==========================================
     # Сначала товары текущей категории
@@ -262,7 +262,7 @@ def process_category(category_url, ws, wb):
 
     if subcategories:
 
-        print(f"📁 Подкатегорий: {len(subcategories)}")
+        #print(f"📁 Подкатегорий: {len(subcategories)}")
 
         for sub in subcategories:
             process_category(sub, ws, wb)
@@ -280,7 +280,7 @@ def get_pages(category_url):
     pager = soup.select_one("[data-pagination-pages-count]")
 
     if not pager:
-        print("Страниц: 1")
+        #print("Страниц: 1")
         return pages
 
     try:
@@ -291,7 +291,7 @@ def get_pages(category_url):
     for i in range(2, last_page + 1):
         pages.append(category_url.rstrip("/") + f"/page_{i}")
 
-    print(f"Страниц: {last_page}")
+    #print(f"Страниц: {last_page}")
 
     return pages
 
@@ -317,7 +317,7 @@ def get_products(page_url):
     #print(f"🛒 Товаров на странице: {len(products)}")
 
     if len(products) == 0:
-        print("⚠️ НЕТ ТОВАРОВ — возможно сайт блокирует или сломался селектор")
+        #print("⚠️ НЕТ ТОВАРОВ — возможно сайт блокирует или сломался селектор")
 
     return products
 
@@ -383,18 +383,18 @@ def save_product(ws, product):
     TOTAL_PRODUCTS += 1
 
     if TOTAL_PRODUCTS % 50 == 0:
-        print(f"📦 Сохранено товаров: {TOTAL_PRODUCTS}")
+        #print(f"📦 Сохранено товаров: {TOTAL_PRODUCTS}")
 # =====================================================
 # MAIN
 # =====================================================
 
 def main():
-    print("🔥 ENTER MAIN()")
-    print("🚀 PARSER STARTED")
-    print(f"👤 USER: {USER}")
+    #print("🔥 ENTER MAIN()")
+    #print("🚀 PARSER STARTED")
+    #print(f"👤 USER: {USER}")
 
     if is_locked():
-        print("⛔ Уже запущен")
+        #print("⛔ Уже запущен")
         return
 
     set_lock(True)
@@ -413,9 +413,9 @@ def main():
 
         for category_index, category_url in enumerate(categories, 1):
 
-            print("\n" + "=" * 70)
-            print(f"Категория {category_index}/{len(categories)}")
-            print(category_url)
+            #print("\n" + "=" * 70)
+            #print(f"Категория {category_index}/{len(categories)}")
+            #print(category_url)
 
             process_category(category_url, ws, wb)
 
@@ -428,9 +428,8 @@ def main():
             file_path=FILE_PATH
         )
 
-        print("\n==========================")
-        print("ПАРСИНГ ЗАВЕРШЕН")
-        print("==========================")
+        print(f"✅ Готово. Всего товаров: {saved_count}")
+
 
     finally:
         set_lock(False)
