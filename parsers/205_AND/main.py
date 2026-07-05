@@ -11,21 +11,21 @@ import sys
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 Фабричная 626")
+print("🔥 Харьковская 205 AND")
 
-BASE = "https://venera7km.com.ua"
+BASE = "https://andopt2.com.ua"
 
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 2
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
 
-OUTPUT_DIR = os.path.abspath("output/626")
-FILE_PATH = os.path.join(OUTPUT_DIR, "626_LIVE.xlsx")
+OUTPUT_DIR = os.path.abspath("output/205_AND")
+FILE_PATH = os.path.join(OUTPUT_DIR, "205_AND_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
