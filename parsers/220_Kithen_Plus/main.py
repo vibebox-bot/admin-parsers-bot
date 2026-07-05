@@ -66,40 +66,69 @@ session.mount("http://", adapter)
 # STATUS
 # =====================================================
 
-def load_status():
-    if not os.path.exists(STATUS_PATH):
-        return {"category": 0}
-    with open(STATUS_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+def set_status(running=True, user="", file_path=""):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-
-def save_status(category_index, running=False, progress=0, canceled=False, success=False):
     data = {
-        "category": category_index,
         "running": running,
-        "progress": progress,
-        "canceled": canceled,
-        "success": success,
-        "user": USER,
-        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "user": user,
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "file_path": file_path
     }
+
     with open(STATUS_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def is_locked():
+
+    if not os.path.exists(LOCK_FILE):
+        return False
+
+    try:
+        age = time.time() - os.path.getmtime(LOCK_FILE)
+
+        # lock старше часа = считаем зависшим
+        if age > 3600:
+            os.remove(LOCK_FILE)
+            return False
+
+        return True
+
+    except:
+        return False
+
+
+def set_lock(state):
+
+    if state:
+        with open(LOCK_FILE, "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
+
+    else:
+        if os.path.exists(LOCK_FILE):
+            os.remove(LOCK_FILE)
 
 # =====================================================
 # EXCEL
 # =====================================================
 
 def get_workbook():
+
     if os.path.exists(FILE_PATH):
-        wb = load_workbook(FILE_PATH)
-        ws = wb.active
-        return wb, ws
+        os.remove(FILE_PATH)
 
     wb = Workbook()
     ws = wb.active
-    ws.append(["Название", "Артикул", "Цена", "Наличие", "Ссылка"])
-    wb.save(FILE_PATH)
+
+    ws.append([
+        "Название",
+        "Артикул",
+        "Цена",
+        "Наличие",
+        "Ссылка"
+    ])
+
     return wb, ws
 
 # =====================================================
@@ -209,7 +238,7 @@ def process_category(category_url, ws, wb):
 
             try:
                 product = parse_product(product_url)
-                save_product(ws, wb, product)
+                save_product(ws, product)
 
                 time.sleep(random.uniform(0.5, 1.2))
 
@@ -317,7 +346,7 @@ def parse_product(url):
 # EXCEL SAVE
 # =====================================================
 
-def save_product(ws, wb, product):
+def save_product(ws, product):
     ws.append([
         product["title"],
         product["sku"],
@@ -325,8 +354,6 @@ def save_product(ws, wb, product):
         product["availability"],
         product["url"]
     ])
-    wb.save(FILE_PATH)
-    print(product["title"])
 
 # =====================================================
 # MAIN
@@ -337,30 +364,48 @@ def main():
     print("🚀 PARSER STARTED")
     print(f"👤 USER: {USER}")
 
-    with open(LOCK_FILE, "w", encoding="utf-8") as f:
-        f.write(str(os.getpid()))
+    if is_locked():
+        print("⛔ Уже запущен")
+        return
 
-    save_status(0, running=True)
+    set_lock(True)
 
-    status = load_status()
-    wb, ws = get_workbook()
+    try:
 
-    categories = get_categories()
-    start_category = status.get("category", 0)
+        set_status(
+            running=True,
+            user=USER,
+            file_path=FILE_PATH
+        )
 
-    for category_index in range(start_category, len(categories)):
-        category_url = categories[category_index]
+        wb, ws = get_workbook()
 
-        print("\n" + "=" * 70)
-        print(f"Категория {category_index + 1}/{len(categories)}")
-        print(category_url)
+        categories = get_categories()
 
-        process_category(category_url, ws, wb)
+        for category_index, category_url in enumerate(categories, 1):
 
-    print("\n==========================")
-    print("ПАРСИНГ ЗАВЕРШЕН")
-    print("==========================")
+            print("\n" + "=" * 70)
+            print(f"Категория {category_index}/{len(categories)}")
+            print(category_url)
 
+            process_category(category_url, ws, wb)
+
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        wb.save(FILE_PATH)
+
+        set_status(
+            running=False,
+            user=USER,
+            file_path=FILE_PATH
+        )
+
+        print("\n==========================")
+        print("ПАРСИНГ ЗАВЕРШЕН")
+        print("==========================")
+
+    finally:
+        set_lock(False)
+    
 # =====================================================
 # START
 # =====================================================
