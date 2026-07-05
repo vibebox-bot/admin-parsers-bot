@@ -124,6 +124,13 @@ SUPPLIERS = {
             "file": path("output/239/239_LIVE.xlsx"),
             "status": path("output/239/status.json"),
             "lock": path("output/239/lock.txt"),
+        },
+        "Харьковская 228 Rainberg": {
+            "name": "📦 Харьковская 228 Rainberg",
+            "script": "parsers/228_Rainberg/run.py",
+            "file": path("output/228_Rainberg/228_Rainberg_LIVE.xlsx"),
+            "status": path("output/228_Rainberg/status.json"),
+            "lock": path("output/228_Rainberg/lock.txt"),
         },    
          
 }
