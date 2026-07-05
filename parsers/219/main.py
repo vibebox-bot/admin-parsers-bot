@@ -13,16 +13,16 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Харьковская 219 Магнит")
 
-BASE = "http://www.dtopelectronic.com.ua"
+BASE = "https://magnitopt.com.ua"
 
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 2
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
-PASSWORD = "18022021"
+PASSWORD = "785931"
 
 OUTPUT_DIR = os.path.abspath("output/D-Top")
 FILE_PATH = os.path.join(OUTPUT_DIR, "D-Top_LIVE.xlsx")
@@ -71,40 +71,28 @@ def set_lock(state):
 # =========================
 def login():
 
-    login_url = BASE + "/index.php?route=account/login"
+    login_url = "https://magnitopt.com.ua/themes/default/ajax/login.php"
 
-    # Получаем страницу логина (куки + возможные hidden поля)
-    r = session.get(login_url)
-    soup = BeautifulSoup(r.text, "html.parser")
+    payload = {
+        "email_auth": EMAIL,
+        "pass_auth": PASSWORD
+    }
 
-    payload = {}
+    r = session.post(login_url, data=payload, headers={
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://magnitopt.com.ua/"
+    })
 
-    form = soup.select_one("form")
+    # проверка успеха
+    try:
+        data = r.json()
+        print("LOGIN RESPONSE:", data)
+    except:
+        print("LOGIN RAW:", r.text)
 
-    if form:
-        for inp in form.select("input"):
-            name = inp.get("name")
-            if name:
-                payload[name] = inp.get("value", "")
+    check = session.get("https://magnitopt.com.ua/")
 
-    # Подставляем логин
-    payload["email"] = EMAIL
-    payload["password"] = PASSWORD
-
-    # Отправляем форму
-    session.post(
-        login_url,
-        data=payload,
-        headers={
-            "Referer": login_url
-        },
-        allow_redirects=True
-    )
-
-    # Можно проверить успешность авторизации
-    account = session.get(BASE)
-
-    if "logout" in account.text.lower() or "выход" in account.text.lower():
+    if "logout" in check.text.lower() or "вихід" in check.text.lower():
         print("✅ LOGIN OK")
     else:
         print("⚠ LOGIN CHECK")
@@ -160,37 +148,25 @@ def clean(t):
 # CATEGORIES
 # =========================
 def get_categories():
-
     soup = get_soup(BASE)
 
-    categories = []
+    cats = []
 
-    menu = soup.select_one("ul.menu__collapse.main-menu__collapse")
-
-    if not menu:
-        return categories
-
-    # берем только 1 уровень (главные категории)
-    for li in menu.select("li.menu__level-1-li"):
-
-        a = li.select_one("a.menu__level-1-a")
-
+    for li in soup.select("ul.firstUl li"):
+        a = li.find("a")
         if not a:
             continue
 
-        href = a.get("href", "").strip()
-
-        if not href:
-            continue
-
+        href = a.get("href", "")
         if href.startswith("/"):
             href = BASE + href
 
-        categories.append(href)
+        cats.append({
+            "name": a.get_text(strip=True),
+            "url": href
+        })
 
-    print(f"📂 Categories: {len(categories)}")
-
-    return categories
+    return cats
     
 # =========================
 # LAST PAGE DETECTION
@@ -200,18 +176,13 @@ def get_last_page(soup):
     pages = []
 
     for a in soup.select("ul.pagination a"):
-
         href = a.get("href", "")
 
         m = re.search(r"[?&]page=(\d+)", href)
-
         if m:
             pages.append(int(m.group(1)))
 
-    if not pages:
-        return 1
-
-    return max(pages)
+    return max(pages) if pages else 1
     
 # =========================
 # PARSE CATEGORY
@@ -222,14 +193,10 @@ def parse_category(cat_url):
 
     base_url = cat_url
 
-    # всегда стартуем с первой страницы
     first_url = base_url + "&limit=100"
 
     first_page = get_soup(first_url)
-
     last_page = get_last_page(first_page)
-
-    #print(f"📄 Pages: {last_page}")
 
     for page in range(1, last_page + 1):
 
@@ -240,9 +207,7 @@ def parse_category(cat_url):
 
         soup = get_soup(url)
 
-        cards = soup.select("div.product-thumb")
-
-        #print(f"Page {page}: {len(cards)} products")
+        cards = soup.select("tr.itemPosition.simple")
 
         for card in cards:
 
@@ -251,37 +216,46 @@ def parse_category(cat_url):
             price = ""
             status = ""
             url_product = ""
+            product_id = ""
 
-            # TITLE + URL
-            title_el = card.select_one(".product-thumb__name")
+            # ======================
+            # TITLE
+            # ======================
+            title_el = card.select_one("td.td_3 a")
 
             if title_el:
                 title = clean(title_el.get_text())
 
+                product_id = title_el.get("data-id", "").strip()
+
                 href = title_el.get("href", "").strip()
+                if href and not href.startswith("#"):
+                    if href.startswith("/"):
+                        url_product = BASE + href
+                    else:
+                        url_product = href
 
-                if href.startswith("/"):
-                    href = BASE + href
-
-                url_product = href
-
-            # SKU
-            sku_el = card.select_one(".product-thumb__model")
-
-            if sku_el:
-                sku = clean(sku_el.get_text())
-                sku = sku.replace("Код товара:", "").strip()
-
-            # PRICE
-            price_el = card.select_one(".product-thumb__price")
+            # ======================
+            # PRICE (USD)
+            # ======================
+            price_el = card.select_one("td.td_5 .bold.block")
 
             if price_el:
                 price = clean(price_el.get_text())
 
-            # STATUS (ВАЖНО — БЕЗ ГАДАНИЯ)
-            status_el = card.select_one(".qty-indicator__text")
+            # ======================
+            # STATUS / AVAILABILITY
+            # ======================
+            status_el = card.select_one("td.td_4 .in_box_1")
 
-            status = clean(status_el.get_text()) if status_el else ""
+            if status_el:
+                status = clean(status_el.get_text())
+
+            # ======================
+            # FALLBACK URL (if no href)
+            # ======================
+            if not url_product and product_id:
+                url_product = f"https://magnitopt.com.ua/product/{product_id}"
 
             all_items.append([
                 sku,
