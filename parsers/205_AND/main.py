@@ -218,77 +218,89 @@ def parse_category(cat_url):
 
     all_items = []
 
-    first_page = get_soup(cat_url)
-    
+    # 🔥 нормализуем URL категории
+    base_cat_url = cat_url + "&limit=100"
+
+    first_page = get_soup(base_cat_url)
+
     last_page = get_last_page(first_page)
-    
-    #print(f"📄 Pages: {last_page}")
-    
+
+    print(f"📄 Pages: {last_page}")
+
     for page in range(1, last_page + 1):
-    
+
         if page == 1:
-            soup = get_soup(f"{cat_url}&limit=100")
+            url = base_cat_url
         else:
-            soup = get_soup(f"{cat_url}&limit=100&page={page}")
-    
+            url = f"{base_cat_url}&page={page}"
+
+        soup = get_soup(url)
+
         cards = soup.select("div.product-layout")
-    
-        #print(f"Page {page}: {len(cards)} products")
-    
+
+        print(f"Page {page}: {len(cards)} products")
+
         for card in cards:
-    
+
             title = ""
             sku = ""
             price = ""
             status = ""
-            url = ""
+            url_product = ""
 
-
+            # =====================
+            # TITLE + URL
+            # =====================
             title_el = card.select_one(".us-module-title a")
-            
+
             if title_el:
-            
                 title = clean(title_el.get_text())
-            
+
                 href = title_el.get("href", "").strip()
-            
+
                 if href.startswith("/"):
                     href = BASE + href
-            
-                url = href
- 
-    
-            
+
+                url_product = href
+
+            # =====================
+            # SKU
+            # =====================
             sku_el = card.select_one(".us-product-list-description")
 
             if sku_el:
                 sku = clean(sku_el.get_text())
                 sku = sku.replace("Артикул -", "").strip()
-            
+
+            # =====================
+            # PRICE
+            # =====================
             price_el = card.select_one(".us-module-price-actual")
-    
+
             if price_el:
                 price = clean(price_el.get_text())
 
-
-
+            # =====================
+            # STATUS (САМЫЙ ВАЖНЫЙ ФИКС)
+            # =====================
             status = ""
 
-            for span in card.select(".us-module-caption span"):
-                text = clean(span.get_text())
-                if text:
-                    status = text
-                    break
+            status_el = card.select_one(".us-module-caption span")
 
-    
+            if status_el:
+                status = clean(status_el.get_text())
+
+            # =====================
+            # RESULT
+            # =====================
             all_items.append([
                 sku,
                 title,
                 price,
                 status,
-                url
+                url_product
             ])
-    
+
     return all_items
   
 # =========================
