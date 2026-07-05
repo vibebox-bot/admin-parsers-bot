@@ -223,13 +223,15 @@ def parse_category(cat_url):
             product_id = title_el.get("data-id", "").strip()
 
         # =========================
-        # PRICE (td_5 -> first span.bold)
+        # PRICE
         # =========================
         price = ""
-        price_el = row.select_one("td.td_5 span.bold.block")
-
+        
+        price_el = row.select_one("span.bold.block")
+        
         if price_el:
             price = clean(price_el.get_text())
+        
 
         # =========================
         # STATUS (ВАЖНО: логика кнопок)
