@@ -217,10 +217,26 @@ def process_root_catalog(ws):
 
         products = get_products(page)
 
-        for product in products:
-            save_product(ws, product)
+        for product_url in products:
 
-        time.sleep(random.uniform(0.2, 0.5))
+            try:
+                product = parse_product(product_url)
+
+                key = product["sku"].strip() if product["sku"] else product["url"]
+
+                if key in seen:
+                    continue
+
+                seen.add(key)
+
+                save_product(ws, product)
+
+                time.sleep(random.uniform(0.5, 1.2))
+
+            except Exception as e:
+                print("Ошибка товара:", product_url, e)
+
+        time.sleep(random.uniform(1, 2))
         
 
 def process_category(category_url, ws, wb):
