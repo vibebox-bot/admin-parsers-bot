@@ -135,9 +135,9 @@ SUPPLIERS = {
         "Фабричная 626": {
             "name": "📦 Фабричная 626",
             "script": "parsers/626/run.py",
-            "file": path("output/228_Rainberg/626_LIVE.xlsx"),
-            "status": path("output/228_Rainberg/status.json"),
-            "lock": path("output/228_Rainberg/lock.txt"),
+            "file": path("output/626/626_LIVE.xlsx"),
+            "status": path("output/626/status.json"),
+            "lock": path("output/626/lock.txt"),
         },     
          
 }
