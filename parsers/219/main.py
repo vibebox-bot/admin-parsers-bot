@@ -18,8 +18,8 @@ BASE = "https://magnitopt.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 2
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 2
+CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "785931"
@@ -181,7 +181,7 @@ def get_categories():
 
             break  # нашли — выходим
 
-    print("CATEGORIES FOUND:", len(cats))
+    #print("CATEGORIES FOUND:", len(cats))
 
     return cats
     
@@ -294,7 +294,7 @@ def run_parser():
         seen = set()
 
         cats = get_categories()
-        print("DEBUG CATS:", cats)
+        #print("DEBUG CATS:", cats)
 
         if CATEGORY_LIMIT:
             cats = cats[:CATEGORY_LIMIT]
