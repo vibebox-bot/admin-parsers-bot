@@ -195,9 +195,10 @@ def parse_category(cat_url):
 
     soup = get_soup(cat_url)
 
-    # MAGNIT: иногда список внутри CatalogList
+    # карточки товаров
     cards = soup.select("tr.itemPosition.simple")
 
+    # fallback если структура чуть другая
     if not cards:
         cards = soup.select(".CatalogList tr.itemPosition.simple")
 
@@ -205,46 +206,64 @@ def parse_category(cat_url):
 
     for card in cards:
 
+        sku = ""
         title = ""
         price = ""
         status = ""
         url_product = ""
         product_id = ""
 
-        # TITLE
-        title_el = card.select_one("td.td_3 a")
+        # ======================
+        # SKU (Арт)
+        # ======================
+        sku_el = card.select_one(".sku")
+        if sku_el:
+            sku = clean(sku_el.get_text())
+            sku = sku.replace("Арт:", "").strip()
+
+        # ======================
+        # TITLE + URL
+        # ======================
+        title_el = card.select_one("a.ItemName")
 
         if title_el:
             title = clean(title_el.get_text())
-
             product_id = title_el.get("data-id", "").strip()
 
             href = title_el.get("href", "").strip()
 
+            # игнор quickLook (#)
             if href and not href.startswith("#"):
                 if href.startswith("/"):
                     url_product = BASE + href
                 else:
                     url_product = href
 
+        # ======================
         # PRICE
-        price_el = card.select_one("td.td_5")
+        # ======================
+        price_el = card.select_one(".price1")
 
         if price_el:
             price = clean(price_el.get_text())
 
-        # STATUS
-        status_el = card.select_one("td.td_4 .in_box_1")
+        # ======================
+        # STATUS (наличие)
+        # ======================
+        if card.select_one("button.radButton.sy"):
+            status = "В наличии"
 
-        if status_el:
-            status = clean(status_el.get_text())
+        elif card.select_one("button.notify"):
+            status = "Нет в наличии"
 
+        # ======================
         # fallback URL
+        # ======================
         if not url_product and product_id:
             url_product = f"https://magnitopt.com.ua/?product_id={product_id}"
 
         all_items.append([
-            "",  # SKU нет
+            sku,
             title,
             price,
             status,
