@@ -189,7 +189,7 @@ def get_categories():
 
     print(f"📂 Категорий найдено: {len(categories)}")
     for i, c in enumerate(categories):
-        #print(f"{i+1}. {c}")
+        print(f"{i+1}. {c}")
 
     return categories
 
