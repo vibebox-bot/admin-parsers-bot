@@ -152,7 +152,14 @@ SUPPLIERS = {
             "file": path("output/D-Top/D-Top_LIVE.xlsx"),
             "status": path("output/D-Top/status.json"),
             "lock": path("output/D-Top/lock.txt"),
-        },     
+        },  
+        "Харьковская 219 Магнит": {
+            "name": "📦 Харьковская 219 Магнит",
+            "script": "parsers/219/run.py",
+            "file": path("output/219/219_LIVE.xlsx"),
+            "status": path("output/219/status.json"),
+            "lock": path("output/219/lock.txt"),
+        },
          
 }
 
