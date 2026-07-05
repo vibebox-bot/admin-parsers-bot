@@ -174,7 +174,7 @@ def get_categories():
     # только первый уровень
     for li in menu.find_all("li", recursive=False):
 
-        a = li.select("> a.oct-menu-a")
+        a = li.select_one("a.oct-menu-a")
 
         if not a:
             continue
@@ -227,9 +227,9 @@ def parse_category(cat_url):
     for page in range(1, last_page + 1):
     
         if page == 1:
-            soup = first_page
+            soup = get_soup(f"{cat_url}&limit=100")
         else:
-            soup = get_soup(f"{cat_url}?page={page}")
+            soup = get_soup(f"{cat_url}&limit=100&page={page}")
     
         cards = soup.select("div.product-layout")
     
