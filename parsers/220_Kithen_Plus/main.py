@@ -328,7 +328,7 @@ def get_products(page_url):
     #print(f"🛒 Товаров на странице: {len(products)}")
 
     if len(products) == 0:
-        #print("⚠️ НЕТ ТОВАРОВ — возможно сайт блокирует или сломался селектор")
+        print("⚠️ НЕТ ТОВАРОВ — возможно сайт блокирует или сломался селектор")
 
     return products
 
