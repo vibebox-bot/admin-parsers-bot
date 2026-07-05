@@ -428,7 +428,7 @@ def main():
             file_path=FILE_PATH
         )
 
-        print(f"✅ Готово. Всего товаров: {saved_count}")
+        print(f"✅ Готово")
 
 
     finally:
