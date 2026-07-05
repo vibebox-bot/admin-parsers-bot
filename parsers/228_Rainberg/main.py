@@ -220,6 +220,7 @@ def process_root_catalog(ws):
         for product in products:
             save_product(ws, product)
 
+        time.sleep(random.uniform(0.2, 0.5))
 
 def process_category(category_url, ws, wb):
 
@@ -397,9 +398,8 @@ def main():
         wb, ws = get_workbook()
 
         categories = get_categories()
-        
         # сначала собрать товары из общего каталога
-            process_root_catalog(ws)
+        process_root_catalog(ws)
 
         for category_index, category_url in enumerate(categories, 1):
 
