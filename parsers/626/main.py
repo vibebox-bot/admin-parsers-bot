@@ -221,7 +221,7 @@ def parse_category(cat_url):
     
     last_page = get_last_page(first_page)
     
-    print(f"📄 Pages: {last_page}")
+    #print(f"📄 Pages: {last_page}")
     
     for page in range(1, last_page + 1):
     
@@ -232,7 +232,7 @@ def parse_category(cat_url):
     
         cards = soup.select("div.ds-module-item.product-layout")
     
-        print(f"Page {page}: {len(cards)} products")
+        #print(f"Page {page}: {len(cards)} products")
     
         for card in cards:
     
@@ -359,7 +359,7 @@ def run_parser():
 
         save_status(False, 100, USER, FILE_PATH)
 
-        print("DONE")
+        print("✅ Готово. Фабричная 626")
 
     finally:
 
@@ -368,4 +368,3 @@ def run_parser():
 
 if __name__ == "__main__":
     run_parser()
-
