@@ -174,7 +174,7 @@ SUPPLIERS = {
 RUNNING_PROCESSES = {}
 DASHBOARD_MESSAGES = {}
 DASHBOARD_OPENED = set()
-
+ANIMATION_SPEED = 2
 
 def file_time(ts):
     return datetime.fromtimestamp(ts, KYIV)
@@ -250,35 +250,36 @@ def load_json(path):
 ensure_status()
 
 BLINK = [
-    "🟡",
-    "🟠",
-    "🔶",
-    "🟠",
-    "🟡",
-    "🟨",
+    "🔴",
+    "⚫",
 ]
 
-def blink(step):
-    return BLINK[step % len(BLINK)]
+
+def blink():
+    return BLINK[int(time.time()*ANIMATION_SPEED)%2]
 
 
 ANIM = [
-    "■■□□□□□□□□",
-    "□■■□□□□□□□",
-    "□□■■□□□□□□",
-    "□□□■■□□□□□",
-    "□□□□■■□□□□",
-    "□□□□□■■□□□",
-    "□□□□□□■■□□",
-    "□□□□□□□■■□",
-    "□□□□□□□□■■",
-    "□□□□□□□■■□",
-    "□□□□□□■■□□",
-    "□□□□□■■□□□",
-    "□□□□■■□□□□",
-    "□□□■■□□□□□",
-    "□□■■□□□□□□",
-    "□■■□□□□□□□",
+    "█░░░░░░░░░",
+    "██░░░░░░░░",
+    "███░░░░░░░",
+    "████░░░░░░",
+    "█████░░░░░",
+    "██████░░░░",
+    "███████░░░",
+    "████████░░",
+    "█████████░",
+    "██████████",
+    "░█████████",
+    "░░████████",
+    "░░░███████",
+    "░░░░██████",
+    "░░░░░█████",
+    "░░░░░░████",
+    "░░░░░░░███",
+    "░░░░░░░░██",
+    "░░░░░░░░░█",
+    "░░░░░░░░░░",
 ]
 
 def anim_bar(step):
@@ -307,7 +308,7 @@ async def card_updater(chat_id, msg_id, key):
         text = f"{s['name']}\n\n"
         text += f" {stt}\n\n"
 
-        step = int(time.time() * 6)
+        step = int(time.time() * ANIMATION_SPEED)
 
         text += anim_bar(step)
 
@@ -321,7 +322,7 @@ async def card_updater(chat_id, msg_id, key):
         except:
             pass
 
-        await asyncio.sleep(3)
+        await asyncio.sleep(0.5)
 
 def status(st):
     if not st:
@@ -423,7 +424,8 @@ def dashboard_text():
         t += f"{s['name']} {icon}\n"
 
         if icon == "🟡":
-            t += f"{anim_bar(int(time.time()*4))}\n"
+            
+            t += f"{anim_bar(int(time.time() * ANIMATION_SPEED))}\n"
 
         t += "\n"
 
@@ -432,14 +434,14 @@ def dashboard_text():
 def kb_dashboard():
     rows = []
 
-    step = int(time.time() * 8)
+    step = int(time.time() * ANIMATION_SPEED)
 
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
         stt, p = display_status(k, st, s["file"])
 
         if stt == "🟡 В РАБОТЕ":
-            icon = blink(step)
+            icon = blink()
         elif "ГОТОВО" in stt:
             icon = "🟢"
         elif "ОТМЕНЕНО" in stt:
@@ -674,7 +676,7 @@ async def cb(call: types.CallbackQuery):
         text += f"🕒 <b>Запуск:</b> {run_time}\n\n"
         
         if stt == "🟡 В РАБОТЕ":
-            text += anim_bar(int(time.time() * 2))
+            text += anim_bar(int(time.time() * ANIMATION_SPEED))
         
         elif stt == "🟢 ГОТОВО":
             text += anim_bar(9)
@@ -904,7 +906,7 @@ async def dashboard_updater():
             except Exception:
                 pass
 
-        await asyncio.sleep(0.3)
+        await asyncio.sleep(0.5)
         
 
 # =========================
