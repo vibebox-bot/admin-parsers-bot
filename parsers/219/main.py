@@ -191,86 +191,149 @@ def get_categories():
 # =========================
 def parse_category(cat_url):
 
+    def parse_rows(rows):
+
+        items = []
+
+        for row in rows:
+
+            # =========================
+            # SKU
+            # =========================
+            sku = ""
+            sku_el = row.select_one("td.td_2")
+            if sku_el:
+                sku = clean(sku_el.get_text())
+
+            # =========================
+            # TITLE
+            # =========================
+            title = ""
+            product_id = ""
+
+            title_el = row.select_one("td.td_3 a")
+
+            if title_el:
+                title = clean(title_el.get_text())
+                product_id = title_el.get("data-id", "").strip()
+
+            # =========================
+            # PRICE
+            # =========================
+            price = ""
+
+            price_el = row.select_one("span.bold.block")
+
+            if price_el:
+                price = clean(price_el.get_text())
+
+            # =========================
+            # STATUS
+            # =========================
+            if row.select_one("button.notify"):
+                status = "Нет в наличии"
+
+            elif row.select_one("div.not-available"):
+                status = "Нет в наличии"
+
+            elif row.select_one("div.are-available"):
+                status = "В наличии"
+
+            elif row.select_one("button.radButton.sy"):
+                status = "В наличии"
+
+            else:
+                status = "Неизвестно"
+
+            # =========================
+            # URL
+            # =========================
+            if product_id:
+                url_product = f"https://magnitopt.com.ua/?product_id={product_id}"
+            else:
+                url_product = ""
+
+            items.append([
+                sku,
+                title,
+                price,
+                status,
+                url_product
+            ])
+
+        return items
+
+    # ==================================================
+    # Первая загрузка страницы
+    # ==================================================
     soup = get_soup(cat_url)
 
     rows = soup.select("tr.itemPosition.simple")
 
-    #print("FOUND ROWS:", len(rows))
+    items = parse_rows(rows)
 
-    items = []
+    seen = set()
 
-    for row in rows:
+    result = []
 
-        # =========================
-        # SKU (td_2)
-        # =========================
-        sku = ""
-        sku_el = row.select_one("td.td_2")
-        if sku_el:
-            sku = clean(sku_el.get_text())
+    for item in items:
+        key = (item[0], item[1])
 
-        # =========================
-        # TITLE (td_3)
-        # =========================
-        title = ""
-        url_product = ""
-        product_id = ""
+        if key not in seen:
+            seen.add(key)
+            result.append(item)
 
-        title_el = row.select_one("td.td_3 a")
+    # ==================================================
+    # AJAX подгрузка
+    # ==================================================
+    while True:
 
-        if title_el:
-            title = clean(title_el.get_text())
-            product_id = title_el.get("data-id", "").strip()
+        r = session.post(
+            BASE + "/themes/default/ajax/catalog.php",
+            data={"get": "cat"},
+            headers={
+                "X-Requested-With": "XMLHttpRequest",
+                "Referer": cat_url
+            }
+        )
 
-        # =========================
-        # PRICE
-        # =========================
-        price = ""
-        
-        price_el = row.select_one("span.bold.block")
-        
-        if price_el:
-            price = clean(price_el.get_text())
-        
+        soup = BeautifulSoup(r.text, "html.parser")
 
-        # =========================
-        # STATUS (ВАЖНО: логика кнопок)
-        # =========================
-        status = ""
+        rows = soup.select("tr.itemPosition.simple")
 
-        if row.select_one("button.notify"):
-            status = "Нет в наличии"
+        if not rows:
+            break
 
-        elif row.select_one("div.not-available"):
-            status = "Нет в наличии"
+        new_items = parse_rows(rows)
 
-        elif row.select_one("div.are-available"):
-            status = "В наличии"
+        added = 0
 
-        elif row.select_one("button.radButton.sy"):
-            status = "В наличии"
+        for item in new_items:
 
-        else:
-            status = "Неизвестно"
+            key = (item[0], item[1])
 
-        # =========================
-        # URL fallback
-        # =========================
-        if product_id:
-            url_product = f"https://magnitopt.com.ua/?product_id={product_id}"
-        else:
-            url_product = ""
+            if key in seen:
+                continue
 
-        items.append([
-            sku,
-            title,
-            price,
-            status,
-            url_product
-        ])
+            seen.add(key)
+            result.append(item)
+            added += 1
 
-    return items
-  
+        # если новых товаров больше нет —
+        # сервер начал отдавать первую пачку заново
+        if added == 0:
+            break
+
+        lim = soup.select_one("#moleLimith")
+
+        if lim:
+            try:
+                if int(lim.get_text(strip=True)) < 1:
+                    break
+            except:
+                pass
+
+    return result
 # =========================
 # MAIN
 # =========================
