@@ -382,7 +382,7 @@ def dashboard_text():
             icon = "⚪"
 
         t += f"{s['name']} {icon}\n"
-        t += "\n"
+            t += "\n"
 
     return t
 
@@ -602,7 +602,6 @@ async def cb(call: types.CallbackQuery):
         st = load_json(s["status"])
     
         DASHBOARD_OPENED.add(call.message.chat.id)
-        import asyncio
     
         stt, p = display_status(key, st, s["file"])
     
@@ -723,20 +722,17 @@ async def cb(call: types.CallbackQuery):
 
         s = SUPPLIERS[key]
 
+        await call.answer("🚀 Запуск начался")
+
         await call.message.edit_text(
-            f"🚀 Запуск парсера\n"
-            f"📦 {s['name']}\n"
-            f"🆔 {key}\n"
-            f"⏳ Подготовка...",
+            f"🚀 Запуск {s['name']}\n⏳ Подготовка...",
             reply_markup=kb_supplier(key, True)
         )
 
         await asyncio.sleep(2)
-
+        
         await call.message.edit_text(
-            f"🟡 Парсер запущен\n"
-            f"📦 {s['name']}\n"
-            f"🟢 Статус: в работе",
+            f"🟡 {s['name']} запущен\n📦 В работе...",
             reply_markup=kb_supplier(key, True)
         )
 
@@ -783,14 +779,12 @@ async def cb(call: types.CallbackQuery):
 
 
             await call.message.edit_text(
-                f"✅ Готово\n"
-                f"📦 {s['name']}\n"
-                f"🟢 Статус: завершено",
+                f"✅ {s['name']}\n📊 Готово",
                 reply_markup=kb_supplier(key, False)
             )
 
             await asyncio.sleep(1)
-    
+            
             msg = await call.message.answer(
                 dashboard_text(),
                 reply_markup=kb_dashboard(),
