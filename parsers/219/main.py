@@ -373,6 +373,10 @@ def run_parser():
         seen = set()
 
         cats = get_categories()
+
+        cats = [cats[8]]
+
+        
         #print("DEBUG CATS:", cats)
         print(f"📂 Категорий: {len(cats)}")
 
