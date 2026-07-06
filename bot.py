@@ -186,7 +186,7 @@ async def anim_ticker():
     global ANIM_STEP
     while True:
         ANIM_STEP += 1
-        await asyncio.sleep(0.3)
+        await asyncio.sleep(0.8)
 
 def file_time(ts):
     return datetime.fromtimestamp(ts, KYIV)
@@ -346,7 +346,7 @@ async def card_updater(chat_id, msg_id, key):
         except:
             pass
 
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(0.8)
 
 def status(st):
     if not st:
@@ -427,33 +427,30 @@ def display_status(key, st, file_path):
 # DASHBOARD
 # =========================
 def dashboard_text():
+    step = ANIM_STEP
+
     t = "📊 <b>Дашборд парсеров</b>\n\n"
 
-    for k, s in SUPPLIERS.items():
+    spinner = SPINNER[step % len(SPINNER)]
 
+    t += f"🔄 Обновление {spinner}\n\n"
+
+    for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
         stt, p = display_status(k, st, s["file"])
 
-        if "🟢" in stt:
-            icon = "🟢"
-        elif "🟡" in stt:
-            icon = "🟡"
-        elif "⛔" in stt:
-            icon = "⛔"
-        elif "🔴" in stt:
-            icon = "🔴"
-        else:
-            icon = "⚪"
+        icon = "🟡" if "В РАБОТЕ" in stt else "🟢" if "ГОТОВО" in stt else "⚪"
 
         t += f"{s['name']} {icon}\n"
 
         if icon == "🟡":
-            
-            t += f"{anim_bar(int(time.time() * ANIMATION_SPEED))}\n"
+            t += anim_bar(step) + "\n"
 
         t += "\n"
 
     return t
+
+
 
 def kb_dashboard():
     rows = []
@@ -463,7 +460,7 @@ def kb_dashboard():
 
         icon = get_icon(k, st)
 
-        btn = make_btn(s['name'], icon)
+        btn = f"{s['name']} {icon}"   # БЕЗ noise!
 
         rows.append([
             InlineKeyboardButton(
@@ -607,7 +604,7 @@ async def run_parser(key, user):
             if proc.returncode is not None:
                 break
 
-            await asyncio.sleep(3)
+            await asyncio.sleep(0.8)
 
         stdout, stderr = await proc.communicate()
 
@@ -919,7 +916,7 @@ async def dashboard_updater():
             except Exception:
                 pass
 
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(0.8)
         
 
 # =========================
