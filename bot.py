@@ -367,21 +367,37 @@ def dashboard_text():
     running = 0
     error = 0
 
+    running_list = []
+
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
         stt, p = display_status(k, st, s["file"])
 
         if "🟢" in stt:
             ready += 1
+
         elif "🟡" in stt:
             running += 1
+            running_list.append(s["name"].replace("📦 ", ""))
+
         elif "🔴" in stt:
             error += 1
 
-    t = (
-        "📊 <b>Дашборд парсеров</b>\n\n"
-        f"🟢 {ready}   🟡 {running}   🔴 {error}\n\n"
-        "👇 Выберите парсер ниже"
+    t = "📊 <b>Дашборд парсеров</b>\n\n"
+
+    if running_list:
+        t += "🟡 <b>Сейчас выполняются:</b>\n"
+
+        for name in running_list:
+            t += f"• {name}\n"
+
+        t += "\n"
+    else:
+        t += "✅ <b>Сейчас ничего не выполняется</b>\n\n"
+
+    t += (
+        f"🟢 {ready}    🟡 {running}    🔴 {error}\n\n"
+        "👇 Выберите парсер:"
     )
 
     return t
@@ -389,35 +405,52 @@ def dashboard_text():
 
 def kb_dashboard():
     rows = []
-    
+
+    items = []
+
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
         stt, p = display_status(k, st, s["file"])
 
         if "🟡" in stt:
             icon = "🟡"
-        elif "ГОТОВО" in stt:
-            icon = "🟢"
-        elif "ОТМЕНЕНО" in stt:
-            icon = "⛔"
-        elif "ОШИБКА" in stt:
+            priority = 0
+
+        elif "🔴" in stt:
             icon = "🔴"
+            priority = 1
+
+        elif "⛔" in stt:
+            icon = "⛔"
+            priority = 2
+
+        elif "🟢" in stt:
+            icon = "🟢"
+            priority = 3
+
         else:
             icon = "⚪"
-            
-        btn = f"{icon} {s['name'].replace('📦 ', '')}"
+            priority = 4
 
-        rows.append([
-            InlineKeyboardButton(
-                text=btn,
-                callback_data=f"open_{k}"
+        items.append(
+            (
+                priority,
+                InlineKeyboardButton(
+                    text=f"{icon} {s['name'].replace('📦 ', '')}",
+                    callback_data=f"open_{k}"
+                )
             )
-        ])
+        )
+
+    # сортируем по статусу
+    items.sort(key=lambda x: x[0])
+
+    for _, button in items:
+        rows.append([button])
 
     return InlineKeyboardMarkup(
         inline_keyboard=rows
     )
-
 
 def kb_supplier(key, running=False):
 
