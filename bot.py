@@ -195,6 +195,11 @@ def ensure_status():
     for s in SUPPLIERS.values():
         os.makedirs(os.path.dirname(s["status"]), exist_ok=True)
 
+
+
+
+
+        
         if not os.path.exists(s["status"]):
             with open(s["status"], "w", encoding="utf-8") as f:
 
@@ -210,15 +215,36 @@ def ensure_status():
 
         else:
             st = load_json(s["status"])
-
-            # если lock-файла нет — значит парсер уже не работает
-            if not os.path.exists(s["lock"]):
-
+        
+            # Если lock есть — проверяем, жив ли процесс
+            if os.path.exists(s["lock"]):
+        
+                try:
+                    with open(s["lock"], "r") as f:
+                        pid = int(f.read().strip())
+        
+                    import psutil
+        
+                    if not psutil.pid_exists(pid):
+                        os.remove(s["lock"])
+                        st["running"] = False
+        
+                except Exception:
+                    try:
+                        os.remove(s["lock"])
+                    except:
+                        pass
+        
+                    st["running"] = False
+        
+            else:
                 st["running"] = False
-                st["canceled"] = False
-
-                with open(s["status"], "w", encoding="utf-8") as f:
-                    json.dump(st, f, ensure_ascii=False, indent=2)
+        
+            st["canceled"] = False
+        
+            with open(s["status"], "w", encoding="utf-8") as f:
+                json.dump(st, f, ensure_ascii=False, indent=2)
+       
 
 # =========================
 # HELPERS
@@ -785,14 +811,12 @@ async def cb(call: types.CallbackQuery):
 
         await call.message.edit_text(
             f"🚀 Запуск {name}\n\n"
-            f"⏳ Подготовка...",
-            reply_markup=kb_supplier(key, True)
+            f"⏳ Подготовка..."
         )
 
         await call.message.edit_text(
             f"🧐 {name}\n\n"
-            f"📦 Идёт сбор данных...",
-            reply_markup=kb_supplier(key, True)
+            f"📦 Идёт сбор данных..."
         )
 
         st = load_json(s["status"])
