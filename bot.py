@@ -635,52 +635,48 @@ async def cb(call: types.CallbackQuery):
         if st.get("running") or key in RUNNING_PROCESSES:
             text += "\n⏳ Идёт обработка..."
         
+        
         elif stt == "🟢 ГОТОВО":
-            
-            if os.path.exists(s["file"]):
-    
-            size_mb = round(
-                os.path.getsize(s["file"]) / 1024 / 1024,
-                2
-            )
-    
-            mtime = os.path.getmtime(s["file"])
-    
-            from datetime import timedelta
 
-            dt = datetime.fromtimestamp(mtime)
-            
-            # +3 часа
-            dt = dt + timedelta(hours=3)
-            
-            dt_str = dt.strftime("%d.%m.%Y %H:%M")
-            
-            
-            age = (
-                datetime.now() -
-                datetime.fromtimestamp(mtime)
-            ).days
-    
-            if age >= 3:
-                state = f"⚠️ Устарел ({age} дн.)"
+            if os.path.exists(s["file"]):
+        
+                size_mb = round(
+                    os.path.getsize(s["file"]) / 1024 / 1024,
+                    2
+                )
+        
+                mtime = os.path.getmtime(s["file"])
+        
+                dt = datetime.fromtimestamp(mtime)
+        
+                dt = dt + timedelta(hours=3)
+        
+                dt_str = dt.strftime("%d.%m.%Y %H:%M")
+        
+                age = (
+                    datetime.now() -
+                    datetime.fromtimestamp(mtime)
+                ).days
+        
+                if age >= 3:
+                    state = f"⚠️ Устарел ({age} дн.)"
+                else:
+                    state = "✅ Актуальный"
+        
+                text += (
+                    "\n\n"
+                    "📄 <b>Excel</b>\n"
+                    f"├ Размер: {size_mb} МБ\n"
+                    f"├ Обновлён: {dt_str}\n"
+                    f"└ Состояние: {state}"
+                )
+        
             else:
-                state = "✅ Актуальный"
-    
-            text += (
-                "\n\n"
-                "📄 <b>Excel</b>\n"
-                f"├ Размер: {size_mb} МБ\n"
-                f"├ Обновлён: {dt_str}\n"
-                f"└ Состояние: {state}"
-            )
-    
-        else:
-    
-            text += (
-                "\n\n"
-                "📄 <b>Excel</b>\n"
-                "└ ❌ Файл отсутствует"
-            )
+                text += (
+                    "\n\n"
+                    "📄 <b>Excel</b>\n"
+                    "└ ❌ Файл отсутствует"
+                )
     
         await call.message.edit_text(
             text,
