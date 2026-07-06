@@ -419,30 +419,6 @@ def kb_dashboard():
         inline_keyboard=rows
     )
 
-def dashboard_text():
-    t = "📊 <b>Дашборд парсеров</b>\n\n"
-
-    for k, s in SUPPLIERS.items():
-
-        st = load_json(s["status"])
-        stt, p = display_status(k, st, s["file"])
-
-        if "🟢" in stt:
-            icon = "🟢"
-        elif "🟡" in stt:
-            icon = "🟡"
-        elif "⛔" in stt:
-            icon = "⛔"
-        elif "🔴" in stt:
-            icon = "🔴"
-        else:
-            icon = "⚪"
-
-        t += f"{s['name']} {icon}\n"
-        t += "\n"
-
-    return t
-
 def kb_supplier(key, running=False):
 
     if key not in SUPPLIERS:
