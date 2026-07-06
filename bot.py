@@ -184,9 +184,14 @@ def make_btn(name, icon):
 
 async def anim_ticker():
     global ANIM_STEP
+    print("🔥 ANIM TICKER STARTED")
+
     while True:
         ANIM_STEP += 1
-        await asyncio.sleep(0.8)
+        print("STEP:", ANIM_STEP)  # 👈 ВАЖНО
+        await asyncio.sleep(0.5)
+
+
 
 def file_time(ts):
     return datetime.fromtimestamp(ts, KYIV)
