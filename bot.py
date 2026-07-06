@@ -249,15 +249,7 @@ def load_json(path):
 
 ensure_status()
 
-BLINK = [
-    "🔴",
-    "⚫",
-]
-
-
-def blink():
-    return BLINK[int(time.time()*ANIMATION_SPEED)%2]
-
+BLINK = ["🔴", "⚫"]
 
 ANIM = [
     "█░░░░░░░░░",
@@ -322,7 +314,7 @@ async def card_updater(chat_id, msg_id, key):
         except:
             pass
 
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(0.5)
 
 def status(st):
     if not st:
@@ -440,8 +432,9 @@ def kb_dashboard():
         st = load_json(s["status"])
         stt, p = display_status(k, st, s["file"])
 
-        if stt == "🟡 В РАБОТЕ":
-            icon = blink()
+
+        if "🟡" in stt:
+            icon = BLINK[int(time.time() * ANIMATION_SPEED) % 2]
         elif "ГОТОВО" in stt:
             icon = "🟢"
         elif "ОТМЕНЕНО" in stt:
@@ -451,7 +444,8 @@ def kb_dashboard():
         else:
             icon = "⚪"
 
-        btn = f"{s['name']} {icon}"
+        #btn = f"{s['name']} {icon}"
+        btn = f"{s['name']} {icon} {int(time.time()) % 2}"
 
         rows.append([
             InlineKeyboardButton(
@@ -906,7 +900,7 @@ async def dashboard_updater():
             except Exception:
                 pass
 
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(0.5)
         
 
 # =========================
