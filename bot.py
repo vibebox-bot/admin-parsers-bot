@@ -389,14 +389,13 @@ def dashboard_text():
 
 def kb_dashboard():
     rows = []
-    blink_state = int(time.time() * 2) % 2
-
+    
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
         stt, p = display_status(k, st, s["file"])
 
         if "🟡" in stt:
-            icon = "🟡" if blink_state == 0 else "⚪"
+            icon = "🟡"
         elif "ГОТОВО" in stt:
             icon = "🟢"
         elif "ОТМЕНЕНО" in stt:
