@@ -805,48 +805,51 @@ async def cb(call: types.CallbackQuery):
         with open(s["status"], "w", encoding="utf-8") as f:
             json.dump(st, f, ensure_ascii=False, indent=2)
         
-        try:
-            async def parser_job():
-                code = await run_parser(key, call.from_user.full_name)
+        async def parser_job():
+            code = await run_parser(key, call.from_user.full_name)
+        
+            st = load_json(s["status"]) or {}
+            st["running"] = False
+        
+            if code == "canceled":
+                st["canceled"] = True
+                st["success"] = False
+        
+            elif code == 0:
+                st["canceled"] = False
+                st["progress"] = 100
+                st["success"] = True
+        
+            else:
+                st["canceled"] = False
+                st["progress"] = 0
+                st["success"] = False
+        
+            with open(s["status"], "w", encoding="utf-8") as f:
+                json.dump(st, f, ensure_ascii=False, indent=2)
+        
+            if os.path.exists(s["lock"]):
+                try:
+                    os.remove(s["lock"])
+                except:
+                    pass
+        
+        
+        asyncio.create_task(parser_job())
 
-                st = load_json(s["status"]) or {}
-                st["running"] = False
-
-                if code == "canceled":
-                    st["canceled"] = True
-                    st["success"] = False
-
-                elif code == 0:
-                    st["canceled"] = False
-                    st["progress"] = 100
-                    st["success"] = True
-
-                else:
-                    st["canceled"] = False
-                    st["progress"] = 0
-                    st["success"] = False
-
-                with open(s["status"], "w", encoding="utf-8") as f:
-                    json.dump(st, f, ensure_ascii=False, indent=2)
-
-                if os.path.exists(s["lock"]):
-                    try:
-                        os.remove(s["lock"])
-                    except:
-                        pass
-
-            # запускаем парсер
-            asyncio.create_task(parser_job())
-            
-            msg = await call.message.answer(
-                dashboard_text(),
-                reply_markup=kb_dashboard(),
-                parse_mode="HTML"
-            )
-            
-            DASHBOARD_MESSAGES[call.message.chat.id] = msg.message_id
-
+        await asyncio.sleep(0.3)
+        
+        msg = await call.message.edit_text(
+            dashboard_text(),
+            reply_markup=kb_dashboard(),
+            parse_mode="HTML"
+        )
+        
+        DASHBOARD_MESSAGES[call.message.chat.id] = msg.message_id
+        DASHBOARD_OPENED.discard(call.message.chat.id)
+        
         return
+
 
     # CANCEL
     if data.startswith("cancel_"):
