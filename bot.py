@@ -306,7 +306,7 @@ async def card_updater(chat_id, msg_id, key):
         except:
             pass
 
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(0.6)
 
 def status(st):
     if not st:
@@ -627,6 +627,15 @@ async def cb(call: types.CallbackQuery):
         st = load_json(s["status"])
     
         DASHBOARD_OPENED.add(call.message.chat.id)
+        import asyncio
+
+        asyncio.create_task(
+            card_updater(
+                call.message.chat.id,
+                call.message.message_id,
+                key
+            )
+        )
     
         stt, p = display_status(key, st, s["file"])
     
@@ -644,9 +653,11 @@ async def cb(call: types.CallbackQuery):
         
             # формат без секунд
             run_time = dt.strftime("%d.%m.%Y %H:%M")
-        
-        except:
-            pass
+    
+
+        except Exception as e:
+            if "message is not modified" not in str(e):
+                print("EDIT ERROR:", e)
 
     
         text = f"📦 <b>{s['name']}</b>\n\n"
