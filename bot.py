@@ -382,10 +382,6 @@ def dashboard_text():
             icon = "⚪"
 
         t += f"{s['name']} {icon}\n"
-
-        if icon == "🟡":
-            
-
         t += "\n"
 
     return t
