@@ -412,8 +412,7 @@ def dashboard_text():
 
 def kb_dashboard():
     rows = []
-
-    blink_state = int(time.time()) % 2   # 🔥 1 раз в секунду
+    blink_state = int(time.time() * 2) % 2
 
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
@@ -628,14 +627,6 @@ async def cb(call: types.CallbackQuery):
     
         DASHBOARD_OPENED.add(call.message.chat.id)
         import asyncio
-
-        asyncio.create_task(
-            card_updater(
-                call.message.chat.id,
-                call.message.message_id,
-                key
-            )
-        )
     
         stt, p = display_status(key, st, s["file"])
     
@@ -666,7 +657,7 @@ async def cb(call: types.CallbackQuery):
         text += f"🕒 <b>Запуск:</b> {run_time}\n\n"
         
         if st.get("running") or key in RUNNING_PROCESSES:
-            text += anim_bar(int(time.time() * ANIMATION_SPEED))
+            text += "\n⏳ Идёт обработка..."
         
         elif stt == "🟢 ГОТОВО":
             text += anim_bar(9)
