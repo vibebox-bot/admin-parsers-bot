@@ -195,14 +195,9 @@ def ensure_status():
     for s in SUPPLIERS.values():
         os.makedirs(os.path.dirname(s["status"]), exist_ok=True)
 
-
-
-
-
-        
+        # Если status.json ещё нет — создаём
         if not os.path.exists(s["status"]):
             with open(s["status"], "w", encoding="utf-8") as f:
-
                 json.dump({
                     "running": False,
                     "progress": 0,
@@ -211,39 +206,22 @@ def ensure_status():
                     "canceled": False,
                     "success": False
                 }, f, ensure_ascii=False, indent=2)
-                
 
-        else:
-            st = load_json(s["status"])
-        
-            # Если lock есть — проверяем, жив ли процесс
-            if os.path.exists(s["lock"]):
-        
-                try:
-                    with open(s["lock"], "r") as f:
-                        pid = int(f.read().strip())
-        
-                    import psutil
-        
-                    if not psutil.pid_exists(pid):
-                        os.remove(s["lock"])
-                        st["running"] = False
-        
-                except Exception:
-                    try:
-                        os.remove(s["lock"])
-                    except:
-                        pass
-        
-                    st["running"] = False
-        
-            else:
-                st["running"] = False
-        
-            st["canceled"] = False
-        
-            with open(s["status"], "w", encoding="utf-8") as f:
-                json.dump(st, f, ensure_ascii=False, indent=2)
+        st = load_json(s["status"])
+
+        # При запуске бота удаляем старый lock
+        if os.path.exists(s["lock"]):
+            try:
+                os.remove(s["lock"])
+            except:
+                pass
+
+        # Сбрасываем только состояние работы
+        st["running"] = False
+        st["canceled"] = False
+
+        with open(s["status"], "w", encoding="utf-8") as f:
+            json.dump(st, f, ensure_ascii=False, indent=2)
        
 
 # =========================
@@ -541,6 +519,21 @@ def kb_supplier(key, running=False):
         inline_keyboard=rows
     )
 
+
+def kb_start():
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="⏳ Запуск...",
+                    callback_data="none"
+                )
+            ]
+        ]
+    )
+
+
 # =========================
 # START
 # =========================
@@ -809,6 +802,22 @@ async def cb(call: types.CallbackQuery):
         s = SUPPLIERS[key]
         name = s["name"].replace("📦 ", "")
 
+        if key in RUNNING_PROCESSES:
+        await call.answer(
+            "⚠️ Этот парсер уже работает",
+            show_alert=True
+        )
+        return
+    
+    st = load_json(s["status"])
+    
+    if st.get("running"):
+        await call.answer(
+            "⚠️ Парсер уже запущен",
+            show_alert=True
+        )
+        return
+
         await call.message.edit_text(
             f"🚀 Запуск {name}\n\n"
             f"⏳ Подготовка..."
@@ -863,40 +872,41 @@ async def cb(call: types.CallbackQuery):
 
         await call.message.edit_text(
             f"🚀 {name}\n\n⏳ Подготавливаю запуск...",
-            reply_markup=kb_supplier(key, True)
+            reply_markup=kb_start()
         )
         await asyncio.sleep(1)
         
         await call.message.edit_text(
             f"🌐 {name}\n\n🔗 Подключаюсь к сайту...",
-            reply_markup=kb_supplier(key, True)
+            reply_markup=kb_start()
         )
         await asyncio.sleep(1)
         
         await call.message.edit_text(
             f"🧐 {name}\n\n📦 Начинаю сбор данных...",
-            reply_markup=kb_supplier(key, True)
+            reply_markup=kb_start()
         )
         await asyncio.sleep(1)
         
         await call.message.edit_text(
             f"⚙️ {name}\n\n🔎 Проверяю первые категории...",
-            reply_markup=kb_supplier(key, True)
+            reply_markup=kb_start()
         )
         await asyncio.sleep(1)
         
         await call.message.edit_text(
             f"✅ {name}\n\n🚀 Парсер успешно запущен!",
-            reply_markup=kb_supplier(key, True)
+            reply_markup=kb_start()
         )
-        await asyncio.sleep(1)
-        
+        await asyncio.sleep(5)
+
         await call.message.edit_text(
             dashboard_text(),
             reply_markup=kb_dashboard(),
             parse_mode="HTML"
         )
         
+
         DASHBOARD_MESSAGES[call.message.chat.id] = call.message.message_id
         DASHBOARD_OPENED.discard(call.message.chat.id)
         
