@@ -837,15 +837,43 @@ async def cb(call: types.CallbackQuery):
         
         asyncio.create_task(parser_job())
 
-        await asyncio.sleep(0.3)
+        await call.message.edit_text(
+            f"🚀 {name}\n\n⏳ Подготавливаю запуск...",
+            reply_markup=kb_supplier(key, True)
+        )
+        await asyncio.sleep(1)
         
-        msg = await call.message.edit_text(
+        await call.message.edit_text(
+            f"🌐 {name}\n\n🔗 Подключаюсь к сайту...",
+            reply_markup=kb_supplier(key, True)
+        )
+        await asyncio.sleep(1)
+        
+        await call.message.edit_text(
+            f"🧐 {name}\n\n📦 Начинаю сбор данных...",
+            reply_markup=kb_supplier(key, True)
+        )
+        await asyncio.sleep(1)
+        
+        await call.message.edit_text(
+            f"⚙️ {name}\n\n🔎 Проверяю первые категории...",
+            reply_markup=kb_supplier(key, True)
+        )
+        await asyncio.sleep(1)
+        
+        await call.message.edit_text(
+            f"✅ {name}\n\n🚀 Парсер успешно запущен!",
+            reply_markup=kb_supplier(key, True)
+        )
+        await asyncio.sleep(1)
+        
+        await call.message.edit_text(
             dashboard_text(),
             reply_markup=kb_dashboard(),
             parse_mode="HTML"
         )
         
-        DASHBOARD_MESSAGES[call.message.chat.id] = msg.message_id
+        DASHBOARD_MESSAGES[call.message.chat.id] = call.message.message_id
         DASHBOARD_OPENED.discard(call.message.chat.id)
         
         return
