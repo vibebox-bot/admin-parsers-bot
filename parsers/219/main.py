@@ -270,6 +270,8 @@ def parse_category(cat_url):
 
     rows = soup.select("tr.itemPosition.simple")
 
+    print("FIRST:", len(rows))
+
     items = parse_rows(rows)
 
     seen = set()
@@ -300,6 +302,9 @@ def parse_category(cat_url):
         soup = BeautifulSoup(r.text, "html.parser")
 
         rows = soup.select("tr.itemPosition.simple")
+
+        
+        print("AJAX:", len(rows))
 
         if not rows:
             break
