@@ -174,7 +174,10 @@ SUPPLIERS = {
 RUNNING_PROCESSES = {}
 DASHBOARD_MESSAGES = {}
 DASHBOARD_OPENED = set()
-ANIMATION_SPEED = 2
+
+def is_running(key, st):
+    return st.get("running") or key in RUNNING_PROCESSES
+
 
 def file_time(ts):
     return datetime.fromtimestamp(ts, KYIV)
@@ -274,13 +277,6 @@ async def card_updater(chat_id, msg_id, key):
         text = f"{s['name']}\n\n"
         text += f"{stt}\n\n"
         
-        step = int(time.time() * ANIMATION_SPEED)
-        
-        # 🔥 ВАЖНО: показываем ТОЛЬКО если парсер работает
-        if st.get("running") or key in RUNNING_PROCESSES:
-            text += anim_bar(step)
-        
-
         try:
             await safe_edit_message(
                 chat_id=chat_id,
@@ -389,7 +385,6 @@ def dashboard_text():
 
         if icon == "🟡":
             
-            t += f"{anim_bar(int(time.time() * ANIMATION_SPEED))}\n"
 
         t += "\n"
 
@@ -645,9 +640,8 @@ async def cb(call: types.CallbackQuery):
             text += "\n⏳ Идёт обработка..."
         
         elif stt == "🟢 ГОТОВО":
-            text += anim_bar(9)
             
-        if os.path.exists(s["file"]):
+            if os.path.exists(s["file"]):
     
             size_mb = round(
                 os.path.getsize(s["file"]) / 1024 / 1024,
@@ -738,7 +732,7 @@ async def cb(call: types.CallbackQuery):
 
 
         await call.message.edit_text(
-            "🚀 Запуск...\n" + anim_bar(0),
+            "🚀 Запуск...",
             reply_markup=kb_supplier(key, True)
         )
 
@@ -784,7 +778,7 @@ async def cb(call: types.CallbackQuery):
                     pass
             
             await call.message.edit_text(
-                "✅ ГОТОВО\n" + anim_bar(9),
+                "✅ ГОТОВО",
                 reply_markup=kb_supplier(key, False)
             )            
 
@@ -847,7 +841,7 @@ async def cb(call: types.CallbackQuery):
         with open(s["status"], "w", encoding="utf-8") as f:
             json.dump(st, f, ensure_ascii=False, indent=2)
 
-        await safe_edit(call, "⛔ ОТМЕНЕНО\n" + anim_bar(0), kb_supplier(key, False))
+        await safe_edit(call, "⛔ ОТМЕНЕНО", kb_supplier(key, False))
         return
 
 async def dashboard_updater():
