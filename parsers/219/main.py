@@ -268,9 +268,15 @@ def parse_category(cat_url):
     # ==================================================
     soup = get_soup(cat_url)
 
+
     rows = soup.select("tr.itemPosition.simple")
 
     print("FIRST:", len(rows))
+    
+    if rows:
+        test = rows[0].select_one("td.td_2")
+        if test:
+            print("FIRST SKU PAGE:", clean(test.get_text()))
 
     items = parse_rows(rows)
 
@@ -301,10 +307,15 @@ def parse_category(cat_url):
 
         soup = BeautifulSoup(r.text, "html.parser")
 
+        print("AJAX:", len(rows))
+
         rows = soup.select("tr.itemPosition.simple")
 
-        
-        print("AJAX:", len(rows))
+        if rows:
+            test = rows[0].select_one("td.td_2")
+            if test:
+                print("FIRST SKU AJAX:", clean(test.get_text()))
+
 
         if not rows:
             break
