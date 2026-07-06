@@ -177,6 +177,11 @@ DASHBOARD_OPENED = set()
 ANIMATION_SPEED = 2
 ANIM_STEP = 0
 
+def make_btn(name, icon):
+    # 👇 важный трюк: Telegram иначе кэширует кнопку
+    noise = ANIM_STEP % 100
+    return f"{name} {icon}·{noise}"
+
 async def anim_ticker():
     global ANIM_STEP
     while True:
@@ -458,7 +463,7 @@ def kb_dashboard():
 
         icon = get_icon(k, st)
 
-        btn = f"{s['name']} {icon}"
+        btn = make_btn(s['name'], icon)
 
         rows.append([
             InlineKeyboardButton(
