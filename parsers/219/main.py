@@ -18,8 +18,8 @@ BASE = "https://magnitopt.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 2
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "785931"
@@ -395,6 +395,8 @@ def run_parser():
             )
 
             items = parse_category(cat["url"])
+
+            print("TOTAL ITEMS:", len(items))
 
             for sku, title, price, status, url in items:
 
