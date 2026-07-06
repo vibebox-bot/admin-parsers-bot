@@ -251,28 +251,17 @@ ensure_status()
 
 BLINK = ["🔴", "⚫"]
 
-ANIM = [
-    "█░░░░░░░░░",
-    "██░░░░░░░░",
-    "███░░░░░░░",
-    "████░░░░░░",
-    "█████░░░░░",
-    "██████░░░░",
-    "███████░░░",
-    "████████░░",
-    "█████████░",
-    "██████████",
-    "░█████████",
-    "░░████████",
-    "░░░███████",
-    "░░░░██████",
-    "░░░░░█████",
-    "░░░░░░████",
-    "░░░░░░░███",
-    "░░░░░░░░██",
-    "░░░░░░░░░█",
-    "░░░░░░░░░░",
-]
+ANIM = ["○○○○○○○○○○",
+         "●○○○○○○○○○",
+         "○●○○○○○○○○",
+         "○○●○○○○○○○",
+         "○○○●○○○○○○",
+         "○○○○●○○○○○",
+         "○○○○○●○○○○",
+         "○○○○○○●○○○",
+         "○○○○○○○●○○",
+         "○○○○○○○○●○",
+         "○○○○○○○○○●"]
 
 def anim_bar(step):
     return ANIM[step % len(ANIM)]
@@ -298,11 +287,14 @@ async def card_updater(chat_id, msg_id, key):
 
         # 🧠 ВАЖНО: создаём text заново
         text = f"{s['name']}\n\n"
-        text += f" {stt}\n\n"
-
+        text += f"{stt}\n\n"
+        
         step = int(time.time() * ANIMATION_SPEED)
-
-        text += anim_bar(step)
+        
+        # 🔥 ВАЖНО: показываем ТОЛЬКО если парсер работает
+        if st.get("running") or key in RUNNING_PROCESSES:
+            text += anim_bar(step)
+        
 
         try:
             await safe_edit_message(
@@ -370,25 +362,20 @@ async def safe_edit(call, text, kb=None):
 
 def display_status(key, st, file_path):
 
-    # работает прямо сейчас
     if key in RUNNING_PROCESSES:
         return "🟡 В РАБОТЕ", st.get("progress", 0)
 
-    # отменили
     if st.get("canceled"):
         return "⛔ ОТМЕНЕНО", 0
 
-    # файла нет
     if not os.path.exists(file_path):
         return "⚪ НЕТ ФАЙЛА", 0
 
     size = os.path.getsize(file_path)
 
-    # файл почти пустой
     if size < 50:
         return "🔴 ОШИБКА", 0
 
-    # всё хорошо
     return "🟢 ГОТОВО", 100
 
 # =========================
@@ -667,7 +654,7 @@ async def cb(call: types.CallbackQuery):
         text += f"👤 <b>Пользователь:</b> {user}\n"
         text += f"🕒 <b>Запуск:</b> {run_time}\n\n"
         
-        if stt == "🟡 В РАБОТЕ":
+        if st.get("running") or key in RUNNING_PROCESSES:
             text += anim_bar(int(time.time() * ANIMATION_SPEED))
         
         elif stt == "🟢 ГОТОВО":
