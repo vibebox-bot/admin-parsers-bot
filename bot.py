@@ -38,9 +38,8 @@ async def safe_edit_message(chat_id, message_id, text, kb=None, parse_mode=None)
             reply_markup=kb,
             parse_mode=parse_mode
         )
-   
-    except Exception as e:
-        print("EDIT ERROR:", e)
+    except:
+        pass
 
 def now():
     return datetime.now()
@@ -176,23 +175,6 @@ RUNNING_PROCESSES = {}
 DASHBOARD_MESSAGES = {}
 DASHBOARD_OPENED = set()
 ANIMATION_SPEED = 2
-ANIM_STEP = 0
-
-def make_btn(name, icon):
-    # 👇 важный трюк: Telegram иначе кэширует кнопку
-    noise = ANIM_STEP % 100
-    return f"{name} {icon}·{noise}"
-
-async def anim_ticker():
-    global ANIM_STEP
-    print("🔥 ANIM TICKER STARTED")
-
-    while True:
-        ANIM_STEP += 1
-        print("STEP:", ANIM_STEP)  # 👈 ВАЖНО
-        await asyncio.sleep(0.5)
-
-
 
 def file_time(ts):
     return datetime.fromtimestamp(ts, KYIV)
@@ -267,12 +249,7 @@ def load_json(path):
 
 ensure_status()
 
-SPINNER = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"]
-
-PULSE = ["🔴", "🟥", "🟧", "🟥"]
-
-IDLE = ["⚪"]
-DONE = ["🟢"]
+BLINK = ["🔴", "⚫"]
 
 ANIM = [
     "█░░░░░░░░░",
@@ -299,21 +276,6 @@ ANIM = [
 
 def anim_bar(step):
     return ANIM[step % len(ANIM)]
-
-
-def get_icon(key, st):
-    step = ANIM_STEP
-
-    if st.get("running") or key in RUNNING_PROCESSES:
-        return SPINNER[step % len(SPINNER)]
-
-    if st.get("canceled"):
-        return PULSE[step % len(PULSE)]
-
-    if st.get("success"):
-        return "🟢"
-
-    return "⚪"
 
 # =========================
 # UI HELPERS
@@ -352,7 +314,7 @@ async def card_updater(chat_id, msg_id, key):
         except:
             pass
 
-        await asyncio.sleep(0.8)
+        await asyncio.sleep(1.5)
 
 def status(st):
     if not st:
@@ -433,40 +395,55 @@ def display_status(key, st, file_path):
 # DASHBOARD
 # =========================
 def dashboard_text():
-    step = ANIM_STEP
-
     t = "📊 <b>Дашборд парсеров</b>\n\n"
 
-    spinner = SPINNER[step % len(SPINNER)]
-
-    t += f"🔄 Обновление {spinner}\n\n"
-
     for k, s in SUPPLIERS.items():
+
         st = load_json(s["status"])
         stt, p = display_status(k, st, s["file"])
 
-        icon = "🟡" if "В РАБОТЕ" in stt else "🟢" if "ГОТОВО" in stt else "⚪"
+        if "🟢" in stt:
+            icon = "🟢"
+        elif "🟡" in stt:
+            icon = "🟡"
+        elif "⛔" in stt:
+            icon = "⛔"
+        elif "🔴" in stt:
+            icon = "🔴"
+        else:
+            icon = "⚪"
 
         t += f"{s['name']} {icon}\n"
 
         if icon == "🟡":
-            t += anim_bar(step) + "\n"
+            
+            t += f"{anim_bar(int(time.time() * ANIMATION_SPEED))}\n"
 
         t += "\n"
 
     return t
 
-
-
 def kb_dashboard():
     rows = []
 
+    blink_state = int(time.time()) % 2   # 🔥 1 раз в секунду
+
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
+        stt, p = display_status(k, st, s["file"])
 
-        icon = get_icon(k, st)
+        if "🟡" in stt:
+            icon = "🟡" if blink_state == 0 else "⚪"
+        elif "ГОТОВО" in stt:
+            icon = "🟢"
+        elif "ОТМЕНЕНО" in stt:
+            icon = "⛔"
+        elif "ОШИБКА" in stt:
+            icon = "🔴"
+        else:
+            icon = "⚪"
 
-        btn = f"{s['name']} {icon}"   # БЕЗ noise!
+        btn = f"{s['name']} {icon}"
 
         rows.append([
             InlineKeyboardButton(
@@ -476,7 +453,6 @@ def kb_dashboard():
         ])
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
-
 
 def kb_supplier(key, running=False):
 
@@ -610,7 +586,7 @@ async def run_parser(key, user):
             if proc.returncode is not None:
                 break
 
-            await asyncio.sleep(0.8)
+            await asyncio.sleep(3)
 
         stdout, stderr = await proc.communicate()
 
@@ -922,7 +898,7 @@ async def dashboard_updater():
             except Exception:
                 pass
 
-        await asyncio.sleep(0.8)
+        await asyncio.sleep(1.5)
         
 
 # =========================
@@ -934,7 +910,6 @@ async def main():
     asyncio.create_task(
         dashboard_updater()
     )
-    asyncio.create_task(anim_ticker())
 
     await dp.start_polling(bot)
 
