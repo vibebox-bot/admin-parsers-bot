@@ -314,7 +314,7 @@ async def card_updater(chat_id, msg_id, key):
         except:
             pass
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.5)
 
 def status(st):
     if not st:
@@ -426,15 +426,14 @@ def dashboard_text():
 def kb_dashboard():
     rows = []
 
-    step = int(time.time() * ANIMATION_SPEED)
+    blink_state = int(time.time()) % 2   # 🔥 1 раз в секунду
 
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
         stt, p = display_status(k, st, s["file"])
 
-
         if "🟡" in stt:
-            icon = BLINK[int(time.time() * ANIMATION_SPEED) % 2]
+            icon = "🟡" if blink_state == 0 else "⚪"
         elif "ГОТОВО" in stt:
             icon = "🟢"
         elif "ОТМЕНЕНО" in stt:
@@ -444,8 +443,7 @@ def kb_dashboard():
         else:
             icon = "⚪"
 
-        #btn = f"{s['name']} {icon}"
-        btn = f"{s['name']} {icon} {int(time.time()) % 2}"
+        btn = f"{s['name']} {icon}"
 
         rows.append([
             InlineKeyboardButton(
@@ -900,7 +898,7 @@ async def dashboard_updater():
             except Exception:
                 pass
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.5)
         
 
 # =========================
