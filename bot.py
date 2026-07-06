@@ -38,8 +38,9 @@ async def safe_edit_message(chat_id, message_id, text, kb=None, parse_mode=None)
             reply_markup=kb,
             parse_mode=parse_mode
         )
-    except:
-        pass
+   
+    except Exception as e:
+        print("EDIT ERROR:", e)
 
 def now():
     return datetime.now()
