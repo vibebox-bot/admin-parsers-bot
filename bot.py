@@ -249,7 +249,12 @@ def load_json(path):
 
 ensure_status()
 
-BLINK = ["🔴", "⚫"]
+SPINNER = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"]
+
+PULSE = ["🔴", "🟥", "🟧", "🟥"]
+
+IDLE = ["⚪"]
+DONE = ["🟢"]
 
 ANIM = [
     "█░░░░░░░░░",
@@ -276,6 +281,26 @@ ANIM = [
 
 def anim_bar(step):
     return ANIM[step % len(ANIM)]
+
+
+def get_icon(key, st):
+    step = int(time.time() * 10)
+
+    # В РАБОТЕ → спиннер
+    if st.get("running") or key in RUNNING_PROCESSES:
+        return SPINNER[step % len(SPINNER)]
+
+    # ОШИБКА / ОТМЕНА → пульс
+    if st.get("canceled"):
+        return PULSE[step % len(PULSE)]
+
+    # ГОТОВО
+    if st.get("success"):
+        return "🟢"
+
+    return "⚪"
+
+
 
 # =========================
 # UI HELPERS
@@ -426,22 +451,10 @@ def dashboard_text():
 def kb_dashboard():
     rows = []
 
-    blink_state = int(time.time()) % 2   # 🔥 1 раз в секунду
-
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
-        stt, p = display_status(k, st, s["file"])
 
-        if "🟡" in stt:
-            icon = "🟡" if blink_state == 0 else "⚪"
-        elif "ГОТОВО" in stt:
-            icon = "🟢"
-        elif "ОТМЕНЕНО" in stt:
-            icon = "⛔"
-        elif "ОШИБКА" in stt:
-            icon = "🔴"
-        else:
-            icon = "⚪"
+        icon = get_icon(k, st)
 
         btn = f"{s['name']} {icon}"
 
@@ -453,6 +466,7 @@ def kb_dashboard():
         ])
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
 
 def kb_supplier(key, running=False):
 
