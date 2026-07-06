@@ -175,6 +175,13 @@ RUNNING_PROCESSES = {}
 DASHBOARD_MESSAGES = {}
 DASHBOARD_OPENED = set()
 ANIMATION_SPEED = 2
+ANIM_STEP = 0
+
+async def anim_ticker():
+    global ANIM_STEP
+    while True:
+        ANIM_STEP += 1
+        await asyncio.sleep(0.3)
 
 def file_time(ts):
     return datetime.fromtimestamp(ts, KYIV)
@@ -284,23 +291,18 @@ def anim_bar(step):
 
 
 def get_icon(key, st):
-    step = int(time.time() * 10)
+    step = ANIM_STEP
 
-    # В РАБОТЕ → спиннер
     if st.get("running") or key in RUNNING_PROCESSES:
         return SPINNER[step % len(SPINNER)]
 
-    # ОШИБКА / ОТМЕНА → пульс
     if st.get("canceled"):
         return PULSE[step % len(PULSE)]
 
-    # ГОТОВО
     if st.get("success"):
         return "🟢"
 
     return "⚪"
-
-
 
 # =========================
 # UI HELPERS
@@ -924,6 +926,7 @@ async def main():
     asyncio.create_task(
         dashboard_updater()
     )
+    asyncio.create_task(anim_ticker())
 
     await dp.start_polling(bot)
 
