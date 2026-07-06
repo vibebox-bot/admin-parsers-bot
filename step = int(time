@@ -322,7 +322,7 @@ async def card_updater(chat_id, msg_id, key):
         except:
             pass
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(2)
 
 def status(st):
     if not st:
@@ -906,7 +906,7 @@ async def dashboard_updater():
             except Exception:
                 pass
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(2)
         
 
 # =========================
