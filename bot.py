@@ -385,6 +385,38 @@ def dashboard_text():
 
     return t
 
+def kb_dashboard():
+    rows = []
+    blink_state = int(time.time() * 2) % 2
+
+    for k, s in SUPPLIERS.items():
+        st = load_json(s["status"])
+        stt, p = display_status(k, st, s["file"])
+
+        if "🟡" in stt:
+            icon = "🟡" if blink_state == 0 else "⚪"
+        elif "ГОТОВО" in stt:
+            icon = "🟢"
+        elif "ОТМЕНЕНО" in stt:
+            icon = "⛔"
+        elif "ОШИБКА" in stt:
+            icon = "🔴"
+        else:
+            icon = "⚪"
+
+        btn = f"{s['name']} {icon}"
+
+        rows.append([
+            InlineKeyboardButton(
+                text=btn,
+                callback_data=f"open_{k}"
+            )
+        ])
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows
+    )
+
 def dashboard_text():
     t = "📊 <b>Дашборд парсеров</b>\n\n"
 
