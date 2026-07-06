@@ -248,49 +248,63 @@ def parse_product(url):
         url
     ]
 
+def parse_category(cat_url):
+
+    result = []
+    seen = set()
+
+    page = 1
+
+    while True:
+
+        if page == 1:
+            url = cat_url
+        else:
+            sep = "&" if "?" in cat_url else "?"
+            url = f"{cat_url}{sep}page={page}&ajax=1"
+
+        print(f"PAGE {page}")
+
+        soup = get_soup(url)
+
+        cards = soup.select("div.list-catalog_item")
+
+        if not cards:
+            break
+
+        added = 0
+
+        for card in cards:
+
+            a = card.select_one(".list-catalog_title a")
+
+            if not a:
+                continue
+
+            href = a.get("href")
+
+            if not href:
+                continue
+
+            if href in seen:
+                continue
+
+            seen.add(href)
+
+            result.append(parse_product(href))
+            added += 1
+
+        print(f"FOUND: {added}")
+
+        if added == 0:
+            break
+
+        page += 1
+        time.sleep(0.3)
+
+    return result
 
 
-def parse_product(url):
-
-    soup = get_soup(url)
-
-    # TITLE
-    title = ""
-    h1 = soup.select_one("h1")
-    if h1:
-        title = clean(h1.get_text())
-
-    # SKU
-    sku = ""
-    code = soup.select_one(".box-card_code")
-
-    if code:
-        text = code.get_text(" ", strip=True)
-
-        m = re.search(r"Код товара:\s*(Ц-\d+)", text)
-
-        if m:
-            sku = m.group(1)
-
-    # PRICE
-    price = ""
-
-    new = soup.select_one(".price__new")
-
-    if new:
-        price = clean(new.get_text())
-    else:
-        box = soup.select_one(".box-card_hryvnia")
-        if box:
-            price = clean(box.get_text())
-
-    return [
-        sku,
-        title,
-        price,
-        "",
-        url
-    ]
 
 # =========================
 # MAIN
