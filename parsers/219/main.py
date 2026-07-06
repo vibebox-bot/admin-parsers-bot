@@ -18,8 +18,8 @@ BASE = "https://magnitopt.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 1
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "785931"
@@ -271,13 +271,6 @@ def parse_category(cat_url):
 
     rows = soup.select("tr.itemPosition.simple")
 
-    print("FIRST:", len(rows))
-    
-    if rows:
-        test = rows[0].select_one("td.td_2")
-        if test:
-            print("FIRST SKU PAGE:", clean(test.get_text()))
-
     items = parse_rows(rows)
 
     seen = set()
@@ -307,14 +300,9 @@ def parse_category(cat_url):
 
         soup = BeautifulSoup(r.text, "html.parser")
 
-        print("AJAX:", len(rows))
+        #print("AJAX:", len(rows))
 
         rows = soup.select("tr.itemPosition.simple")
-
-        if rows:
-            test = rows[0].select_one("td.td_2")
-            if test:
-                print("FIRST SKU AJAX:", clean(test.get_text()))
 
 
         if not rows:
@@ -374,8 +362,7 @@ def run_parser():
 
         cats = get_categories()
 
-        cats = [cats[8]]
-
+        #cats = [cats[8]]
         
         #print("DEBUG CATS:", cats)
         print(f"📂 Категорий: {len(cats)}")
@@ -400,7 +387,7 @@ def run_parser():
 
             items = parse_category(cat["url"])
 
-            print("TOTAL ITEMS:", len(items))
+            #print("TOTAL ITEMS:", len(items))
 
             for sku, title, price, status, url in items:
 
