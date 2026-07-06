@@ -713,6 +713,7 @@ async def cb(call: types.CallbackQuery):
         return
 
     # RUN
+    
     if data.startswith("run_"):
         key = data.replace("run_", "").strip()
         
@@ -722,9 +723,20 @@ async def cb(call: types.CallbackQuery):
 
         s = SUPPLIERS[key]
 
+        await call.message.edit_text(
+            f"🚀 Запуск парсера\n"
+            f"📦 {s['name']}\n"
+            f"🆔 {key}\n"
+            f"⏳ Подготовка...",
+            reply_markup=kb_supplier(key, True)
+        )
+
+        await asyncio.sleep(2)
 
         await call.message.edit_text(
-            "🚀 Запуск...",
+            f"🟡 Парсер запущен\n"
+            f"📦 {s['name']}\n"
+            f"🟢 Статус: в работе",
             reply_markup=kb_supplier(key, True)
         )
 
@@ -768,11 +780,24 @@ async def cb(call: types.CallbackQuery):
                     os.remove(s["lock"])
                 except:
                     pass
-            
+
+
             await call.message.edit_text(
-                "✅ ГОТОВО",
+                f"✅ Готово\n"
+                f"📦 {s['name']}\n"
+                f"🟢 Статус: завершено",
                 reply_markup=kb_supplier(key, False)
-            )            
+            )
+
+            await asyncio.sleep(1)
+    
+            msg = await call.message.answer(
+                dashboard_text(),
+                reply_markup=kb_dashboard(),
+                parse_mode="HTML"
+            )
+            
+            DASHBOARD_MESSAGES[call.message.chat.id] = msg.message_id
 
         except Exception as e:
 
