@@ -363,27 +363,29 @@ def display_status(key, st, file_path):
 # DASHBOARD
 # =========================
 def dashboard_text():
-    t = "📊 <b>Дашборд парсеров</b>\n\n"
+    ready = 0
+    running = 0
+    error = 0
 
     for k, s in SUPPLIERS.items():
-
         st = load_json(s["status"])
         stt, p = display_status(k, st, s["file"])
 
         if "🟢" in stt:
-            icon = "🟢"
+            ready += 1
         elif "🟡" in stt:
-            icon = "🟡"
-        elif "⛔" in stt:
-            icon = "⛔"
+            running += 1
         elif "🔴" in stt:
-            icon = "🔴"
-        else:
-            icon = "⚪"
+            error += 1
 
-        t += f"{s['name']} {icon}\n\n"
+    t = (
+        "📊 <b>Дашборд парсеров</b>\n\n"
+        f"🟢 {ready}   🟡 {running}   🔴 {error}\n\n"
+        "👇 Выберите парсер ниже"
+    )
 
     return t
+
 
 def kb_dashboard():
     rows = []
