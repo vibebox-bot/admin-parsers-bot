@@ -188,7 +188,7 @@ def get_categories():
 # =========================
 # PARSE CATEGORY
 # =========================
-def parse_product(url):
+def parse_product(url, status):    
 
     soup = get_soup(url)
 
@@ -244,9 +244,10 @@ def parse_product(url):
         code,
         title,
         price,
-        "",
+        status,
         url
     ]
+
 
 def parse_category(cat_url):
 
@@ -283,6 +284,13 @@ def parse_category(cat_url):
 
             href = a.get("href")
 
+            status = ""
+
+            label = card.select_one(".product__label")
+            
+            if label:
+                status = clean(label.get_text())
+
             if not href:
                 continue
 
@@ -291,7 +299,7 @@ def parse_category(cat_url):
 
             seen.add(href)
 
-            result.append(parse_product(href))
+            result.append(parse_product(href, status))
             added += 1
 
         print(f"FOUND: {added}")
