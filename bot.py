@@ -387,50 +387,8 @@ def dashboard_text():
     return t
 
 
-# =====================================================
-# DASHBOARD BUTTONS (OLD VERSION - 1 BUTTON PER ROW)
-# =====================================================
-#
-# def kb_dashboard():
-#     rows = []
-#     blink_state = int(time.time() * 2) % 2
-#
-#     for k, s in SUPPLIERS.items():
-#         st = load_json(s["status"])
-#         stt, p = display_status(k, st, s["file"])
-#
-#         if "🟡" in stt:
-#             icon = "🟡" if blink_state == 0 else "⚪"
-#         elif "ГОТОВО" in stt:
-#             icon = "🟢"
-#         elif "ОТМЕНЕНО" in stt:
-#             icon = "⛔"
-#         elif "ОШИБКА" in stt:
-#             icon = "🔴"
-#         else:
-#             icon = "⚪"
-#
-#         btn = f"{s['name']} {icon}"
-#
-#         rows.append([
-#             InlineKeyboardButton(
-#                 text=btn,
-#                 callback_data=f"open_{k}"
-#             )
-#         ])
-#
-#     return InlineKeyboardMarkup(
-#         inline_keyboard=rows
-#     )
-
-
-# =====================================================
-# DASHBOARD BUTTONS (NEW VERSION - 2 BUTTONS PER ROW)
-# =====================================================
 def kb_dashboard():
     rows = []
-    row = []
-
     blink_state = int(time.time() * 2) % 2
 
     for k, s in SUPPLIERS.items():
@@ -447,25 +405,20 @@ def kb_dashboard():
             icon = "🔴"
         else:
             icon = "⚪"
+            
+        btn = f"{icon} {s['name'].replace('📦 ', '')}"
 
-        row.append(
+        rows.append([
             InlineKeyboardButton(
-                text=f"{icon} {s['name']}",
+                text=btn,
                 callback_data=f"open_{k}"
             )
-        )
-
-        if len(row) == 2:
-            rows.append(row)
-            row = []
-
-    # если осталась одна кнопка
-    if row:
-        rows.append(row)
+        ])
 
     return InlineKeyboardMarkup(
         inline_keyboard=rows
     )
+
 
 def kb_supplier(key, running=False):
 
