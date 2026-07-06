@@ -791,10 +791,9 @@ async def cb(call: types.CallbackQuery):
         return
 
     # RUN
-    
     if data.startswith("run_"):
         key = data.replace("run_", "").strip()
-        
+
         if key not in SUPPLIERS:
             await call.message.answer("❌ Парсер не найден")
             return
@@ -802,102 +801,107 @@ async def cb(call: types.CallbackQuery):
         s = SUPPLIERS[key]
         name = s["name"].replace("📦 ", "")
 
+        # Уже работает в памяти
         if key in RUNNING_PROCESSES:
-        await call.answer(
-            "⚠️ Этот парсер уже работает",
-            show_alert=True
-        )
-        return
-    
-    st = load_json(s["status"])
-    
-    if st.get("running"):
-        await call.answer(
-            "⚠️ Парсер уже запущен",
-            show_alert=True
-        )
-        return
+            await call.answer(
+                "⚠️ Этот парсер уже работает",
+                show_alert=True
+            )
+            return
 
-        await call.message.edit_text(
-            f"🚀 Запуск {name}\n\n"
-            f"⏳ Подготовка..."
-        )
-
-        await call.message.edit_text(
-            f"🧐 {name}\n\n"
-            f"📦 Идёт сбор данных..."
-        )
-
+        # Или отмечен как работающий
         st = load_json(s["status"])
-            
+
+        if st.get("running"):
+            await call.answer(
+                "⚠️ Этот парсер уже запущен",
+                show_alert=True
+            )
+            return
+
+        # Обновляем статус
         st["running"] = True
         st["success"] = False
         st["canceled"] = False
         st["progress"] = 0
-            
+
         with open(s["status"], "w", encoding="utf-8") as f:
             json.dump(st, f, ensure_ascii=False, indent=2)
-        
+
         async def parser_job():
-            code = await run_parser(key, call.from_user.full_name)
-        
+            code = await run_parser(
+                key,
+                call.from_user.full_name
+            )
+
             st = load_json(s["status"]) or {}
+
             st["running"] = False
-        
+
             if code == "canceled":
                 st["canceled"] = True
                 st["success"] = False
-        
+
             elif code == 0:
                 st["canceled"] = False
                 st["progress"] = 100
                 st["success"] = True
-        
+
             else:
                 st["canceled"] = False
                 st["progress"] = 0
                 st["success"] = False
-        
+
             with open(s["status"], "w", encoding="utf-8") as f:
-                json.dump(st, f, ensure_ascii=False, indent=2)
-        
+                json.dump(
+                    st,
+                    f,
+                    ensure_ascii=False,
+                    indent=2
+                )
+
             if os.path.exists(s["lock"]):
                 try:
                     os.remove(s["lock"])
                 except:
                     pass
-        
-        
+
+        # Запускаем парсер
         asyncio.create_task(parser_job())
 
+        # Даём run_parser зарегистрировать процесс
+        await asyncio.sleep(0.2)
+
+        # Красивая анимация запуска
         await call.message.edit_text(
             f"🚀 {name}\n\n⏳ Подготавливаю запуск...",
             reply_markup=kb_start()
         )
         await asyncio.sleep(1)
-        
+
         await call.message.edit_text(
             f"🌐 {name}\n\n🔗 Подключаюсь к сайту...",
             reply_markup=kb_start()
         )
         await asyncio.sleep(1)
-        
+
         await call.message.edit_text(
-            f"🧐 {name}\n\n📦 Начинаю сбор данных...",
+            f"📦 {name}\n\n📂 Загружаю категории...",
             reply_markup=kb_start()
         )
         await asyncio.sleep(1)
-        
+
         await call.message.edit_text(
-            f"⚙️ {name}\n\n🔎 Проверяю первые категории...",
+            f"🔎 {name}\n\n🧐 Проверяю первые страницы...",
             reply_markup=kb_start()
         )
         await asyncio.sleep(1)
-        
+
         await call.message.edit_text(
             f"✅ {name}\n\n🚀 Парсер успешно запущен!",
             reply_markup=kb_start()
         )
+
         await asyncio.sleep(5)
 
         await call.message.edit_text(
@@ -905,13 +909,16 @@ async def cb(call: types.CallbackQuery):
             reply_markup=kb_dashboard(),
             parse_mode="HTML"
         )
-        
 
-        DASHBOARD_MESSAGES[call.message.chat.id] = call.message.message_id
-        DASHBOARD_OPENED.discard(call.message.chat.id)
-        
-        return
+        DASHBOARD_MESSAGES[
+            call.message.chat.id
+        ] = call.message.message_id
 
+        DASHBOARD_OPENED.discard(
+            call.message.chat.id
+        )
+
+        return    
 
     # CANCEL
     if data.startswith("cancel_"):
