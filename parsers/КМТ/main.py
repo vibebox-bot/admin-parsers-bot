@@ -11,21 +11,21 @@ import sys
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 Харьковская 219 Магнит")
+print("🔥 Харьковская КМТ")
 
-BASE = "https://magnitopt.com.ua"
+BASE = "https://kmt5.com.ua"
 
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 1
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
 
-EMAIL = "angelinatitor@gmail.com"
-PASSWORD = "785931"
+EMAIL = "finik257@gmail.com"
+PASSWORD = "18022021"
 
-OUTPUT_DIR = os.path.abspath("output/219")
-FILE_PATH = os.path.join(OUTPUT_DIR, "219_LIVE.xlsx")
+OUTPUT_DIR = os.path.abspath("output/КМТ")
+FILE_PATH = os.path.join(OUTPUT_DIR, "КМТ_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
@@ -71,28 +71,35 @@ def set_lock(state):
 # =========================
 def login():
 
-    login_url = "https://magnitopt.com.ua/themes/default/ajax/login.php"
+    # получаем PHPSESSID
+    session.get(BASE)
+
+    login_url = BASE + "/login/?ajax=1"
 
     payload = {
-        "email_auth": EMAIL,
-        "pass_auth": PASSWORD
+        "email": EMAIL,
+        "password": PASSWORD
     }
 
-    r = session.post(login_url, data=payload, headers={
-        "X-Requested-With": "XMLHttpRequest",
-        "Referer": "https://magnitopt.com.ua/"
-    })
+    r = session.post(
+        login_url,
+        data=payload,
+        headers={
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": BASE + "/access-denied"
+        }
+    )
 
-    # проверка успеха
+    print("LOGIN:", r.status_code)
+
     try:
-        data = r.json()
-        print("LOGIN RESPONSE:", data)
+        print(r.json())
     except:
-        print("LOGIN RAW:", r.text)
+        print(r.text)
 
-    check = session.get("https://magnitopt.com.ua/")
+    check = session.get(BASE)
 
-    if "logout" in check.text.lower() or "вихід" in check.text.lower():
+    if "logout" in check.text.lower() or "выйти" in check.text.lower() or "личный кабинет" in check.text.lower():
         print("✅ LOGIN OK")
     else:
         print("⚠ LOGIN CHECK")
@@ -153,35 +160,27 @@ def get_categories():
 
     cats = []
 
-    # MAGNIT FIX: categories may be in different container
-    selectors = [
-        "ul.firstUl li a",
-        "ul.catalog-menu li a",
-        "nav ul li a",
-        ".catalog-menu a"
-    ]
+    menu = soup.select_one("nav.menu-left > ul")
 
-    for sel in selectors:
-        links = soup.select(sel)
+    if not menu:
+        return cats
 
-        if links:
-            for a in links:
-                href = a.get("href", "").strip()
+    for li in menu.find_all("li", recursive=False):
 
-                if not href:
-                    continue
+        a = li.find("a", href=True)
 
-                if href.startswith("/"):
-                    href = BASE + href
+        if not a:
+            continue
 
-                cats.append({
-                    "name": clean(a.get_text()),
-                    "url": href
-                })
+        href = a["href"].strip()
 
-            break  # нашли — выходим
+        if href.startswith("/"):
+            href = BASE + href
 
-    #print("CATEGORIES FOUND:", len(cats))
+        cats.append({
+            "name": clean(a.get_text()),
+            "url": href
+        })
 
     return cats
     
@@ -189,155 +188,110 @@ def get_categories():
 # =========================
 # PARSE CATEGORY
 # =========================
-def parse_category(cat_url):
+def parse_product(url):
 
-    def parse_rows(rows):
+    soup = get_soup(url)
 
-        items = []
+    # =========================
+    # TITLE
+    # =========================
+    title = ""
 
-        for row in rows:
+    h1 = soup.select_one("h1")
+    if h1:
+        title = clean(h1.get_text())
 
-            # =========================
-            # SKU
-            # =========================
-            sku = ""
-            sku_el = row.select_one("td.td_2")
-            if sku_el:
-                sku = clean(sku_el.get_text())
+    # =========================
+    # SKU
+    # =========================
+    sku = ""
 
-            # =========================
-            # TITLE
-            # =========================
-            title = ""
-            product_id = ""
+    # =========================
+    # CODE
+    # =========================
+    code = ""
 
-            title_el = row.select_one("td.td_3 a")
+    box = soup.select_one(".box-card_code")
 
-            if title_el:
-                title = clean(title_el.get_text())
-                product_id = title_el.get("data-id", "").strip()
+    if box:
 
-            # =========================
-            # PRICE
-            # =========================
-            price = ""
+        text = box.get_text(" ", strip=True)
 
-            price_el = row.select_one("span.bold.block")
+        m = re.search(r"Код товара:\s*(Ц-\d+)", text)
+        if m:
+            sku = m.group(1)
 
-            if price_el:
-                price = clean(price_el.get_text())
+        m = re.search(r"Код:\s*(\S+)", text)
+        if m:
+            code = m.group(1)
 
-            # =========================
-            # STATUS
-            # =========================
-            if row.select_one("button.notify"):
-                status = "Нет в наличии"
+    # =========================
+    # PRICE
+    # =========================
+    price = ""
 
-            elif row.select_one("div.not-available"):
-                status = "Нет в наличии"
+    new_price = soup.select_one(".price__new")
 
-            elif row.select_one("div.are-available"):
-                status = "В наличии"
+    if new_price:
+        price = clean(new_price.get_text())
+    else:
+        box_price = soup.select_one(".box-card_hryvnia")
+        if box_price:
+            price = clean(box_price.get_text())
 
-            elif row.select_one("button.radButton.sy"):
-                status = "В наличии"
-
-            else:
-                status = "Неизвестно"
-
-            # =========================
-            # URL
-            # =========================
-            if product_id:
-                url_product = f"https://magnitopt.com.ua/?product_id={product_id}"
-            else:
-                url_product = ""
-
-            items.append([
-                sku,
-                title,
-                price,
-                status,
-                url_product
-            ])
-
-        return items
-
-    # ==================================================
-    # Первая загрузка страницы
-    # ==================================================
-    soup = get_soup(cat_url)
+    return [
+        sku,
+        code,
+        title,
+        price,
+        "",
+        url
+    ]
 
 
-    rows = soup.select("tr.itemPosition.simple")
 
-    items = parse_rows(rows)
+def parse_product(url):
 
-    seen = set()
+    soup = get_soup(url)
 
-    result = []
+    # TITLE
+    title = ""
+    h1 = soup.select_one("h1")
+    if h1:
+        title = clean(h1.get_text())
 
-    for item in items:
-        key = (item[0], item[1])
+    # SKU
+    sku = ""
+    code = soup.select_one(".box-card_code")
 
-        if key not in seen:
-            seen.add(key)
-            result.append(item)
+    if code:
+        text = code.get_text(" ", strip=True)
 
-    # ==================================================
-    # AJAX подгрузка
-    # ==================================================
-    while True:
+        m = re.search(r"Код товара:\s*(Ц-\d+)", text)
 
-        r = session.post(
-            BASE + "/themes/default/ajax/catalog.php",
-            data={"get": "cat"},
-            headers={
-                "X-Requested-With": "XMLHttpRequest",
-                "Referer": cat_url
-            }
-        )
+        if m:
+            sku = m.group(1)
 
-        soup = BeautifulSoup(r.text, "html.parser")
+    # PRICE
+    price = ""
 
-        #print("AJAX:", len(rows))
+    new = soup.select_one(".price__new")
 
-        rows = soup.select("tr.itemPosition.simple")
+    if new:
+        price = clean(new.get_text())
+    else:
+        box = soup.select_one(".box-card_hryvnia")
+        if box:
+            price = clean(box.get_text())
 
+    return [
+        sku,
+        title,
+        price,
+        "",
+        url
+    ]
 
-        if not rows:
-            break
-
-        new_items = parse_rows(rows)
-
-        added = 0
-
-        for item in new_items:
-
-            key = (item[0], item[1])
-
-            if key in seen:
-                continue
-
-            seen.add(key)
-            result.append(item)
-            added += 1
-
-        # если новых товаров больше нет —
-        # сервер начал отдавать первую пачку заново
-        if added == 0:
-            break
-
-        lim = soup.select_one("#moleLimith")
-
-        if lim:
-            try:
-                if int(lim.get_text(strip=True)) < 1:
-                    break
-            except:
-                pass
-
-    return result
 # =========================
 # MAIN
 # =========================
@@ -356,7 +310,7 @@ def run_parser():
 
         wb = Workbook()
         ws = wb.active
-        ws.append(["SKU", "TITLE", "PRICE", "STATUS", "URL"])
+        ws.append(["SKU", "CODE", "TITLE", "PRICE", "STATUS", "URL"])
 
         seen = set()
 
@@ -389,7 +343,7 @@ def run_parser():
 
             #print("TOTAL ITEMS:", len(items))
 
-            for sku, title, price, status, url in items:
+            for sku, code, title, price, status, url in items:
 
                 #key = sku if sku else url
                 #key = (title, price)
@@ -404,6 +358,7 @@ def run_parser():
 
                 ws.append([
                     sku,
+                    code,
                     title,
                     price,
                     status,
@@ -422,7 +377,7 @@ def run_parser():
 
         save_status(False, 100, USER, FILE_PATH)
 
-        print("✅ Готово. Харьковская 219 Магнит")
+        print("✅ Готово. Харьковская КМТ")
 
     finally:
 
