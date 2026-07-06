@@ -313,7 +313,7 @@ async def card_updater(chat_id, msg_id, key):
         text += anim_bar(step)
 
         try:
-            await bot.safe_edit_message(
+            await safe_edit_message(
                 chat_id=chat_id,
                 message_id=msg_id,
                 text=text,
@@ -322,7 +322,7 @@ async def card_updater(chat_id, msg_id, key):
         except:
             pass
 
-        await asyncio.sleep(2)
+        await asyncio.sleep(1.5)
 
 def status(st):
     if not st:
@@ -906,7 +906,7 @@ async def dashboard_updater():
             except Exception:
                 pass
 
-        await asyncio.sleep(2)
+        await asyncio.sleep(1.5)
         
 
 # =========================
