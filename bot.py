@@ -160,6 +160,13 @@ SUPPLIERS = {
             "status": path("output/219/status.json"),
             "lock": path("output/219/lock.txt"),
         },
+        "Харьковская КМТ": {
+            "name": "📦 Харьковская КМТ",
+            "script": "parsers/КМТ/run.py",
+            "file": path("output/КМТ/КМТ_LIVE.xlsx"),
+            "status": path("output/КМТ/status.json"),
+            "lock": path("output/КМТ/lock.txt"),
+        },    
          
 }
 
