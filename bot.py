@@ -444,23 +444,6 @@ def dashboard_text():
 
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
-
-
-        
-
-        
-
-        proc = RUNNING_PROCESSES.get(k)
-
-        if proc:
-            print(k, "returncode =", proc.returncode)
-        else:
-            print(k, "нет процесса")
-    
-
-
-        
-
         
         stt, p = display_status(k, st, s["file"])
 
@@ -1072,24 +1055,26 @@ async def dashboard_updater():
     while True:
 
         for chat_id, msg_id in list(DASHBOARD_MESSAGES.items()):
-            # НЕ ОБНОВЛЯЕМ, если пользователь сейчас в карточке
+
             if chat_id in DASHBOARD_OPENED:
                 continue
-            
-            try:
 
-                await safe_edit_message(
+            text = dashboard_text()
+
+            try:
+                await bot.edit_message_text(
                     chat_id=chat_id,
                     message_id=msg_id,
-                    text=dashboard_text(),
+                    text=text,
                     reply_markup=kb_dashboard(),
                     parse_mode="HTML"
                 )
-                
-            except Exception:
-                pass
 
-        await asyncio.sleep(1.5)
+            except Exception as e:
+                if "message is not modified" not in str(e):
+                    print("DASHBOARD UPDATE ERROR:", e)
+
+        await asyncio.sleep(1)
         
 
 # =========================
