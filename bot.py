@@ -182,7 +182,14 @@ SUPPLIERS = {
             "status": path("output/201_Matrix/status.json"),
             "lock": path("output/201_Matrix/lock.txt"),
         },    
-         
+        "Харьковская 237": {
+            "name": "Харьковская 237",
+            "script": "parsers/237/run.py",
+            "file": path("output/237/237_LIVE.xlsx"),
+            "status": path("output/237/status.json"),
+            "lock": path("output/237/lock.txt"),
+        },   
+    
 }
 
 
