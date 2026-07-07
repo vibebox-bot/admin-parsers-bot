@@ -408,8 +408,18 @@ async def safe_edit(call, text, kb=None):
 
 def display_status(key, st, file_path):
 
-    if st.get("running"):
-        return "🟡 В РАБОТЕ", st.get("progress", 0)
+    # Если процесса уже нет — считаем, что парсер закончил
+    proc = RUNNING_PROCESSES.get(key)
+
+    if proc:
+        if proc.returncode is None:
+            return "🟡 В РАБОТЕ", st.get("progress", 0)
+        else:
+            RUNNING_PROCESSES.pop(key, None)
+            st["running"] = False
+
+            with open(SUPPLIERS[key]["status"], "w", encoding="utf-8") as f:
+                json.dump(st, f, ensure_ascii=False, indent=2)
 
     if st.get("canceled"):
         return "⛔ ОТМЕНЕНО", 0
@@ -434,6 +444,24 @@ def dashboard_text():
 
     for k, s in SUPPLIERS.items():
         st = load_json(s["status"])
+
+
+        
+
+        
+
+        proc = RUNNING_PROCESSES.get(k)
+
+        if proc:
+            print(k, "returncode =", proc.returncode)
+        else:
+            print(k, "нет процесса")
+    
+
+
+        
+
+        
         stt, p = display_status(k, st, s["file"])
 
         if "🟢" in stt:
