@@ -18,8 +18,8 @@ BASE = "https://matrix7km.com"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 1
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
 
 EMAIL = "finik257@gmail.com"
 PASSWORD = "18022021"
@@ -215,14 +215,14 @@ def get_categories():
 
         name = clean(a.get_text())
 
-        print(name, "->", href)
+        #print(name, "->", href)
 
         cats.append({
             "name": name,
             "url": href
         })
 
-    print(f"📂 Найдено категорий: {len(cats)}")
+    #print(f"📂 Найдено категорий: {len(cats)}")
 
     return cats
 
@@ -243,7 +243,7 @@ def parse_category(cat_url):
         else:
             url = f"{cat_url}?page={page}"
 
-        print(f"📄 {url}")
+        #print(f"📄 {url}")
 
         soup = get_soup(url)
 
