@@ -18,8 +18,8 @@ BASE = "https://elite-top.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 1
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
 
 OUTPUT_DIR = os.path.abspath("output/237")
 FILE_PATH = os.path.join(OUTPUT_DIR, "237_LIVE.xlsx")
