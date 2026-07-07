@@ -290,16 +290,14 @@ def parse_product(url):
     # STATUS
     # =========================
     status = ""
-
-    st = soup.select_one(".stock_status_success")
-
-    if st:
-        status = clean(st.get_text())
-    else:
-        st = soup.select_one(".stock_status_danger")
-
-        if st:
-            status = clean(st.get_text())
+    
+    availability = soup.select_one("ul.list-unstyled.availability")
+    
+    if availability:
+        spans = availability.select("span")
+    
+        if len(spans) >= 2:
+            status = clean(spans[1].get_text())
 
     return [
         sku,
