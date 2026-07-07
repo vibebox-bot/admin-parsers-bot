@@ -167,12 +167,12 @@ def parse_category(cat_url):
             sep = "&" if "?" in cat_url else "?"
             url = f"{cat_url}{sep}page={page}"
 
-        print(f"📄 {url}")
+        #print(f"📄 {url}")
 
         soup = get_soup(url)
 
         products = soup.select("a.product-thumb__name")
-        print(f"📦 Найдено товаров: {len(products)}")
+        #print(f"📦 Найдено товаров: {len(products)}")
 
         if not products:
             break
