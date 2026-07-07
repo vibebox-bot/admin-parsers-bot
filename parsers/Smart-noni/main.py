@@ -146,6 +146,61 @@ def clean(t):
 # =========================
 # CATEGORIES
 # =========================
+def get_categories():
+
+    soup = get_soup(BASE)
+
+    cats = []
+    seen = set()
+
+    # основные подкатегории
+    for a in soup.select("a.nsmenu-parent-title"):
+
+        href = a.get("href", "").strip()
+
+        if not href:
+            continue
+
+        if not href.startswith("http"):
+            href = BASE + "/" + href.lstrip("/")
+
+        if href in seen:
+            continue
+
+        seen.add(href)
+
+        cats.append({
+            "name": clean(a.get_text()),
+            "url": href
+        })
+
+    # если появятся еще уровни
+    for a in soup.select(".nsmenu-ischild a"):
+
+        href = a.get("href", "").strip()
+
+        if not href:
+            continue
+
+        if not href.startswith("http"):
+            href = BASE + "/" + href.lstrip("/")
+
+        if href in seen:
+            continue
+
+        seen.add(href)
+
+        cats.append({
+            "name": clean(a.get_text()),
+            "url": href
+        })
+
+    return cats
+
+
+# =========================
+# CATEGORIES
+# =========================
 def parse_category(cat_url):
 
     result = []
