@@ -174,7 +174,14 @@ SUPPLIERS = {
             "file": path("output/Smart-noni/Smart-noni_LIVE.xlsx"),
             "status": path("output/Smart-noni/status.json"),
             "lock": path("output/Smart-noni/lock.txt"),
-        },     
+        },    
+        "Харьковская 201 Matrix": {
+            "name": "Харьковская 201 Matrix",
+            "script": "parsers/201_Matrix/run.py",
+            "file": path("output/201_Matrix/201_Matrix_LIVE.xlsx"),
+            "status": path("output/201_Matrix/status.json"),
+            "lock": path("output/201_Matrix/lock.txt"),
+        },    
          
 }
 
