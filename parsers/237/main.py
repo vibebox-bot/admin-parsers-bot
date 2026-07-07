@@ -13,7 +13,7 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Харьковская 237")
 
-BASE = "https://daikens.com.ua"
+BASE = "https://elite-top.com.ua"
 
 # =========================
 # ⚙️ SWITCH
@@ -21,8 +21,6 @@ BASE = "https://daikens.com.ua"
 CATEGORY_LIMIT = 1
 #CATEGORY_LIMIT = None
 
-EMAIL = "finik257@gmail.com"
-PASSWORD = "18022021"
 
 OUTPUT_DIR = os.path.abspath("output/237")
 FILE_PATH = os.path.join(OUTPUT_DIR, "237_LIVE.xlsx")
@@ -65,36 +63,6 @@ def set_lock(state):
 
         if os.path.exists(LOCK_FILE):
             os.remove(LOCK_FILE)
-
-# =========================
-# LOGIN
-# =========================
-def login():
-
-    session.get(BASE)
-
-    payload = {
-        "email": EMAIL,
-        "password": PASSWORD
-    }
-
-    r = session.post(
-        BASE + "/index.php?route=account/login",
-        data=payload,
-        headers={
-            "Referer": BASE + "/index.php?route=account/login"
-        },
-        allow_redirects=True
-    )
-
-    print("LOGIN:", r.status_code)
-
-    check = session.get(BASE + "/index.php?route=account/account")
-
-    if "Моя інформація" in check.text or "Вихід" in check.text:
-        print("✅ LOGIN OK")
-    else:
-        print("❌ LOGIN FAIL")
         
 # =========================
 # STATUS
@@ -152,7 +120,7 @@ def get_categories():
 
     cats = []
 
-    for a in soup.select("#menu-list > li > a.dropdown-img"):    
+    for a in soup.select("ul.nav.navbar-nav > li > a.dropdown-img"):
 
         href = a.get("href", "").strip()
 
@@ -170,11 +138,6 @@ def get_categories():
     return cats
 
 
-VISITED_CATEGORIES = set()
-
-# =========================
-# CATEGORY
-# =========================
 def parse_category(cat_url):
 
     if cat_url in VISITED_CATEGORIES:
@@ -182,15 +145,8 @@ def parse_category(cat_url):
 
     VISITED_CATEGORIES.add(cat_url)
 
-    #print()
-    #print("📂", cat_url)
-
     result = []
     seen_products = set()
-
-    # =====================================
-    # ОБХОД ТОВАРОВ
-    # =====================================
 
     page = 1
 
@@ -199,10 +155,10 @@ def parse_category(cat_url):
         if page == 1:
             url = cat_url
         else:
-            sep = "&" if "?" in cat_url else "?"
-            url = f"{cat_url}{sep}page={page}"
-
-        #print(f"📄 PAGE {page}")
+            if "?" in cat_url:
+                url = f"{cat_url}&page={page}"
+            else:
+                url = f"{cat_url}/?page={page}"
 
         soup = get_soup(url)
 
@@ -210,8 +166,6 @@ def parse_category(cat_url):
 
         if not products:
             break
-
-        #print("FOUND:", len(products))
 
         added = 0
 
@@ -240,39 +194,7 @@ def parse_category(cat_url):
 
         page += 1
 
-    # =====================================
-    # ИЩЕМ ДОЧЕРНИЕ КАТЕГОРИИ
-    # =====================================
-
-    soup = get_soup(cat_url)
-
-    subcats = []
-
-    for a in soup.select(".thumbnail.subcategory a"):
-
-        href = a.get("href", "").strip()
-
-        if not href:
-            continue
-
-        if not href.startswith("http"):
-            href = BASE + "/" + href.lstrip("/")
-
-        if href == cat_url:
-            continue
-
-        if href in VISITED_CATEGORIES:
-            continue
-
-        subcats.append(href)
-
-    #print("SUBCATS:", len(subcats))
-
-    for href in subcats:
-        result.extend(parse_category(href))
-
     return result
-
 
 
 def parse_product(url):
@@ -284,7 +206,7 @@ def parse_product(url):
     # =========================
     title = ""
 
-    h1 = soup.select_one("h1[itemprop='name']")
+    h1 = soup.select_one("h1.h1-prod-name")
 
     if h1:
         title = clean(h1.get_text())
@@ -294,7 +216,7 @@ def parse_product(url):
     # =========================
     sku = ""
 
-    model = soup.select_one("[itemprop='model']")
+    model = soup.select_one("span[itemprop='model']")
 
     if model:
         sku = clean(model.get_text())
@@ -313,12 +235,31 @@ def parse_product(url):
     # STATUS
     # =========================
     status = ""
-    
+
+    # сначала обычная кнопка "В корзину"
     btn = soup.select_one("#button-cart")
-    
+
     if btn:
         status = clean(btn.get_text())
-    
+
+    # если её нет — ищем кнопку в блоке cart
+    if not status:
+        btn = soup.select_one(".cart button")
+
+        if btn:
+            span = btn.select_one("span")
+            if span:
+                status = clean(span.get_text())
+            else:
+                status = clean(btn.get_text())
+
+    # если всё равно пусто — берём любой текст кнопки покупки
+    if not status:
+        for btn in soup.select("button"):
+            txt = clean(btn.get_text())
+            if txt:
+                status = txt
+                break
 
     return [
         sku,
@@ -327,7 +268,7 @@ def parse_product(url):
         status,
         url
     ]
-
+    
 # =========================
 # MAIN
 # =========================
@@ -341,8 +282,6 @@ def run_parser():
     try:
 
         save_status(True, 0, USER, FILE_PATH)
-
-        login()
 
         wb = Workbook()
         ws = wb.active
