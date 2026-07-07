@@ -94,13 +94,21 @@ def get_soup(url):
 
         try:
 
-            r = session.get(url, timeout=30)
-            
+            r = session.get(
+                url,
+                timeout=30,
+                allow_redirects=True
+            )
+
+            print("URL:", url)
+            print("STATUS:", r.status_code)
+            print("FINAL :", r.url)
+
             if r.status_code == 200:
                 return BeautifulSoup(r.text, "html.parser")
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
         time.sleep(1)
 
