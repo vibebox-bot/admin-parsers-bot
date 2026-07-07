@@ -18,8 +18,8 @@ BASE = "https://www.gold-tor.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 1
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
 
 EMAIL = "Sawrun_05@icloud.com"
 PASSWORD = "18022021"
@@ -90,14 +90,14 @@ def login():
         allow_redirects=True
     )
 
-    print("LOGIN:", r.status_code)
+    #print("LOGIN:", r.status_code)
 
     # Проверяем, что действительно вошли
     check = session.get(
         BASE + "/index.php?route=account/account"
     )
-    print(check.url)
-    print(check.status_code)
+    #print(check.url)
+    #print(check.status_code)
     
     with open("account.html", "w", encoding="utf-8") as f:
         f.write(check.text)
@@ -216,7 +216,7 @@ def parse_category(cat_url):
         else:
             url = f"{cat_url}?page={page}"
 
-        print(f"📄 {url}")
+        #print(f"📄 {url}")
 
         soup = get_soup(url)
 
