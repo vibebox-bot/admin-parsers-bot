@@ -153,9 +153,8 @@ def get_categories():
     cats = []
     seen = set()
 
-
     for a in soup.select("a.parent-link"):
-    
+
         href = a.get("href", "").strip()
     
         if not href:
@@ -163,6 +162,12 @@ def get_categories():
     
         if not href.startswith("http"):
             href = BASE + "/" + href.lstrip("/")
+    
+        # Проверяем, есть ли товары
+        test = get_soup(href)
+    
+        if not test.select(".product-name a"):
+            continue
     
         if href in seen:
             continue
