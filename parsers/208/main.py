@@ -155,9 +155,9 @@ def parse_category(cat_url):
 
     soup = get_soup(cat_url)
 
-    # ==================================
-    # Сначала ищем подкатегории
-    # ==================================
+    # =========================
+    # Подкатегории
+    # =========================
     subcats = soup.select("li.product-category > a")
 
     if subcats:
@@ -176,11 +176,9 @@ def parse_category(cat_url):
 
         return result
 
-    # ==================================
-    # Если подкатегорий нет — товары
-    # ==================================
-
-    seen_products = set()
+    # =========================
+    # Товары
+    # =========================
 
     page = 1
 
@@ -194,40 +192,41 @@ def parse_category(cat_url):
 
         soup = get_soup(url)
 
-        products = soup.select(
-            "li.product a.woocommerce-LoopProduct-link"
-        )
+        products = []
 
-        if not products:
-            break
+        for li in soup.select("li.product"):
 
-        added = 0
+            a = li.find("a", href=True)
 
-        for a in products:
-
-            href = a.get("href", "").strip()
-
-            if not href:
+            if not a:
                 continue
+
+            href = a["href"].strip()
 
             if not href.startswith("http"):
                 href = BASE.rstrip("/") + "/" + href.lstrip("/")
 
-            if href in seen_products:
-                continue
+            products.append(href)
 
-            seen_products.add(href)
+        print(f"📄 Страница {page}: {len(products)} товаров")
+
+        if not products:
+            break
+
+        for href in products:
 
             result.append(parse_product(href))
 
-            added += 1
-
             time.sleep(0.05)
 
-        if added == 0:
+        next_btn = soup.select_one("a.next.page-numbers")
+
+        if not next_btn:
             break
 
         page += 1
+
+    print(f"✅ Всего в категории: {len(result)}")
 
     return result
 
