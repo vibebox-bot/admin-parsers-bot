@@ -195,7 +195,7 @@ def get_categories():
             "url": href
         })
 
-    print(f"📂 Найдено категорий: {len(cats)}")
+    #print(f"📂 Найдено категорий: {len(cats)}")
 
     return cats
 
