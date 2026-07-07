@@ -13,7 +13,7 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Харьковская 4425-4426 Gold Top")
 
-BASE = "https://matrix7km.com"
+BASE = "https://www.gold-tor.com.ua"
 
 # =========================
 # ⚙️ SWITCH
@@ -21,7 +21,7 @@ BASE = "https://matrix7km.com"
 CATEGORY_LIMIT = 1
 #CATEGORY_LIMIT = None
 
-EMAIL = "finik257@gmail.com"
+EMAIL = "Sawrun_05@icloud.com"
 PASSWORD = "18022021"
 
 OUTPUT_DIR = os.path.abspath("output/4425-4426_Gold_Top")
@@ -71,10 +71,10 @@ def set_lock(state):
 # =========================
 def login():
 
-    # открываем страницу логина
-    session.get(
-        BASE + "/ua/index.php?route=account/login"
-    )
+    login_url = BASE + "/index.php?route=account/login"
+
+    # Открываем страницу логина (получаем cookies)
+    session.get(login_url)
 
     payload = {
         "email": EMAIL,
@@ -82,43 +82,31 @@ def login():
     }
 
     r = session.post(
-        BASE + "/ua/index.php?route=account/login",
+        login_url,
         data=payload,
         headers={
-            "Referer": BASE + "/ua/index.php?route=account/login"
+            "Referer": login_url
         },
         allow_redirects=True
     )
 
     print("LOGIN:", r.status_code)
 
+    # Проверяем, что действительно вошли
     check = session.get(
-        BASE + "/ua/index.php?route=account/account"
+        BASE + "/index.php?route=account/account"
     )
 
-    if "Вихід" in check.text or "Особистий кабінет" in check.text:
+    if (
+        "Выход" in check.text
+        or "Мой аккаунт" in check.text
+        or "Личный кабинет" in check.text
+    ):
         print("✅ LOGIN OK")
-    else:
-        print("❌ LOGIN FAIL")
+        return True
 
-def switch_currency():
-
-    payload = {
-        "code": "USD",
-        "redirect": BASE + "/ua"
-    }
-
-    r = session.post(
-        BASE + "/ua/index.php?route=common/currency/currency",
-        data=payload,
-        headers={
-            "Referer": BASE + "/ua"
-        },
-        allow_redirects=True
-    )
-
-    print("💲 SWITCH USD:", r.status_code)
-
+    print("❌ LOGIN FAIL")
+    return False
 
 # =========================
 # STATUS
