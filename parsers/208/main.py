@@ -202,14 +202,12 @@ def parse_category(cat_url):
 
         products = []
 
-        for li in soup.select("li.product"):
+        for a in soup.select("li.product a.woocommerce-LoopProduct-link"):
 
-            a = li.find("a", href=True)
+            href = a.get("href", "").strip()
 
-            if not a:
+            if not href:
                 continue
-
-            href = a["href"].strip()
 
             if not href.startswith("http"):
                 href = BASE.rstrip("/") + "/" + href.lstrip("/")
@@ -227,9 +225,8 @@ def parse_category(cat_url):
 
             time.sleep(0.05)
 
-        next_btn = soup.select_one("a.next.page-numbers")
-
-        if not next_btn:
+        # Если кнопки "Следующая" нет — последняя страница
+        if not soup.select_one("a.next.page-numbers"):
             break
 
         page += 1
@@ -237,6 +234,7 @@ def parse_category(cat_url):
     print(f"✅ Всего в категории: {len(result)}")
 
     return result
+    
 
 def parse_product(url):
 
