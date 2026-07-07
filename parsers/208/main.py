@@ -184,56 +184,56 @@ def parse_category(cat_url):
 
         return result
 
-    # =========================
-    # Товары
-    # =========================
-
-    page = 1
-
-    while True:
-
-        if page == 1:
-            url = cat_url
-        else:
-            sep = "&" if "?" in cat_url else "?"
-            url = f"{cat_url}{sep}paged={page}"
-
-        soup = get_soup(url)
-
-        products = []
-
-        for a in soup.select("li.product a.woocommerce-LoopProduct-link"):
-
-            href = a.get("href", "").strip()
-
-            if not href:
-                continue
-
-            if not href.startswith("http"):
-                href = BASE.rstrip("/") + "/" + href.lstrip("/")
-
-            products.append(href)
-
-        print(f"📄 Страница {page}: {len(products)} товаров")
-
-        if not products:
-            break
-
-        for href in products:
-
-            result.append(parse_product(href))
-
-            time.sleep(0.05)
-
-        # Если кнопки "Следующая" нет — последняя страница
-        if not soup.select_one("a.next.page-numbers"):
-            break
-
-        page += 1
-
-    print(f"✅ Всего в категории: {len(result)}")
-
-    return result
+        # =========================
+        # Товары
+        # =========================
+        
+        url = cat_url
+        
+        while True:
+        
+            soup = get_soup(url)
+        
+            products = []
+        
+            for li in soup.select("li.product"):
+        
+                a = li.find("a", href=True)
+        
+                if not a:
+                    continue
+        
+                href = a["href"].strip()
+        
+                if not href.startswith("http"):
+                    href = BASE.rstrip("/") + "/" + href.lstrip("/")
+        
+                products.append(href)
+        
+            print(f"📄 {url}")
+            print(f"📦 Товаров: {len(products)}")
+        
+            if not products:
+                break
+        
+            for href in products:
+                result.append(parse_product(href))
+                time.sleep(0.05)
+        
+            next_btn = soup.select_one("a.next.page-numbers")
+        
+            if not next_btn:
+                break
+        
+            next_url = next_btn.get("href", "").strip()
+        
+            if not next_url:
+                break
+        
+            if not next_url.startswith("http"):
+                next_url = BASE.rstrip("/") + "/" + next_url.lstrip("/")
+        
+            url = next_url
     
 
 def parse_product(url):
