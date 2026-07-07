@@ -13,7 +13,7 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Харьковская 208")
 
-BASE = "http://www.top-kitchen.com.ua"
+BASE = "https://hi-tech-odessa.com.ua"
 
 # =========================
 # ⚙️ SWITCH
@@ -109,17 +109,14 @@ def get_soup(url):
 def clean(t):
     return re.sub(r"\s+", " ", t).strip() if t else ""
 
-# =========================
-# CATEGORIES
-# =========================
 def get_categories():
 
-    soup = get_soup(BASE)
+    soup = get_soup(BASE + "/?post_type=product")
 
     cats = []
     seen = set()
 
-    for a in soup.select("#category-module a.list-group__a, #category-module a.list-group__children-a"):
+    for a in soup.select("li.product-category a"):
 
         href = a.get("href", "").strip()
 
@@ -134,13 +131,17 @@ def get_categories():
 
         seen.add(href)
 
+        name = clean(a.select_one("h2").get_text()) if a.select_one("h2") else clean(a.get_text())
+
         cats.append({
-            "name": clean(a.get_text()),
+            "name": name,
             "url": href
         })
 
-    return cats
+    print(f"📂 Найдено категорий: {len(cats)}")
 
+    return cats
+    
 VISITED_CATEGORIES = set()
 
 def parse_category(cat_url):
@@ -151,6 +152,34 @@ def parse_category(cat_url):
     VISITED_CATEGORIES.add(cat_url)
 
     result = []
+
+    soup = get_soup(cat_url)
+
+    # ==================================
+    # Сначала ищем подкатегории
+    # ==================================
+    subcats = soup.select("li.product-category > a")
+
+    if subcats:
+
+        for a in subcats:
+
+            href = a.get("href", "").strip()
+
+            if not href:
+                continue
+
+            if not href.startswith("http"):
+                href = BASE.rstrip("/") + "/" + href.lstrip("/")
+
+            result.extend(parse_category(href))
+
+        return result
+
+    # ==================================
+    # Если подкатегорий нет — товары
+    # ==================================
+
     seen_products = set()
 
     page = 1
@@ -161,14 +190,13 @@ def parse_category(cat_url):
             url = cat_url
         else:
             sep = "&" if "?" in cat_url else "?"
-            url = f"{cat_url}{sep}page={page}"
-
-        #print(f"📄 {url}")
+            url = f"{cat_url}{sep}paged={page}"
 
         soup = get_soup(url)
 
-        products = soup.select("a.product-thumb__name")
-        #print(f"📦 Найдено товаров: {len(products)}")
+        products = soup.select(
+            "li.product a.woocommerce-LoopProduct-link"
+        )
 
         if not products:
             break
@@ -191,6 +219,7 @@ def parse_category(cat_url):
             seen_products.add(href)
 
             result.append(parse_product(href))
+
             added += 1
 
             time.sleep(0.05)
@@ -202,7 +231,6 @@ def parse_category(cat_url):
 
     return result
 
-
 def parse_product(url):
 
     soup = get_soup(url)
@@ -210,59 +238,45 @@ def parse_product(url):
     # =========================
     # TITLE
     # =========================
-    title = ""
 
-    h1 = soup.select_one("h1")
-
-    if h1:
-        title = clean(h1.get_text())
+    title = clean(
+        soup.select_one("h1.product_title").get_text()
+    ) if soup.select_one("h1.product_title") else ""
 
     # =========================
-    # SKU (Код товара)
+    # SKU
     # =========================
-    sku = ""
 
-    model = soup.select_one(".product-data__item.model")
-
-    if model:
-        txt = clean(model.get_text())
-        sku = txt.replace("Код Товара:", "").strip()
-
-    # =========================
-    # ARTICLE (Артикул)
-    # =========================
-    article = ""
-
-    art = soup.select_one(".product-data__item.sku")
-
-    if art:
-        txt = clean(art.get_text())
-        article = txt.replace("Артикул:", "").strip()
+    sku = clean(
+        soup.select_one("span.sku").get_text()
+    ) if soup.select_one("span.sku") else ""
 
     # =========================
     # PRICE
     # =========================
+
     price = ""
 
-    p = soup.select_one(".product-page__price")
+    p = soup.select_one("p.price .woocommerce-Price-amount")
 
     if p:
-        price = clean(p.get_text())
+        price = clean(p.get_text()).replace("$", "")
 
     # =========================
     # STATUS
     # =========================
-    status = ""
-    
-    qty = soup.select_one(".qty-indicator__bar")
-    
-    if qty:
-        status = clean(qty.get("title", ""))
-        
+
+    if soup.select_one("button.single_add_to_cart_button"):
+        status = "В наличии"
+
+    elif soup.select_one("p.stock.out-of-stock"):
+        status = "Нет в наличии"
+
+    else:
+        status = ""
 
     return [
         sku,
-        article,
         title,
         price,
         status,
@@ -285,7 +299,7 @@ def run_parser():
 
         wb = Workbook()
         ws = wb.active
-        ws.append(["SKU", "ARTICLE", "TITLE", "PRICE", "STATUS", "URL"])
+        ws.append(["SKU", "TITLE", "PRICE", "STATUS", "URL"])
 
         seen = set()
 
@@ -318,7 +332,7 @@ def run_parser():
 
             #print("TOTAL ITEMS:", len(items))
 
-            for sku, article, title, price, status, url in items:
+            for sku, title, price, status, url in items:
                 
                 key = url
                 
@@ -332,7 +346,6 @@ def run_parser():
 
                 ws.append([
                     sku,
-                    article,
                     title,
                     price,
                     status,
