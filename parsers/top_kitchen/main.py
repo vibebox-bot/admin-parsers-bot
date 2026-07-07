@@ -18,8 +18,8 @@ BASE = "http://www.top-kitchen.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 1
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
 
 OUTPUT_DIR = os.path.abspath("output/top_kitchen")
 FILE_PATH = os.path.join(OUTPUT_DIR, "top_kitchen_LIVE.xlsx")
