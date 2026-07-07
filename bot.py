@@ -633,39 +633,40 @@ async def run_parser(key, user):
 
     try:
         while True:
-            # читаем статус отмены
+        
             st = load_json(s["status"])
-
-            if st and st.get("canceled"):
+        
+            if st.get("canceled"):
                 try:
                     import psutil
+        
                     parent = psutil.Process(proc.pid)
-
+        
                     for child in parent.children(recursive=True):
                         try:
                             child.kill()
                         except:
                             pass
-
-                    try:
-                        parent.kill()
-                    except:
-                        pass
-
+        
+                    parent.kill()
+        
                 except Exception as e:
-                    print("KILL ERROR:", e)
-
+                    print(e)
+        
                 RUNNING_PROCESSES.pop(key, None)
                 return "canceled"
-
-            # если процесс умер
+        
+            # ← проверяем жив ли процесс
+            if proc.returncode is None:
+                await proc.poll()
+        
             if proc.returncode is not None:
                 break
-
-            await asyncio.sleep(3)
-
+        
+            await asyncio.sleep(1)
+        
         stdout, stderr = await proc.communicate()
-
+        
         if stdout:
             print(stdout.decode(errors="ignore"))
 
