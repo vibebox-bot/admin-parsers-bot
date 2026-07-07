@@ -330,17 +330,14 @@ def parse_product(url):
     # STATUS
     # =========================
     status = ""
-
-    btn = soup.select_one(".ds-stock-notifier-btn")
-
-    if btn:
-        status = clean(btn.get_text())
-    else:
-
-        btn = soup.select_one(".ds-module-cart-btn")
-
-        if btn:
-            status = clean(btn.get_text())
+    
+    for span in soup.select("button .button-text"):
+    
+        text = clean(span.get_text())
+    
+        if text:
+            status = text
+            break    
 
     return [
         sku,
