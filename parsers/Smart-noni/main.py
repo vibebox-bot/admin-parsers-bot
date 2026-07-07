@@ -146,101 +146,6 @@ def clean(t):
 # =========================
 # CATEGORIES
 # =========================
-def get_categories():
-
-    soup = get_soup(BASE)
-
-    cats = []
-
-    menu = soup.select_one("nav.menu-left > ul")
-
-    if not menu:
-        return cats
-
-    for li in menu.find_all("li", recursive=False):
-
-        a = li.find("a", href=True)
-
-        if not a:
-            continue
-
-        href = a["href"].strip()
-
-        if href.startswith("/"):
-            href = BASE + href
-
-        cats.append({
-            "name": clean(a.get_text()),
-            "url": href
-        })
-
-    return cats
-    
-    
-# =========================
-# PARSE CATEGORY
-# =========================
-def parse_product(url, status):    
-
-    soup = get_soup(url)
-
-    # =========================
-    # TITLE
-    # =========================
-    title = ""
-
-    h1 = soup.select_one("h1")
-    if h1:
-        title = clean(h1.get_text())
-
-    # =========================
-    # SKU
-    # =========================
-    sku = ""
-
-    # =========================
-    # CODE
-    # =========================
-    code = ""
-
-    box = soup.select_one(".box-card_code")
-
-    if box:
-
-        text = box.get_text(" ", strip=True)
-
-        m = re.search(r"Код товара:\s*(Ц-\d+)", text)
-        if m:
-            sku = m.group(1)
-
-        m = re.search(r"Код:\s*(\S+)", text)
-        if m:
-            code = m.group(1)
-
-    # =========================
-    # PRICE
-    # =========================
-    price = ""
-
-    new_price = soup.select_one(".price__new")
-
-    if new_price:
-        price = clean(new_price.get_text())
-    else:
-        box_price = soup.select_one(".box-card_hryvnia")
-        if box_price:
-            price = clean(box_price.get_text())
-
-    return [
-        sku,
-        code,
-        title,
-        price,
-        status,
-        url
-    ]
-
-
 def parse_category(cat_url):
 
     result = []
@@ -253,58 +158,101 @@ def parse_category(cat_url):
         if page == 1:
             url = cat_url
         else:
-            sep = "&" if "?" in cat_url else "?"
-            url = f"{cat_url}{sep}page={page}&ajax=1"
+            url = f"{cat_url}?page={page}"
 
-        print(f"PAGE {page}")
+        print(f"📄 PAGE {page}")
 
         soup = get_soup(url)
 
-        cards = soup.select("div.list-catalog_item")
+        products = soup.select(".product-name a")
 
-        if not cards:
+        if not products:
             break
 
-        added = 0
+        print(f"FOUND: {len(products)}")
 
-        for card in cards:
+        for a in products:
 
-            a = card.select_one(".list-catalog_title a")
-
-            if not a:
-                continue
-
-            href = a.get("href")
-
-            status = ""
-
-            label = card.select_one(".product__label")
-            
-            if label:
-                status = clean(label.get_text())
+            href = a.get("href", "").strip()
 
             if not href:
                 continue
+
+            if not href.startswith("http"):
+                href = BASE + "/" + href.lstrip("/")
 
             if href in seen:
                 continue
 
             seen.add(href)
 
-            result.append(parse_product(href, status))
-            added += 1
+            result.append(parse_product(href))
 
-        print(f"FOUND: {added}")
-
-        if added == 0:
-            break
+            time.sleep(0.1)
 
         page += 1
-        time.sleep(0.3)
 
     return result
+    
+# =========================
+# PARSE CATEGORY
+# =========================
+def parse_product(url):
 
+    soup = get_soup(url)
 
+    # =========================
+    # TITLE
+    # =========================
+    title = ""
+
+    h1 = soup.select_one("h1[itemprop='name']")
+
+    if h1:
+        title = clean(h1.get_text())
+
+    # =========================
+    # SKU
+    # =========================
+    sku = ""
+
+    model = soup.select_one("[itemprop='model']")
+
+    if model:
+        sku = clean(model.get_text())
+
+    # =========================
+    # PRICE
+    # =========================
+    price = ""
+
+    p = soup.select_one(".autocalc-product-price")
+
+    if p:
+        price = clean(p.get_text())
+
+    # =========================
+    # STATUS
+    # =========================
+    status = ""
+
+    st = soup.select_one(".stock_status_success")
+
+    if st:
+        status = clean(st.get_text())
+    else:
+        st = soup.select_one(".stock_status_danger")
+
+        if st:
+            status = clean(st.get_text())
+
+    return [
+        sku,
+        title,
+        price,
+        status,
+        url
+    ]
 
 # =========================
 # MAIN
@@ -324,7 +272,7 @@ def run_parser():
 
         wb = Workbook()
         ws = wb.active
-        ws.append(["SKU", "CODE", "TITLE", "PRICE", "STATUS", "URL"])
+        ws.append(["SKU", "TITLE", "PRICE", "STATUS", "URL"])
 
         seen = set()
 
@@ -357,7 +305,7 @@ def run_parser():
 
             #print("TOTAL ITEMS:", len(items))
 
-            for sku, code, title, price, status, url in items:
+            for sku, title, price, status, url in items:
 
                 #key = sku if sku else url
                 #key = (title, price)
@@ -372,7 +320,6 @@ def run_parser():
 
                 ws.append([
                     sku,
-                    code,
                     title,
                     price,
                     status,
