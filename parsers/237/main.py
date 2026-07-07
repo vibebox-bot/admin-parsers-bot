@@ -21,7 +21,6 @@ BASE = "https://elite-top.com.ua"
 CATEGORY_LIMIT = 1
 #CATEGORY_LIMIT = None
 
-
 OUTPUT_DIR = os.path.abspath("output/237")
 FILE_PATH = os.path.join(OUTPUT_DIR, "237_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
@@ -137,6 +136,7 @@ def get_categories():
 
     return cats
 
+VISITED_CATEGORIES = set()
 
 def parse_category(cat_url):
 
