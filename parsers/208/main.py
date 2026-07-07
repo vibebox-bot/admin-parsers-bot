@@ -23,8 +23,8 @@ CATEGORY_LIMIT = 1
 
 OUTPUT_DIR = os.path.abspath("output/208")
 FILE_PATH = os.path.join(OUTPUT_DIR, "208_LIVE.xlsx")
-STATUS_PATH = os.path.join(OUTPUT_DIR, "top_kitchen.json")
-LOCK_FILE = os.path.join(OUTPUT_DIR, "top_kitchen.txt")
+STATUS_PATH = os.path.join(OUTPUT_DIR, "208.json")
+LOCK_FILE = os.path.join(OUTPUT_DIR, "208.txt")
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
@@ -254,13 +254,20 @@ def parse_product(url):
     # =========================
     # PRICE
     # =========================
-
+    
     price = ""
-
-    p = soup.select_one("p.price .woocommerce-Price-amount")
-
+    
+    # Сначала ищем акционную цену
+    p = soup.select_one("p.price ins .woocommerce-Price-amount")
+    
     if p:
-        price = clean(p.get_text()).replace("$", "")
+        price = clean(p.get_text())
+    
+    else:
+        p = soup.select_one("p.price .woocommerce-Price-amount")
+    
+        if p:
+            price = clean(p.get_text())
 
     # =========================
     # STATUS
