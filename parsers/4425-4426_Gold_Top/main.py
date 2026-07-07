@@ -96,7 +96,12 @@ def login():
     check = session.get(
         BASE + "/index.php?route=account/account"
     )
-
+    print(check.url)
+    print(check.status_code)
+    
+    with open("account.html", "w", encoding="utf-8") as f:
+        f.write(check.text)
+        
     if (
         "Выход" in check.text
         or "Мой аккаунт" in check.text
