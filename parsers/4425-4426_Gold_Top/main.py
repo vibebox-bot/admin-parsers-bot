@@ -160,33 +160,12 @@ def clean(t):
 # =========================
 def get_categories():
 
-    soup = get_soup(BASE + "/ua")
+    soup = get_soup(BASE)
 
     cats = []
     seen = set()
 
-    menu = soup.select_one("nav.ds-menu-catalog-inner")
-
-    if not menu:
-        print("❌ Каталог не найден")
-        return cats
-
-    top_ul = menu.find("ul")
-
-    if not top_ul:
-        print("❌ Список категорий не найден")
-        return cats
-
-    # Берем только категории первого уровня
-    for li in top_ul.find_all("li", recursive=False):
-
-        a = li.find(
-            "a",
-            class_="ds-menu-maincategories-item-title"
-        )
-
-        if not a:
-            continue
+    for a in soup.select("#d_category_menu_list a.link-level-1"):
 
         href = a.get("href", "").strip()
 
@@ -194,7 +173,7 @@ def get_categories():
             continue
 
         if not href.startswith("http"):
-            href = BASE + href
+            href = BASE.rstrip("/") + "/" + href.lstrip("/")
 
         if href in seen:
             continue
@@ -203,14 +182,15 @@ def get_categories():
 
         name = clean(a.get_text())
 
-        #print(name, "->", href)
+        # убираем количество товаров (131, 26 и т.д.)
+        name = re.sub(r"\d+\s*$", "", name).strip()
 
         cats.append({
             "name": name,
             "url": href
         })
 
-    #print(f"📂 Найдено категорий: {len(cats)}")
+    print(f"📂 Найдено категорий: {len(cats)}")
 
     return cats
 
