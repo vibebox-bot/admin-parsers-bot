@@ -18,7 +18,7 @@ BASE = "https://daikens.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 2
+CATEGORY_LIMIT = 3
 #CATEGORY_LIMIT = None
 
 EMAIL = "finik257@gmail.com"
@@ -291,13 +291,11 @@ def parse_product(url):
     # =========================
     status = ""
     
-    availability = soup.select_one("ul.list-unstyled.availability")
+    btn = soup.select_one("#button-cart")
     
-    if availability:
-        spans = availability.select("span")
+    if btn:
+        status = clean(btn.get_text())
     
-        if len(spans) >= 2:
-            status = clean(spans[1].get_text())
 
     return [
         sku,
