@@ -202,7 +202,7 @@ def parse_category(cat_url):
             sep = "&" if "?" in cat_url else "?"
             url = f"{cat_url}{sep}page={page}"
 
-        print(f"📄 PAGE {page}")
+        #print(f"📄 PAGE {page}")
 
         soup = get_soup(url)
 
@@ -211,7 +211,7 @@ def parse_category(cat_url):
         if not products:
             break
 
-        print("FOUND:", len(products))
+        #print("FOUND:", len(products))
 
         added = 0
 
@@ -266,7 +266,7 @@ def parse_category(cat_url):
 
         subcats.append(href)
 
-    print("SUBCATS:", len(subcats))
+    #print("SUBCATS:", len(subcats))
 
     for href in subcats:
         result.extend(parse_category(href))
