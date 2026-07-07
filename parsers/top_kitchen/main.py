@@ -22,7 +22,7 @@ CATEGORY_LIMIT = 1
 #CATEGORY_LIMIT = None
 
 OUTPUT_DIR = os.path.abspath("output/top_kitchen")
-FILE_PATH = os.path.join(OUTPUT_DIR, "top_kitchen.xlsx")
+FILE_PATH = os.path.join(OUTPUT_DIR, "top_kitchen_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "top_kitchen.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "top_kitchen.txt")
 
