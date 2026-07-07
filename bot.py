@@ -1056,26 +1056,24 @@ async def dashboard_updater():
 
         for chat_id, msg_id in list(DASHBOARD_MESSAGES.items()):
 
+            # НЕ ОБНОВЛЯЕМ, если пользователь сейчас в карточке
             if chat_id in DASHBOARD_OPENED:
                 continue
 
-            text = dashboard_text()
-
             try:
-                await bot.edit_message_text(
+
+                await safe_edit_message(
                     chat_id=chat_id,
                     message_id=msg_id,
-                    text=text,
-                    reply_markup=kb_dashboard(),
+                    text=dashboard_text(),
+                    kb=kb_dashboard(),
                     parse_mode="HTML"
                 )
 
-            except Exception as e:
-                if "message is not modified" not in str(e):
-                    print("DASHBOARD UPDATE ERROR:", e)
+            except Exception:
+                pass
 
-        await asyncio.sleep(1)
-        
+        await asyncio.sleep(1.5)
 
 # =========================
 # MAIN
