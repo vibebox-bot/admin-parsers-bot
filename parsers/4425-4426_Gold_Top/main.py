@@ -279,18 +279,10 @@ def parse_product(url):
     # =========================
     sku = ""
     
-    for div in soup.select("div.mr-4.p-1.text-secondary"):
+    span = soup.select_one("div.mr-4.p-1.text-secondary span.text-danger")
     
-        txt = clean(div.get_text())
-    
-        if "Код Товара:" in txt:
-    
-            span = div.select_one("span.text-danger")
-    
-            if span:
-                sku = clean(span.get_text())
-    
-            break
+    if span:
+        sku = clean(span.get_text())
             
     # =========================
     # PRICE
