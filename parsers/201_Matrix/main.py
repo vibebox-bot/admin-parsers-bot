@@ -326,18 +326,24 @@ def parse_product(url):
     if p:
         price = clean(p.get_text())
 
+
     # =========================
     # STATUS
     # =========================
     status = ""
-    
-    for span in soup.select("button .button-text"):
-    
-        text = clean(span.get_text())
-    
-        if text:
-            status = text
-            break    
+
+    # если есть кнопка Купить
+    buy_btn = soup.select_one(".ds-product-main-actions #button-cart .button-text")
+
+    if buy_btn:
+        status = clean(buy_btn.get_text())
+
+    else:
+        # если товара нет — кнопка "Повідомити про наявність"
+        notify_btn = soup.select_one(".ds-product-main-actions .ds-stock-notifier-btn .button-text")
+
+        if notify_btn:
+            status = clean(notify_btn.get_text())
 
     return [
         sku,
