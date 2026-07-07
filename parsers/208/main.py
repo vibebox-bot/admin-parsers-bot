@@ -22,8 +22,8 @@ seen = set()
 BASE_URL = "https://lambix.prom.ua"
 CATALOG_URL = "https://lambix.prom.ua/ua/product_list"
 
-OUTPUT_DIR = os.path.abspath("output/220_Kithen_Plus")
-FILE_PATH = os.path.join(OUTPUT_DIR, "220_Kithen_Plus_LIVE.xlsx")
+OUTPUT_DIR = os.path.abspath("output/208")
+FILE_PATH = os.path.join(OUTPUT_DIR, "208_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
@@ -414,10 +414,7 @@ def save_product(ws, product):
 # =====================================================
 
 def main():
-    #print("🔥 ENTER MAIN()")
-    print("🚀 PARSER STARTED")
-    print("🚀 STARTED Харьковская 220 Kithen Plus")
-    #print(f"👤 USER: {USER}")
+    print("🚀 STARTED Харьковская 208")
 
     if is_locked():
         #print("⛔ Уже запущен")
@@ -456,7 +453,7 @@ def main():
             file_path=FILE_PATH
         )
 
-        print(f"✅ Готово. Харьковская 220 Kithen Plus")
+        print(f"✅ Готово. Харьковская 208")
 
 
     finally:
