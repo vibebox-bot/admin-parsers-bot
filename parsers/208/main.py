@@ -341,12 +341,12 @@ def run_parser():
 
             for sku, title, price, status, url in items:
                 
-                key = url
+                #key = url
                 
-                if key in seen:
-                    continue
+                #if key in seen:
+                    #continue
                 
-                seen.add(key)
+                #seen.add(key)
 
                 if not title:
                     continue
