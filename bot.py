@@ -167,7 +167,14 @@ SUPPLIERS = {
             "file": path("output/КМТ/КМТ_LIVE.xlsx"),
             "status": path("output/КМТ/status.json"),
             "lock": path("output/КМТ/lock.txt"),
-        },    
+        },  
+        "Харьковская Smart-noni": {
+            "name": "📦 Харьковская Smart-noni",
+            "script": "parsers/Smart-noni/run.py",
+            "file": path("output/Smart-noni/Smart-noni_LIVE.xlsx"),
+            "status": path("output/Smart-noni/status.json"),
+            "lock": path("output/Smart-noni/lock.txt"),
+        },     
          
 }
 
