@@ -257,11 +257,17 @@ def parse_product(url):
     # STATUS
     # =========================
     status = ""
-
-    qty = soup.select_one(".qty-indicator__bar")
-
+    
+    qty = soup.select_one("div.qty-indicator__bar")
+    
     if qty:
         status = clean(qty.get("data-original-title", ""))
+    
+    if not status:
+        qty = soup.find(attrs={"data-original-title": True})
+        if qty:
+            status = clean(qty.get("data-original-title", ""))
+        
 
     return [
         sku,
