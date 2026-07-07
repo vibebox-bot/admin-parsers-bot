@@ -211,13 +211,12 @@ def parse_category(cat_url):
         else:
             url = f"{cat_url}?page={page}"
 
-        #print(f"📄 {url}")
+        print(f"📄 {url}")
 
         soup = get_soup(url)
 
-        products = soup.select(
-            ".content-block .ds-module-title"
-        )
+        #products = soup.select("div.product-item a[href]")
+        products = soup.select("div.product-name a")
 
         if not products:
             break
@@ -231,8 +230,12 @@ def parse_category(cat_url):
             if not href:
                 continue
 
+            # Берем только ссылку на страницу товара
+            if "/image/" in href:
+                continue
+
             if not href.startswith("http"):
-                href = BASE + href
+                href = BASE.rstrip("/") + "/" + href.lstrip("/")
 
             if href in seen:
                 continue
@@ -261,7 +264,7 @@ def parse_product(url):
     # =========================
     title = ""
 
-    h1 = soup.select_one("h1")
+    h1 = soup.select_one("h1[itemprop='name']")
 
     if h1:
         title = clean(h1.get_text())
@@ -271,16 +274,16 @@ def parse_product(url):
     # =========================
     sku = ""
 
-    for span in soup.select("span"):
+    for div in soup.select("div"):
 
-        txt = clean(span.get_text())
+        txt = clean(div.get_text())
 
-        if "Код товару" in txt:
+        if "Код Товара:" in txt:
 
-            code = span.select_one(".light-text")
+            span = div.select_one("span.text-danger")
 
-            if code:
-                sku = clean(code.get_text())
+            if span:
+                sku = clean(span.get_text())
 
             break
 
@@ -289,29 +292,20 @@ def parse_product(url):
     # =========================
     price = ""
 
-    p = soup.select_one(".ds-price-new")
+    p = soup.select_one(".h2.m-0.text-nowrap")
 
     if p:
         price = clean(p.get_text())
-
 
     # =========================
     # STATUS
     # =========================
     status = ""
 
-    # Нет в наличии
-    btn = soup.find("button", onclick=re.compile(r"octStockNotifier"))
+    alert = soup.select_one(".alert")
 
-    if btn:
-        status = clean(btn.get_text())
-
-    # В наличии
-    if not status:
-        btn = soup.find("button", id="button-cart")
-
-        if btn:
-            status = clean(btn.get_text())
+    if alert:
+        status = clean(alert.get_text())
 
     return [
         sku,
