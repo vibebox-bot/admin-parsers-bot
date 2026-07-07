@@ -18,8 +18,8 @@ BASE = "https://daikens.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 1
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
 
 EMAIL = "finik257@gmail.com"
 PASSWORD = "18022021"
