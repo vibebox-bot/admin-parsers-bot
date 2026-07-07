@@ -151,70 +151,16 @@ def get_categories():
     soup = get_soup(BASE)
 
     cats = []
-    seen = set()
 
     for a in soup.select("a.parent-link"):
 
         href = a.get("href", "").strip()
-    
-        if not href:
-            continue
-    
-        if not href.startswith("http"):
-            href = BASE + "/" + href.lstrip("/")
-    
-        # Проверяем, есть ли товары
-        test = get_soup(href)
-    
-        if not test.select(".product-name a"):
-            continue
-    
-        if href in seen:
-            continue
-    
-        seen.add(href)
-    
-        cats.append({
-            "name": clean(a.get_text()),
-            "url": href
-        })
-    
-    # основные подкатегории
-    for a in soup.select("a.nsmenu-parent-title"):
-
-        href = a.get("href", "").strip()
 
         if not href:
             continue
 
         if not href.startswith("http"):
             href = BASE + "/" + href.lstrip("/")
-
-        if href in seen:
-            continue
-
-        seen.add(href)
-
-        cats.append({
-            "name": clean(a.get_text()),
-            "url": href
-        })
-
-    # если появятся еще уровни
-    for a in soup.select(".nsmenu-ischild a"):
-
-        href = a.get("href", "").strip()
-
-        if not href:
-            continue
-
-        if not href.startswith("http"):
-            href = BASE + "/" + href.lstrip("/")
-
-        if href in seen:
-            continue
-
-        seen.add(href)
 
         cats.append({
             "name": clean(a.get_text()),
@@ -223,13 +169,28 @@ def get_categories():
 
     return cats
 
+
+VISITED_CATEGORIES = set()
+
 # =========================
 # CATEGORIES
 # =========================
 def parse_category(cat_url):
 
+    if cat_url in VISITED_CATEGORIES:
+        return []
+
+    VISITED_CATEGORIES.add(cat_url)
+
+    print()
+    print("📂", cat_url)
+
     result = []
-    seen = set()
+    seen_products = set()
+
+    # =====================================
+    # ТОВАРЫ В КАТЕГОРИИ
+    # =====================================
 
     page = 1
 
@@ -249,7 +210,9 @@ def parse_category(cat_url):
         if not products:
             break
 
-        print(f"FOUND: {len(products)}")
+        print("FOUND:", len(products))
+
+        added = 0
 
         for a in products:
 
@@ -261,22 +224,55 @@ def parse_category(cat_url):
             if not href.startswith("http"):
                 href = BASE + "/" + href.lstrip("/")
 
-            if href in seen:
+            if href in seen_products:
                 continue
 
-            seen.add(href)
+            seen_products.add(href)
 
             result.append(parse_product(href))
 
-            time.sleep(0.1)
+            added += 1
+
+            time.sleep(0.05)
+
+        if added == 0:
+            break
 
         page += 1
 
+    # =====================================
+    # ИЩЕМ ПОДКАТЕГОРИИ
+    # =====================================
+
+    soup = get_soup(cat_url)
+
+    subcats = []
+
+    for a in soup.select("a.nsmenu-parent-title, .nsmenu-ischild a"):
+
+        href = a.get("href", "").strip()
+
+        if not href:
+            continue
+
+        if not href.startswith("http"):
+            href = BASE + "/" + href.lstrip("/")
+
+        if href == cat_url:
+            continue
+
+        subcats.append(href)
+
+    print("SUBCATS:", len(subcats))
+
+    for href in subcats:
+
+        result.extend(parse_category(href))
+
     return result
-    
-# =========================
-# PARSE CATEGORY
-# =========================
+
+
+
 def parse_product(url):
 
     soup = get_soup(url)
