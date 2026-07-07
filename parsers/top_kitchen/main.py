@@ -11,20 +11,20 @@ import sys
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 Харьковская 237")
+print("🔥 Top Kithen")
 
-BASE = "https://elite-top.com.ua"
+BASE = "http://www.top-kitchen.com.ua"
 
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 1
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
 
-OUTPUT_DIR = os.path.abspath("output/237")
-FILE_PATH = os.path.join(OUTPUT_DIR, "237_LIVE.xlsx")
-STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
-LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
+OUTPUT_DIR = os.path.abspath("output/top_kitchen")
+FILE_PATH = os.path.join(OUTPUT_DIR, "top_kitchen.xlsx")
+STATUS_PATH = os.path.join(OUTPUT_DIR, "top_kitchen.json")
+LOCK_FILE = os.path.join(OUTPUT_DIR, "top_kitchen.txt")
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
@@ -113,13 +113,17 @@ def clean(t):
 # =========================
 # CATEGORIES
 # =========================
+# =========================
+# CATEGORIES
+# =========================
 def get_categories():
 
     soup = get_soup(BASE)
 
     cats = []
+    seen = set()
 
-    for a in soup.select("ul.nav.navbar-nav > li > a.dropdown-img"):
+    for a in soup.select("#category-module a.list-group__a, #category-module a.list-group__children-a"):
 
         href = a.get("href", "").strip()
 
@@ -127,7 +131,12 @@ def get_categories():
             continue
 
         if not href.startswith("http"):
-            href = BASE + "/" + href.lstrip("/")
+            href = BASE.rstrip("/") + "/" + href.lstrip("/")
+
+        if href in seen:
+            continue
+
+        seen.add(href)
 
         cats.append({
             "name": clean(a.get_text()),
@@ -155,14 +164,14 @@ def parse_category(cat_url):
         if page == 1:
             url = cat_url
         else:
-            if "?" in cat_url:
-                url = f"{cat_url}&page={page}"
-            else:
-                url = f"{cat_url}/?page={page}"
+            sep = "&" if "?" in cat_url else "?"
+            url = f"{cat_url}{sep}page={page}"
+
+        print(f"📄 {url}")
 
         soup = get_soup(url)
 
-        products = soup.select(".product-name a")
+        products = soup.select("a.product-thumb__name")
 
         if not products:
             break
@@ -177,7 +186,7 @@ def parse_category(cat_url):
                 continue
 
             if not href.startswith("http"):
-                href = BASE + "/" + href.lstrip("/")
+                href = BASE.rstrip("/") + "/" + href.lstrip("/")
 
             if href in seen_products:
                 continue
@@ -206,27 +215,39 @@ def parse_product(url):
     # =========================
     title = ""
 
-    h1 = soup.select_one("h1.h1-prod-name")
+    h1 = soup.select_one("h1")
 
     if h1:
         title = clean(h1.get_text())
 
     # =========================
-    # SKU
+    # SKU (Код товара)
     # =========================
     sku = ""
 
-    model = soup.select_one("span[itemprop='model']")
+    model = soup.select_one(".product-data__item.model")
 
     if model:
-        sku = clean(model.get_text())
+        txt = clean(model.get_text())
+        sku = txt.replace("Код Товара:", "").strip()
+
+    # =========================
+    # ARTICLE (Артикул)
+    # =========================
+    article = ""
+
+    art = soup.select_one(".product-data__item.sku")
+
+    if art:
+        txt = clean(art.get_text())
+        article = txt.replace("Артикул:", "").strip()
 
     # =========================
     # PRICE
     # =========================
     price = ""
 
-    p = soup.select_one(".autocalc-product-price")
+    p = soup.select_one(".product-page__price")
 
     if p:
         price = clean(p.get_text())
@@ -236,33 +257,14 @@ def parse_product(url):
     # =========================
     status = ""
 
-    # сначала обычная кнопка "В корзину"
-    btn = soup.select_one("#button-cart")
+    qty = soup.select_one(".qty-indicator__bar")
 
-    if btn:
-        status = clean(btn.get_text())
-
-    # если её нет — ищем кнопку в блоке cart
-    if not status:
-        btn = soup.select_one(".cart button")
-
-        if btn:
-            span = btn.select_one("span")
-            if span:
-                status = clean(span.get_text())
-            else:
-                status = clean(btn.get_text())
-
-    # если всё равно пусто — берём любой текст кнопки покупки
-    if not status:
-        for btn in soup.select("button"):
-            txt = clean(btn.get_text())
-            if txt:
-                status = txt
-                break
+    if qty:
+        status = clean(qty.get("data-original-title", ""))
 
     return [
         sku,
+        article,
         title,
         price,
         status,
@@ -285,7 +287,7 @@ def run_parser():
 
         wb = Workbook()
         ws = wb.active
-        ws.append(["SKU", "TITLE", "PRICE", "STATUS", "URL"])
+        ws.append(["SKU", "ARTICLE", "TITLE", "PRICE", "STATUS", "URL"])
 
         seen = set()
 
@@ -318,26 +320,27 @@ def run_parser():
 
             #print("TOTAL ITEMS:", len(items))
 
-            for sku, title, price, status, url in items:
-
-                #key = sku if sku else url
-                #key = (title, price)
-
-                #if key in seen:
-                    #continue
-
-                #seen.add(key)
+            for sku, article, title, price, status, url in items:
+                
+                key = url
+                
+                if key in seen:
+                    continue
+                
+                seen.add(key)
 
                 if not title:
                     continue
 
                 ws.append([
                     sku,
+                    article,
                     title,
                     price,
                     status,
                     url
                 ])
+                
 
             time.sleep(0.2)
 
@@ -351,7 +354,7 @@ def run_parser():
 
         save_status(False, 100, USER, FILE_PATH)
 
-        print("✅ Готово. Харьковская 237")
+        print("✅ Готово. Top Kithen")
 
     finally:
 
@@ -360,5 +363,3 @@ def run_parser():
 
 if __name__ == "__main__":
     run_parser()
-
-
