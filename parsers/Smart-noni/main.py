@@ -182,8 +182,8 @@ def parse_category(cat_url):
 
     VISITED_CATEGORIES.add(cat_url)
 
-    print()
-    print("📂", cat_url)
+    #print()
+    #print("📂", cat_url)
 
     result = []
     seen_products = set()
