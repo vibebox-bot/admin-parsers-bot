@@ -183,10 +183,19 @@ def get_categories():
         print("❌ Каталог не найден")
         return cats
 
-    # Только первый уровень категорий
-    for li in menu.select("> ul > li.ds-menu-catalog-item"):
+    top_ul = menu.find("ul")
 
-        a = li.select_one(":scope > a.ds-menu-maincategories-item-title")
+    if not top_ul:
+        print("❌ Список категорий не найден")
+        return cats
+
+    # Берем только категории первого уровня
+    for li in top_ul.find_all("li", recursive=False):
+
+        a = li.find(
+            "a",
+            class_="ds-menu-maincategories-item-title"
+        )
 
         if not a:
             continue
@@ -196,13 +205,20 @@ def get_categories():
         if not href:
             continue
 
+        if not href.startswith("http"):
+            href = BASE + href
+
         if href in seen:
             continue
 
         seen.add(href)
 
+        name = clean(a.get_text())
+
+        print(name, "->", href)
+
         cats.append({
-            "name": clean(a.get_text()),
+            "name": name,
             "url": href
         })
 
