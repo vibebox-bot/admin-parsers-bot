@@ -100,9 +100,9 @@ def get_soup(url):
                 allow_redirects=True
             )
 
-            print("URL:", url)
-            print("STATUS:", r.status_code)
-            print("FINAL :", r.url)
+            #print("URL:", url)
+            #print("STATUS:", r.status_code)
+            #print("FINAL :", r.url)
 
             if r.status_code == 200:
                 return BeautifulSoup(r.text, "html.parser")
@@ -166,6 +166,7 @@ def parse_category(cat_url):
     # =========================
     # Подкатегории
     # =========================
+
     subcats = soup.select("li.product-category > a")
 
     if subcats:
@@ -184,56 +185,67 @@ def parse_category(cat_url):
 
         return result
 
-        # =========================
-        # Товары
-        # =========================
-        
-        url = cat_url
-        
-        while True:
-        
-            soup = get_soup(url)
-        
-            products = []
-        
-            for li in soup.select("li.product"):
-        
-                a = li.find("a", href=True)
-        
-                if not a:
-                    continue
-        
-                href = a["href"].strip()
-        
-                if not href.startswith("http"):
-                    href = BASE.rstrip("/") + "/" + href.lstrip("/")
-        
-                products.append(href)
-        
-            print(f"📄 {url}")
-            print(f"📦 Товаров: {len(products)}")
-        
-            if not products:
-                break
-        
-            for href in products:
-                result.append(parse_product(href))
-                time.sleep(0.05)
-        
-            next_btn = soup.select_one("a.next.page-numbers")
-        
-            if not next_btn:
-                break
-        
+    # =========================
+    # Товары
+    # =========================
+
+    page = 1
+    url = cat_url
+
+    while url:
+
+        soup = get_soup(url)
+
+        products = []
+
+        for li in soup.select("li.product"):
+
+            a = li.find("a", href=True)
+
+            if not a:
+                continue
+
+            href = a["href"].strip()
+
+            if not href.startswith("http"):
+                href = BASE.rstrip("/") + "/" + href.lstrip("/")
+
+            products.append(href)
+
+        #print(f"📄 Страница {page}: {len(products)} товаров")
+
+        if not products:
+            break
+
+        for href in products:
+
+            result.append(parse_product(href))
+            time.sleep(0.05)
+
+        next_btn = soup.select_one("a.next.page-numbers")
+
+        if next_btn:
+
             next_url = next_btn.get("href", "").strip()
-        
-            if not next_url:
-                break
-        
-            if not next_url.startswith("http"):
-                next_url = BASE.rstrip("/") + "/" + next_url.lstrip("/")
-        
-            url = next_url
+
+            if next_url:
+
+                if not next_url.startswith("http"):
+                    next_url = BASE.rstrip("/") + "/" + next_url.lstrip("/")
+
+                #print("➡ Следующая:", next_url)
+
+                url = next_url
+                page += 1
+                continue
+
+        print("🏁 Последняя страница")
+        break
+
+    print(f"✅ Всего в категории: {len(result)}")
+
+    return result
+    
     
 
 def parse_product(url):
