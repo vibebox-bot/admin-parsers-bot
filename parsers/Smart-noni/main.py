@@ -153,6 +153,27 @@ def get_categories():
     cats = []
     seen = set()
 
+
+    for a in soup.select("a.parent-link"):
+    
+        href = a.get("href", "").strip()
+    
+        if not href:
+            continue
+    
+        if not href.startswith("http"):
+            href = BASE + "/" + href.lstrip("/")
+    
+        if href in seen:
+            continue
+    
+        seen.add(href)
+    
+        cats.append({
+            "name": clean(a.get_text()),
+            "url": href
+        })
+    
     # основные подкатегории
     for a in soup.select("a.nsmenu-parent-title"):
 
@@ -196,7 +217,6 @@ def get_categories():
         })
 
     return cats
-
 
 # =========================
 # CATEGORIES
