@@ -278,6 +278,7 @@ def get_progress(st):
 
 
 async def card_updater(chat_id, msg_id, key):
+
     while chat_id in DASHBOARD_OPENED:
 
         s = SUPPLIERS[key]
@@ -285,21 +286,73 @@ async def card_updater(chat_id, msg_id, key):
 
         stt, p = display_status(key, st, s["file"])
 
-        # 🧠 ВАЖНО: создаём text заново
-        text = f"{s['name']}\n\n"
-        text += f"{stt}\n\n"
-        
+        user = st.get("user", "-")
+        run_time = st.get("time", "-")
+
+        text = f"📦 <b>{s['name']}</b>\n\n"
+        text += f"{stt}\n"
+        text += f"👤 <b>Пользователь:</b> {user}\n"
+        text += f"🕒 <b>Запуск:</b> {run_time}\n"
+
+        # Пока работает
+        if st.get("running"):
+
+            phrases = [
+                "🧐 Ищу товары...",
+                "🔎 Сканирую сайт...",
+                "📦 Собираю данные...",
+                "📑 Читаю карточки...",
+                "🛒 Проверяю ассортимент...",
+                "⚙️ Обрабатываю информацию...",
+                "📥 Загружаю результаты...",
+                "🧩 Собираю всё воедино...",
+                "🚀 Работа кипит..."
+            ]
+
+            text += "\n\n" + random.choice(phrases)
+
+            kb = kb_supplier(key, True)
+
+        else:
+
+            # Если уже закончил
+            if os.path.exists(s["file"]):
+
+                size_mb = round(
+                    os.path.getsize(s["file"]) / 1024 / 1024,
+                    2
+                )
+
+                dt = datetime.fromtimestamp(
+                    os.path.getmtime(s["file"])
+                ).strftime("%d.%m.%Y %H:%M")
+
+                text += (
+                    "\n\n"
+                    "📄 <b>Excel</b>\n"
+                    f"├ Размер: {size_mb} МБ\n"
+                    f"└ Обновлён: {dt}"
+                )
+
+            kb = kb_supplier(key, False)
+
         try:
             await safe_edit_message(
                 chat_id=chat_id,
                 message_id=msg_id,
                 text=text,
-                reply_markup=kb_supplier(key, True)
+                kb=kb,
+                parse_mode="HTML"
             )
         except:
             pass
 
-        await asyncio.sleep(0.6)
+        # Если закончил — прекращаем обновлять карточку
+        if not st.get("running"):
+            break
+
+        await asyncio.sleep(1)
+        
 
 def status(st):
     if not st:
@@ -355,7 +408,7 @@ async def safe_edit(call, text, kb=None):
 
 def display_status(key, st, file_path):
 
-    if key in RUNNING_PROCESSES:
+    if st.get("running"):
         return "🟡 В РАБОТЕ", st.get("progress", 0)
 
     if st.get("canceled"):
@@ -364,9 +417,7 @@ def display_status(key, st, file_path):
     if not os.path.exists(file_path):
         return "⚪ НЕТ ФАЙЛА", 0
 
-    size = os.path.getsize(file_path)
-
-    if size < 50:
+    if os.path.getsize(file_path) < 50:
         return "🔴 ОШИБКА", 0
 
     return "🟢 ГОТОВО", 100
