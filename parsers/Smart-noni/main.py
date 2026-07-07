@@ -173,7 +173,7 @@ def get_categories():
 VISITED_CATEGORIES = set()
 
 # =========================
-# CATEGORIES
+# CATEGORY
 # =========================
 def parse_category(cat_url):
 
@@ -189,7 +189,7 @@ def parse_category(cat_url):
     seen_products = set()
 
     # =====================================
-    # ТОВАРЫ В КАТЕГОРИИ
+    # ОБХОД ТОВАРОВ
     # =====================================
 
     page = 1
@@ -199,7 +199,8 @@ def parse_category(cat_url):
         if page == 1:
             url = cat_url
         else:
-            url = f"{cat_url}?page={page}"
+            sep = "&" if "?" in cat_url else "?"
+            url = f"{cat_url}{sep}page={page}"
 
         print(f"📄 PAGE {page}")
 
@@ -230,7 +231,6 @@ def parse_category(cat_url):
             seen_products.add(href)
 
             result.append(parse_product(href))
-
             added += 1
 
             time.sleep(0.05)
@@ -241,14 +241,14 @@ def parse_category(cat_url):
         page += 1
 
     # =====================================
-    # ИЩЕМ ПОДКАТЕГОРИИ
+    # ИЩЕМ ДОЧЕРНИЕ КАТЕГОРИИ
     # =====================================
 
     soup = get_soup(cat_url)
 
     subcats = []
 
-    for a in soup.select("a.nsmenu-parent-title, .nsmenu-ischild a"):
+    for a in soup.select(".thumbnail.subcategory a"):
 
         href = a.get("href", "").strip()
 
@@ -261,12 +261,14 @@ def parse_category(cat_url):
         if href == cat_url:
             continue
 
+        if href in VISITED_CATEGORIES:
+            continue
+
         subcats.append(href)
 
     print("SUBCATS:", len(subcats))
 
     for href in subcats:
-
         result.extend(parse_category(href))
 
     return result
