@@ -172,6 +172,7 @@ def parse_category(cat_url):
         soup = get_soup(url)
 
         products = soup.select("a.product-thumb__name")
+        print(f"📦 Найдено товаров: {len(products)}")
 
         if not products:
             break
