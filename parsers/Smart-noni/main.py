@@ -11,21 +11,21 @@ import sys
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 Харьковская КМТ")
+print("🔥 Харьковская Smart-noni")
 
-BASE = "https://kmt5.com.ua"
+BASE = "https://daikens.com.ua"
 
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 1
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
 
 EMAIL = "finik257@gmail.com"
 PASSWORD = "18022021"
 
-OUTPUT_DIR = os.path.abspath("output/КМТ")
-FILE_PATH = os.path.join(OUTPUT_DIR, "КМТ_LIVE.xlsx")
+OUTPUT_DIR = os.path.abspath("output/Smart-noni")
+FILE_PATH = os.path.join(OUTPUT_DIR, "Smart-noni_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
@@ -71,10 +71,7 @@ def set_lock(state):
 # =========================
 def login():
 
-    # получаем PHPSESSID
     session.get(BASE)
-
-    login_url = BASE + "/login/?ajax=1"
 
     payload = {
         "email": EMAIL,
@@ -82,27 +79,22 @@ def login():
     }
 
     r = session.post(
-        login_url,
+        BASE + "/index.php?route=account/login",
         data=payload,
         headers={
-            "X-Requested-With": "XMLHttpRequest",
-            "Referer": BASE + "/access-denied"
-        }
+            "Referer": BASE + "/index.php?route=account/login"
+        },
+        allow_redirects=True
     )
 
     print("LOGIN:", r.status_code)
 
-    try:
-        print(r.json())
-    except:
-        print(r.text)
+    check = session.get(BASE + "/index.php?route=account/account")
 
-    check = session.get(BASE)
-
-    if "logout" in check.text.lower() or "выйти" in check.text.lower() or "личный кабинет" in check.text.lower():
+    if "Моя інформація" in check.text or "Вихід" in check.text:
         print("✅ LOGIN OK")
     else:
-        print("⚠ LOGIN CHECK")
+        print("❌ LOGIN FAIL")
         
 # =========================
 # STATUS
@@ -399,7 +391,7 @@ def run_parser():
 
         save_status(False, 100, USER, FILE_PATH)
 
-        print("✅ Готово. Харьковская КМТ")
+        print("✅ Готово. Харьковская Smart-noni")
 
     finally:
 
