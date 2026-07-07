@@ -11,21 +11,21 @@ import sys
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 Харьковская Smart-noni")
+print("🔥 Харьковская 237")
 
 BASE = "https://daikens.com.ua"
 
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 1
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
 
 EMAIL = "finik257@gmail.com"
 PASSWORD = "18022021"
 
-OUTPUT_DIR = os.path.abspath("output/Smart-noni")
-FILE_PATH = os.path.join(OUTPUT_DIR, "Smart-noni_LIVE.xlsx")
+OUTPUT_DIR = os.path.abspath("output/237")
+FILE_PATH = os.path.join(OUTPUT_DIR, "237_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
@@ -412,7 +412,7 @@ def run_parser():
 
         save_status(False, 100, USER, FILE_PATH)
 
-        print("✅ Готово. Харьковская Smart-noni")
+        print("✅ Готово. Харьковская 237")
 
     finally:
 
