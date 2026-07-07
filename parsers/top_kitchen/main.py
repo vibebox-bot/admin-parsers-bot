@@ -109,10 +109,6 @@ def get_soup(url):
 def clean(t):
     return re.sub(r"\s+", " ", t).strip() if t else ""
 
-
-# =========================
-# CATEGORIES
-# =========================
 # =========================
 # CATEGORIES
 # =========================
@@ -258,15 +254,10 @@ def parse_product(url):
     # =========================
     status = ""
     
-    qty = soup.select_one("div.qty-indicator__bar")
+    qty = soup.select_one(".qty-indicator__bar")
     
     if qty:
-        status = clean(qty.get("data-original-title", ""))
-    
-    if not status:
-        qty = soup.find(attrs={"data-original-title": True})
-        if qty:
-            status = clean(qty.get("data-original-title", ""))
+        status = clean(qty.get("title", ""))
         
 
     return [
