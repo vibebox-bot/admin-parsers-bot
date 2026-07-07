@@ -330,7 +330,6 @@ def run_parser():
         save_status(True, 0, USER, FILE_PATH)
 
         login()
-        switch_currency()
 
         wb = Workbook()
         ws = wb.active
