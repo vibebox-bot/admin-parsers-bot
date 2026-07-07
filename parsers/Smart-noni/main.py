@@ -18,7 +18,7 @@ BASE = "https://daikens.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 3
+CATEGORY_LIMIT = 1
 #CATEGORY_LIMIT = None
 
 EMAIL = "finik257@gmail.com"
@@ -152,7 +152,7 @@ def get_categories():
 
     cats = []
 
-    for a in soup.select("a.parent-link"):
+    for a in soup.select("#menu-list > li > a.dropdown-img"):    
 
         href = a.get("href", "").strip()
 
