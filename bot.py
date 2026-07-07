@@ -633,10 +633,9 @@ async def run_parser(key, user):
 
     try:
         while True:
-        
             st = load_json(s["status"])
         
-            if st.get("canceled"):
+            if st and st.get("canceled"):
                 try:
                     import psutil
         
@@ -648,24 +647,32 @@ async def run_parser(key, user):
                         except:
                             pass
         
-                    parent.kill()
+                    try:
+                        parent.kill()
+                    except:
+                        pass
         
                 except Exception as e:
-                    print(e)
+                    print("KILL ERROR:", e)
         
                 RUNNING_PROCESSES.pop(key, None)
                 return "canceled"
         
-            # ← проверяем жив ли процесс
-            if proc.returncode is None:
-                await proc.poll()
-        
+            # процесс уже закончился?
             if proc.returncode is not None:
                 break
+        
+            # принудительно обновляем returncode
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=0.1)
+                break
+            except asyncio.TimeoutError:
+                pass
         
             await asyncio.sleep(1)
         
         stdout, stderr = await proc.communicate()
+      
         
         if stdout:
             print(stdout.decode(errors="ignore"))
