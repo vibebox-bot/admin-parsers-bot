@@ -209,16 +209,7 @@ def parse_category(cat_url):
 
         visited_pages.add(url)
 
-        r = session.get(
-            url,
-            headers=HEADERS,
-            timeout=30,
-            allow_redirects=True
-        )
-        
-        if r.status_code != 200:
-
-        soup = BeautifulSoup(r.text, "html.parser")
+        soup = get_soup(url)
 
         products = []
 
