@@ -247,13 +247,18 @@ def parse_category(cat_url):
                 if href not in products:
                     products.append(href)
 
-
         print(f"📄 Страница {page}: {len(products)} товаров")
-
-
+        
+        if page == 16:
+            print("=" * 80)
+            print("URL:", url)
+            print("li.product =", len(soup.select("li.product")))
+            print("LoopProduct =", len(soup.select("a.woocommerce-LoopProduct-link")))
+            print("products =", len(products))
+            print("=" * 80)
+        
         if not products:
             break
-
 
         # -------------------------
         # Парсим товары
