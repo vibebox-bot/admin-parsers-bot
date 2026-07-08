@@ -166,6 +166,13 @@ def login():
 
     if "/login" not in r.url:
         print("✅ LOGIN OK")
+        print(session.cookies.get_dict())
+        r = session.get(BASE)
+
+        print("ACCOUNT CHECK")
+        print("LOGIN PAGE:", "/login" in r.url)
+        print("PRICE EXISTS:", "#block_price" in r.text)
+        print("LOGOUT EXISTS:", "logout" in r.text.lower())
         return True
 
     print("❌ LOGIN FAILED")
