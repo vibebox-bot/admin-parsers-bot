@@ -368,12 +368,15 @@ def run_parser():
                 key = sku if sku else url
 
                 if key in seen:
+                    print("🔁 ДУБЛЬ:", key, "|", title)
                     continue
                 
                 seen.add(key)
                 
                 if not title:
+                    print("❌ Пустой TITLE:", url)
                     continue
+        
 
                 ws.append([
                     sku,
