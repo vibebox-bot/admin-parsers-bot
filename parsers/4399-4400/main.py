@@ -99,8 +99,6 @@ def save_status(running=False, progress=0, user="", file_path=""):
 # =========================
 def get_soup(url):
 
-    session.cookies.clear()
-
     for _ in range(3):
 
         try:
@@ -329,6 +327,11 @@ def run_parser():
     try:
 
         save_status(True, 0, USER, FILE_PATH)
+
+        if not login():
+            print("❌ Не удалось авторизоваться")
+            save_status(False, 0, USER, FILE_PATH)
+            return
 
         wb = Workbook()
         ws = wb.active
