@@ -13,7 +13,10 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Харьковская 4399-4400")
 
-BASE = "https://hi-tech-odessa.com.ua"
+BASE = "https://jumpex.com.ua"
+
+EMAIL = "angelinatitor@gmail.com"
+PASSWORD = "380931937922"
 
 # =========================
 # ⚙️ SWITCH
@@ -121,40 +124,85 @@ def get_soup(url):
         time.sleep(1)
 
     return BeautifulSoup("", "html.parser")
+def login():
 
+    print("🔐 LOGIN...")
+
+    login_url = BASE + "/login"
+
+    soup = get_soup(login_url)
+
+    form = soup.select_one("form")
+
+    if not form:
+        print("❌ LOGIN FORM NOT FOUND")
+        return False
+
+    payload = {}
+
+    for inp in form.select("input"):
+
+        name = inp.get("name")
+
+        if not name:
+            continue
+
+        payload[name] = inp.get("value", "")
+
+    payload["username"] = EMAIL
+    payload["passwd"] = PASSWORD
+    payload["remember"] = "yes"
+
+    action = form.get("action") or "/user/loginsave"
+
+    if not action.startswith("http"):
+        action = BASE + action
+
+    r = session.post(
+        action,
+        data=payload,
+        allow_redirects=True,
+        timeout=30
+    )
+
+    if "/login" not in r.url:
+        print("✅ LOGIN OK")
+        return True
+
+    print("❌ LOGIN FAILED")
+    return False
+    
 def clean(t):
     return re.sub(r"\s+", " ", t).strip() if t else ""
 
 def get_categories():
 
-    soup = get_soup(BASE + "/?post_type=product")
+    soup = get_soup(BASE)
 
     cats = []
     seen = set()
 
-    for a in soup.select("li.product-category a"):
+    for a in soup.select(".catalog_treenameClass li.nav-item.parent > a"):
 
         href = a.get("href", "").strip()
 
         if not href:
             continue
 
-        if not href.startswith("http"):
-            href = BASE.rstrip("/") + "/" + href.lstrip("/")
+        if href.startswith("/"):
+            href = BASE + href
 
         if href in seen:
             continue
 
         seen.add(href)
 
-        name = clean(a.select_one("h2").get_text()) if a.select_one("h2") else clean(a.get_text())
-
         cats.append({
-            "name": name,
+            "name": clean(a.get_text()),
             "url": href
         })
 
-    #print(f"📂 Найдено категорий: {len(cats)}")
+    print(f"📂 Найдено категорий: {len(cats)}")
 
     return cats
     
@@ -169,127 +217,66 @@ def parse_category(cat_url):
 
     result = []
 
-    soup = get_soup(cat_url)
+    subcats = []
 
-    # =========================
-    # Подкатегории
-    # =========================
-
-    subcats = soup.select("li.product-category > a")
-
+    for a in soup.select(".catalog_treenameClass li.nav-item.parent > ul a"):
+    
+        href = a.get("href", "").strip()
+    
+        if not href:
+            continue
+    
+        if href.startswith("/"):
+            href = BASE + href
+    
+        subcats.append(href)
+    
     if subcats:
-
-        for a in subcats:
-
-            href = a.get("href", "").strip()
-
-            if not href:
-                continue
-
-            if not href.startswith("http"):
-                href = BASE.rstrip("/") + "/" + href.lstrip("/")
-
+    
+        for href in subcats:
             result.extend(parse_category(href))
-
+    
         return result
 
-    # =========================
-    # Товары + пагинация
-    # =========================
+    page = 0
 
-    page = 1
-    url = cat_url
+    while True:
 
-    visited_pages = set()
-
-    while url:
-
-        if url in visited_pages:
-            break
-
-        visited_pages.add(url)
+        url = f"{cat_url}?start={page}"
 
         soup = get_soup(url)
 
         products = []
 
-        for a in soup.select("a.woocommerce-LoopProduct-link"):
+        for a in soup.select("div.product .name a"):
 
             href = a.get("href", "").strip()
 
             if not href:
                 continue
 
-            if not href.startswith("http"):
-                href = BASE.rstrip("/") + "/" + href.lstrip("/")
+            if href.startswith("/"):
+                href = BASE + href
 
             if href not in products:
                 products.append(href)
 
         if not products:
-
-            for li in soup.select("li.product"):
-
-                a = li.find("a", href=True)
-
-                if not a:
-                    continue
-
-                href = a["href"].strip()
-
-                if not href.startswith("http"):
-                    href = BASE.rstrip("/") + "/" + href.lstrip("/")
-
-                if href not in products:
-                    products.append(href)
-
-        if not products:
             break
+
+        print(f"📄 Страница {page // 12 + 1}: {len(products)} товаров")
 
         for href in products:
             result.append(parse_product(href))
             time.sleep(0.05)
 
-        next_btn = soup.select_one("a.next.page-numbers")
+        # последняя страница
+        if len(products) < 12:
+            break
 
-        if next_btn:
+        page += 12
 
-            next_url = next_btn.get("href", "").strip()
-
-            if next_url:
-
-                if not next_url.startswith("http"):
-                    next_url = BASE.rstrip("/") + "/" + next_url.lstrip("/")
-
-                url = next_url
-                page += 1
-                continue
-
-        current = soup.select_one("span.page-numbers.current")
-
-        if current:
-
-            current_page = int(current.get_text(strip=True))
-
-            last_page = current_page
-
-            for link in soup.select("a.page-numbers"):
-
-                txt = link.get_text(strip=True)
-
-                if txt.isdigit():
-                    last_page = max(last_page, int(txt))
-
-            if current_page < last_page:
-
-                page += 1
-
-                sep = "&" if "?" in cat_url else "?"
-
-                url = f"{cat_url}{sep}paged={page}"
-
-                continue
-        break
+    print(f"✅ Всего в категории: {len(result)}")
 
     return result
     
@@ -301,49 +288,48 @@ def parse_product(url):
     # =========================
     # TITLE
     # =========================
+    title = ""
 
-    title = clean(
-        soup.select_one("h1.product_title").get_text()
-    ) if soup.select_one("h1.product_title") else ""
+    h1 = soup.select_one("h1")
+
+    if h1:
+        title = clean(h1.get_text())
 
     # =========================
     # SKU
     # =========================
+    sku = ""
 
-    sku = clean(
-        soup.select_one("span.sku").get_text()
-    ) if soup.select_one("span.sku") else ""
+    sku_tag = soup.select_one(".prod-ean")
+
+    if sku_tag:
+        sku = clean(
+            sku_tag.get_text().replace("Артикул:", "")
+        )
 
     # =========================
     # PRICE
     # =========================
-    
     price = ""
-    
-    # Сначала ищем акционную цену
-    p = soup.select_one("p.price ins .woocommerce-Price-amount")
-    
+
+    p = soup.select_one(".prod_price")
+
     if p:
         price = clean(p.get_text())
-    
-    else:
-        p = soup.select_one("p.price .woocommerce-Price-amount")
-    
-        if p:
-            price = clean(p.get_text())
 
     # =========================
     # STATUS
     # =========================
+    status = ""
 
-    if soup.select_one("button.single_add_to_cart_button"):
-        status = "В наличии"
+    s = soup.select_one(".avail")
 
-    elif soup.select_one("p.stock.out-of-stock"):
-        status = "Нет в наличии"
-
+    if s:
+        status = clean(s.get_text())
     else:
-        status = ""
+        s = soup.select_one(".prod-not-avail")
+        if s:
+            status = clean(s.get_text())
 
     return [
         sku,
@@ -402,13 +388,13 @@ def run_parser():
 
             for sku, title, price, status, url in items:
                 
-                #key = url
-                
-                #if key in seen:
-                    #continue
-                
-                #seen.add(key)
+                key = sku if sku else url
 
+                if key in seen:
+                    continue
+                
+                seen.add(key)
+                
                 if not title:
                     continue
 
