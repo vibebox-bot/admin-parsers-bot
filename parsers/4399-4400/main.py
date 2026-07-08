@@ -124,6 +124,7 @@ def get_soup(url):
         time.sleep(1)
 
     return BeautifulSoup("", "html.parser")
+
 def login():
 
     print("🔐 LOGIN...")
@@ -182,7 +183,7 @@ def get_categories():
     cats = []
     seen = set()
 
-    for a in soup.select(".catalog_treenameClass li.nav-item.parent > a"):
+    for a in soup.select(".catalog_treenameClass a[href]"):
 
         href = a.get("href", "").strip()
 
@@ -191,6 +192,10 @@ def get_categories():
 
         if href.startswith("/"):
             href = BASE + href
+
+        # пропускаем служебные ссылки
+        if href == BASE:
+            continue
 
         if href in seen:
             continue
@@ -204,56 +209,11 @@ def get_categories():
 
     print(f"📂 Найдено категорий: {len(cats)}")
 
-    return cats
-    
-VISITED_CATEGORIES = set()
+    return cats    
 
 def parse_category(cat_url):
 
-    if cat_url in VISITED_CATEGORIES:
-        return []
-
-    VISITED_CATEGORIES.add(cat_url)
-
     result = []
-
-    # =========================
-    # Загружаем категорию
-    # =========================
-
-    soup = get_soup(cat_url)
-
-    # =========================
-    # Подкатегории
-    # =========================
-
-    subcats = []
-
-    for a in soup.select(".catalog_treenameClass li.nav-item.parent > ul a"):
-
-        href = a.get("href", "").strip()
-
-        if not href:
-            continue
-
-        if href.startswith("/"):
-            href = BASE + href
-
-        if href not in subcats:
-            subcats.append(href)
-
-    if subcats:
-
-        print(f"📂 Подкатегорий: {len(subcats)}")
-
-        for href in subcats:
-            result.extend(parse_category(href))
-
-        return result
-
-    # =========================
-    # Товары + страницы
-    # =========================
 
     page = 0
 
@@ -287,7 +247,7 @@ def parse_category(cat_url):
             result.append(parse_product(href))
             time.sleep(0.05)
 
-        # если товаров меньше 12 — последняя страница
+        # последняя страница
         if len(products) < 12:
             break
 
