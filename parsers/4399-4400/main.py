@@ -287,11 +287,11 @@ def parse_product(url):
     # =========================
     price = ""
 
-    p = soup.select_one(".prod_price")
-
+    p = soup.select_one("#block_price")
+    
     if p:
         price = clean(p.get_text())
-
+    
     # =========================
     # STATUS
     # =========================
