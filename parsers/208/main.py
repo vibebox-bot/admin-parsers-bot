@@ -18,8 +18,8 @@ BASE = "https://hi-tech-odessa.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 1
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
 
 OUTPUT_DIR = os.path.abspath("output/208")
 FILE_PATH = os.path.join(OUTPUT_DIR, "208_LIVE.xlsx")
@@ -154,7 +154,7 @@ def get_categories():
             "url": href
         })
 
-    print(f"📂 Найдено категорий: {len(cats)}")
+    #print(f"📂 Найдено категорий: {len(cats)}")
 
     return cats
     
