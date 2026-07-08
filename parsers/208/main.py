@@ -205,10 +205,10 @@ def parse_category(cat_url):
         soup = get_soup(url)
 
         if page == 16:
-            with open("page16.html", "w", encoding="utf-8") as f:
-                f.write(soup.prettify())
-
-
+            print("=" * 80)
+            print(soup.prettify()[:15000])
+            print("=" * 80)        
+        
         # -------------------------
         # Сбор товаров
         # -------------------------
