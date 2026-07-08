@@ -218,10 +218,6 @@ def parse_category(cat_url):
         
         if r.status_code != 200:
 
-        if page == 16:
-            with open("page16.html", "w", encoding="utf-8") as f:
-                f.write(r.text)
-
         soup = BeautifulSoup(r.text, "html.parser")
 
         products = []
