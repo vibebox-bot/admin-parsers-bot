@@ -216,6 +216,14 @@ def parse_category(cat_url):
             timeout=30,
             allow_redirects=True
         )
+        
+        print("REQUEST URL:", r.request.url)
+        print("STATUS:", r.status_code)
+        
+        if r.status_code != 200:
+            print("BODY:")
+            print(r.text[:1000])
+        
 
         print("FINAL URL :", r.url)
         print("STATUS    :", r.status_code)
