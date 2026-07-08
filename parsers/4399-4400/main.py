@@ -260,6 +260,17 @@ def parse_product(url):
 
     soup = get_soup(url)
 
+    print("=" * 80)
+    print(url)
+    
+    price_block = soup.select_one("#block_price")
+    print("BLOCK_PRICE:", price_block)
+    
+    prod_price = soup.select_one(".prod_price")
+    print("PROD_PRICE:", prod_price)
+    
+    print("LOGIN FORM:", soup.select_one('form[action*="loginsave"]'))
+
     # =========================
     # TITLE
     # =========================
