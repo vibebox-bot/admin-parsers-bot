@@ -11,74 +11,64 @@ import sys
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 JUMPEX")
+print("🔥 Харьковская 208")
 
-BASE = "https://jumpex.com.ua"
+BASE = "https://hi-tech-odessa.com.ua"
 
 # =========================
 # ⚙️ SWITCH
 # =========================
-# CATEGORY_LIMIT = 1   # тест
-CATEGORY_LIMIT = None  # все категории
+#CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
 
-EMAIL = "angelinatitor@gmail.com"
-PASSWORD = "380931937922"
-
-OUTPUT_DIR = os.path.abspath("output/4399-4400")
-FILE_PATH = os.path.join(OUTPUT_DIR, "4399-4400_LIVE.xlsx")
+OUTPUT_DIR = os.path.abspath("output/208")
+FILE_PATH = os.path.join(OUTPUT_DIR, "208_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
+LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "ru,en-US;q=0.9,en;q=0.8",
+    "Connection": "keep-alive",
+    "Referer": BASE + "/",
+    "Upgrade-Insecure-Requests": "1"
 }
 
-# =========================
-# SESSION (ВАЖНО)
-# =========================
 session = requests.Session()
 session.headers.update(HEADERS)
+session.get(BASE, timeout=30)
 
-def login():
+def is_locked():
 
-    print("LOGIN...")
+    if not os.path.exists(LOCK_FILE):
+        return False
 
-    login_url = BASE + "/login"
+    try:
+        age = time.time() - os.path.getmtime(LOCK_FILE)
 
-    r = session.get(login_url)
+        if age > 3600:
+            os.remove(LOCK_FILE)
+            return False
 
-    soup = BeautifulSoup(r.text, "html.parser")
+        return True
 
-    payload = {}
+    except:
+        return False
 
-    for inp in soup.select("form input"):
-        name = inp.get("name")
 
-        if not name:
-            continue
+def set_lock(state):
 
-        payload[name] = inp.get("value", "")
+    if state:
 
-    payload["username"] = EMAIL
-    payload["passwd"] = PASSWORD
-    payload["remember"] = "yes"
+        with open(LOCK_FILE, "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
 
-    r = session.post(
-        BASE + "/user/loginsave",
-        data=payload,
-        allow_redirects=True
-    )
-
-    #print("FINAL URL:", r.url)
-
-    if "/login" not in r.url:
-        print("LOGIN OK")
     else:
-        print("LOGIN FAILED")
-        #print(r.text[:5000])
 
-    #print(session.cookies.get_dict())
-
-
+        if os.path.exists(LOCK_FILE):
+            os.remove(LOCK_FILE)
+        
 # =========================
 # STATUS
 # =========================
@@ -100,106 +90,209 @@ def save_status(running=False, progress=0, user="", file_path=""):
 
     os.replace(tmp, STATUS_PATH)
 
+
 # =========================
 # HTTP
 # =========================
-
 def get_soup(url):
-    r = session.get(url, timeout=30)
-    return BeautifulSoup(r.text, "html.parser")
 
+    session.cookies.clear()
+
+    for _ in range(3):
+
+        try:
+
+            r = session.get(
+                url,
+                timeout=30,
+                allow_redirects=True
+            )
+
+            #print("URL:", url)
+            #print("STATUS:", r.status_code)
+            #print("FINAL :", r.url)
+
+            if r.status_code == 200:
+                return BeautifulSoup(r.text, "html.parser")
+
+        except Exception as e:
+            print(e)
+
+        time.sleep(1)
+
+    return BeautifulSoup("", "html.parser")
 
 def clean(t):
     return re.sub(r"\s+", " ", t).strip() if t else ""
 
-
-# =========================
-# CATEGORIES
-# =========================
-
 def get_categories():
 
-    soup = get_soup(BASE)
+    soup = get_soup(BASE + "/?post_type=product")
 
     cats = []
+    seen = set()
 
-    for a in soup.select(".catalog_treenameClass li.nav-item.parent > a"):
+    for a in soup.select("li.product-category a"):
 
-        href = a.get("href")
+        href = a.get("href", "").strip()
 
         if not href:
             continue
 
-        if href.startswith("/"):
-            href = BASE + href
+        if not href.startswith("http"):
+            href = BASE.rstrip("/") + "/" + href.lstrip("/")
 
-        cats.append(href)
+        if href in seen:
+            continue
 
-    cats = list(dict.fromkeys(cats))
+        seen.add(href)
 
-    #print("FOUND MAIN CATEGORIES:", len(cats))
+        name = clean(a.select_one("h2").get_text()) if a.select_one("h2") else clean(a.get_text())
 
-    #for c in cats:
-        #print(c)
+        cats.append({
+            "name": name,
+            "url": href
+        })
+
+    #print(f"📂 Найдено категорий: {len(cats)}")
 
     return cats
+    
+VISITED_CATEGORIES = set()
 
+def parse_category(cat_url):
 
-# =========================
-# PRODUCTS
-# =========================
+    if cat_url in VISITED_CATEGORIES:
+        return []
 
-def load_products(cat_url):
+    VISITED_CATEGORIES.add(cat_url)
 
-    print("CATEGORY:", cat_url)
+    result = []
 
-    all_products = set()
-    page = 0
+    soup = get_soup(cat_url)
 
-    while True:
+    # =========================
+    # Подкатегории
+    # =========================
 
-        url = f"{cat_url}?start={page}"
-        #print("LOAD:", url)
+    subcats = soup.select("li.product-category > a")
+
+    if subcats:
+
+        for a in subcats:
+
+            href = a.get("href", "").strip()
+
+            if not href:
+                continue
+
+            if not href.startswith("http"):
+                href = BASE.rstrip("/") + "/" + href.lstrip("/")
+
+            result.extend(parse_category(href))
+
+        return result
+
+    # =========================
+    # Товары + пагинация
+    # =========================
+
+    page = 1
+    url = cat_url
+
+    visited_pages = set()
+
+    while url:
+
+        if url in visited_pages:
+            break
+
+        visited_pages.add(url)
 
         soup = get_soup(url)
 
-        items = soup.select("div.product")
+        products = []
 
-        #print("PRODUCTS:", len(items))
+        for a in soup.select("a.woocommerce-LoopProduct-link"):
 
-        if not items:
-            break
+            href = a.get("href", "").strip()
 
-        before = len(all_products)
-
-        for item in items:
-            a = item.select_one(".name a")
-            if not a:
+            if not href:
                 continue
 
-            href = a.get("href")
+            if not href.startswith("http"):
+                href = BASE.rstrip("/") + "/" + href.lstrip("/")
 
-            if href.startswith("/"):
-                href = BASE + href
+            if href not in products:
+                products.append(href)
 
-            all_products.add(href)
+        if not products:
 
-        if len(all_products) == before:
+            for li in soup.select("li.product"):
+
+                a = li.find("a", href=True)
+
+                if not a:
+                    continue
+
+                href = a["href"].strip()
+
+                if not href.startswith("http"):
+                    href = BASE.rstrip("/") + "/" + href.lstrip("/")
+
+                if href not in products:
+                    products.append(href)
+
+        if not products:
             break
 
-        if len(items) < 12:
-            break
+        for href in products:
+            result.append(parse_product(href))
+            time.sleep(0.05)
 
-        page += 12
-        time.sleep(0.5)
+        next_btn = soup.select_one("a.next.page-numbers")
 
-    #print("TOTAL LINKS:", len(all_products))
-    return list(all_products)
+        if next_btn:
 
+            next_url = next_btn.get("href", "").strip()
 
-# =========================
-# PRODUCT PARSE (ЦЕНА ТЕПЕРЬ РАБОТАЕТ)
-# =========================
+            if next_url:
+
+                if not next_url.startswith("http"):
+                    next_url = BASE.rstrip("/") + "/" + next_url.lstrip("/")
+
+                url = next_url
+                page += 1
+                continue
+
+        current = soup.select_one("span.page-numbers.current")
+
+        if current:
+
+            current_page = int(current.get_text(strip=True))
+
+            last_page = current_page
+
+            for link in soup.select("a.page-numbers"):
+
+                txt = link.get_text(strip=True)
+
+                if txt.isdigit():
+                    last_page = max(last_page, int(txt))
+
+            if current_page < last_page:
+
+                page += 1
+
+                sep = "&" if "?" in cat_url else "?"
+
+                url = f"{cat_url}{sep}paged={page}"
+
+                continue
+        break
+
+    return result
+    
 
 def parse_product(url):
 
@@ -208,14 +301,18 @@ def parse_product(url):
     # =========================
     # TITLE
     # =========================
-    title_tag = soup.select_one("h1")
-    title = clean(title_tag.get_text()) if title_tag else ""
+
+    title = clean(
+        soup.select_one("h1.product_title").get_text()
+    ) if soup.select_one("h1.product_title") else ""
 
     # =========================
     # SKU
     # =========================
-    sku_tag = soup.select_one(".prod-ean")
-    sku = clean(sku_tag.get_text().replace("Артикул:", "")) if sku_tag else ""
+
+    sku = clean(
+        soup.select_one("span.sku").get_text()
+    ) if soup.select_one("span.sku") else ""
 
     # =========================
     # PRICE
@@ -223,119 +320,125 @@ def parse_product(url):
     
     price = ""
     
-    price_tag = soup.select_one(".prod_price")
+    # Сначала ищем акционную цену
+    p = soup.select_one("p.price ins .woocommerce-Price-amount")
     
-    if price_tag:
-        price = clean(price_tag.get_text())
+    if p:
+        price = clean(p.get_text())
     
+    else:
+        p = soup.select_one("p.price .woocommerce-Price-amount")
+    
+        if p:
+            price = clean(p.get_text())
+
     # =========================
     # STATUS
     # =========================
-    status_tag = soup.select_one(".avail, .prod-not-avail")
-    status = status_tag.get_text(strip=True) if status_tag else ""
 
-    # =========================
-    # DEBUG
-    # =========================
+    if soup.select_one("button.single_add_to_cart_button"):
+        status = "В наличии"
 
-    #print("COOKIES:", session.cookies.get_dict())
-    #print("PARSED:", sku, "|", title, "|", price, "|", status)
+    elif soup.select_one("p.stock.out-of-stock"):
+        status = "Нет в наличии"
 
-    return [sku, title, price, status, url]
+    else:
+        status = ""
 
+    return [
+        sku,
+        title,
+        price,
+        status,
+        url
+    ]
+    
 # =========================
 # MAIN
 # =========================
-
 def run_parser():
 
-    save_status(
-        running=True,
-        progress=0,
-        user=USER,
-        file_path=FILE_PATH
-    )
-    
-    login()
+    if is_locked():
+        return
 
-    wb = Workbook()
-    ws = wb.active
-    ws.append(["SKU", "TITLE", "PRICE", "STATUS", "URL"])
+    set_lock(True)
 
+    try:
 
-    seen = set()
+        save_status(True, 0, USER, FILE_PATH)
 
-    cats = get_categories()
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["SKU", "TITLE", "PRICE", "STATUS", "URL"])
 
-    print("CATEGORIES:", len(cats))
+        seen = set()
 
-    if CATEGORY_LIMIT is not None:
-        cats = cats[:CATEGORY_LIMIT]
+        cats = get_categories()
 
-    total = len(cats)
-    all_count = 0
+        #cats = [cats[8]]
+        
+        #print("DEBUG CATS:", cats)
+        print(f"📂 Категорий: {len(cats)}")
 
-    for i, cat in enumerate(cats, 1):
+        if CATEGORY_LIMIT:
+            cats = cats[:CATEGORY_LIMIT]
 
-        save_status(
-            running=True,
-            progress=int(i / total * 100),
-            user=USER,
-            file_path=FILE_PATH
-        )
+        total = len(cats)
 
-        products = load_products(cat)
+        if total == 0:
+            save_status(False, 100, USER, FILE_PATH)
+            return
 
-        print("TOTAL LINKS:", len(products))
+        for i, cat in enumerate(cats, 1):
 
-        for url in products:
+            save_status(
+                True,
+                int(i / total * 100),
+                USER,
+                FILE_PATH
+            )
 
-            try:
-                data = parse_product(url)
+            items = parse_category(cat["url"])
 
-                sku = data[0].strip() if data[0] else ""
-                title = data[1].strip() if data[1] else ""
-                price = data[2].strip() if data[2] else ""
-                clean_url = data[3].split("?")[0]
-
-                key = sku if sku else clean_url
-
-                if key in seen:
-                    continue
-
-                seen.add(key)
+            for sku, title, price, status, url in items:
+                
+                #key = url
+                
+                #if key in seen:
+                    #continue
+                
+                #seen.add(key)
 
                 if not title:
                     continue
 
-                sku, title, price, status, url = data
-                ws.append([sku, title, price, status, url])
-
-                all_count += 1
-
-                #print("ADDED:", title, "|", price)
-
-            except Exception as e:
-                print("ERROR:", e)
+                ws.append([
+                    sku,
+                    title,
+                    price,
+                    status,
+                    url
+                ])
+                
 
             time.sleep(0.2)
 
-    
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    tmp = FILE_PATH + ".tmp"
-    wb.save(tmp)
-    os.replace(tmp, FILE_PATH)
-    
-    save_status(
-        running=False,
-        progress=100,
-        user=USER,
-        file_path=FILE_PATH
-    )
-    
-    print("DONE:", all_count)
-    
+        tmp = FILE_PATH + ".tmp"
+
+        wb.save(tmp)
+
+        os.replace(tmp, FILE_PATH)
+
+        save_status(False, 100, USER, FILE_PATH)
+
+        print("✅ Готово. Харьковская 208")
+
+    finally:
+
+        set_lock(False)
+
 
 if __name__ == "__main__":
     run_parser()
