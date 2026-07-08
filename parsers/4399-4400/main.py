@@ -217,26 +217,43 @@ def parse_category(cat_url):
 
     result = []
 
+    # =========================
+    # Загружаем категорию
+    # =========================
+
+    soup = get_soup(cat_url)
+
+    # =========================
+    # Подкатегории
+    # =========================
+
     subcats = []
 
     for a in soup.select(".catalog_treenameClass li.nav-item.parent > ul a"):
-    
+
         href = a.get("href", "").strip()
-    
+
         if not href:
             continue
-    
+
         if href.startswith("/"):
             href = BASE + href
-    
-        subcats.append(href)
-    
+
+        if href not in subcats:
+            subcats.append(href)
+
     if subcats:
-    
+
+        print(f"📂 Подкатегорий: {len(subcats)}")
+
         for href in subcats:
             result.extend(parse_category(href))
-    
+
         return result
+
+    # =========================
+    # Товары + страницы
+    # =========================
 
     page = 0
 
@@ -270,7 +287,7 @@ def parse_category(cat_url):
             result.append(parse_product(href))
             time.sleep(0.05)
 
-        # последняя страница
+        # если товаров меньше 12 — последняя страница
         if len(products) < 12:
             break
 
