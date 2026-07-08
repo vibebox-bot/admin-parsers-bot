@@ -127,11 +127,9 @@ def login():
 
     print("🔐 LOGIN...")
 
-    login_url = BASE + "/login"
+    soup = get_soup(BASE + "/login")
 
-    soup = get_soup(login_url)
-
-    form = soup.select_one("form")
+    form = soup.select_one("form[action*='loginsave']")
 
     if not form:
         print("❌ LOGIN FORM NOT FOUND")
@@ -139,20 +137,14 @@ def login():
 
     payload = {}
 
-    for inp in form.select("input"):
-
-        name = inp.get("name")
-
-        if not name:
-            continue
-
-        payload[name] = inp.get("value", "")
+    for inp in form.select("input[name]"):
+        payload[inp["name"]] = inp.get("value", "")
 
     payload["username"] = EMAIL
     payload["passwd"] = PASSWORD
     payload["remember"] = "yes"
 
-    action = form.get("action") or "/user/loginsave"
+    action = form.get("action", "/user/loginsave")
 
     if not action.startswith("http"):
         action = BASE + action
@@ -164,19 +156,26 @@ def login():
         timeout=30
     )
 
-    if "/login" not in r.url:
-        print("✅ LOGIN OK")
-        print(session.cookies.get_dict())
-        r = session.get(BASE)
+    print("STATUS:", r.status_code)
+    print("FINAL URL:", r.url)
+    print("COOKIES:", session.cookies.get_dict())
 
-        print("ACCOUNT CHECK")
-        print("LOGIN PAGE:", "/login" in r.url)
-        print("PRICE EXISTS:", "#block_price" in r.text)
-        print("LOGOUT EXISTS:", "logout" in r.text.lower())
-        return True
+    test = session.get(
+        BASE + "/instrumenty-i-oborudovanie/pnevmoinstrument/akumulyatornij-farbopult-spraygun-2-akb-48-v-x-448-12"
+    )
 
-    print("❌ LOGIN FAILED")
-    return False
+    print("TEST STATUS:", test.status_code)
+    print("PRICE BLOCK:", "#block_price" in test.text)
+    print("PROD PRICE:", "prod_price" in test.text)
+    print("LOGIN FORM:", "loginsave" in test.text)
+    print("LOGOUT:", "logout" in test.text.lower())
+
+    if "/login" in r.url:
+        print("❌ LOGIN FAILED")
+        return False
+
+    print("✅ LOGIN OK")
+    return True
     
 def clean(t):
     return re.sub(r"\s+", " ", t).strip() if t else ""
@@ -267,70 +266,25 @@ def parse_product(url):
 
     soup = get_soup(url)
 
-    print("=" * 80)
-    print(url)
-    
-    price_block = soup.select_one("#block_price")
-    print("BLOCK_PRICE:", price_block)
-    
-    prod_price = soup.select_one(".prod_price")
-    print("PROD_PRICE:", prod_price)
-    
-    print("LOGIN FORM:", soup.select_one('form[action*="loginsave"]'))
+    title = clean(soup.select_one("h1").get_text()) if soup.select_one("h1") else ""
 
-    # =========================
-    # TITLE
-    # =========================
-    title = ""
-
-    h1 = soup.select_one("h1")
-
-    if h1:
-        title = clean(h1.get_text())
-
-    # =========================
-    # SKU
-    # =========================
     sku = ""
-
     sku_tag = soup.select_one(".prod-ean")
-
     if sku_tag:
-        sku = clean(
-            sku_tag.get_text().replace("Артикул:", "")
-        )
+        sku = clean(sku_tag.get_text().replace("Артикул:", ""))
 
-    # =========================
-    # PRICE
-    # =========================
     price = ""
-
     p = soup.select_one("#block_price")
-    
+
     if p:
         price = clean(p.get_text())
-    
-    # =========================
-    # STATUS
-    # =========================
+
     status = ""
-
-    s = soup.select_one(".avail")
-
+    s = soup.select_one(".avail") or soup.select_one(".prod-not-avail")
     if s:
         status = clean(s.get_text())
-    else:
-        s = soup.select_one(".prod-not-avail")
-        if s:
-            status = clean(s.get_text())
 
-    return [
-        sku,
-        title,
-        price,
-        status,
-        url
-    ]
+    return [sku, title, price, status, url]
     
 # =========================
 # MAIN
