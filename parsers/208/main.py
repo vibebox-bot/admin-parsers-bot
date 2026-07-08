@@ -185,7 +185,6 @@ def parse_category(cat_url):
 
         return result
 
-
     # =========================
     # Товары + пагинация
     # =========================
@@ -202,16 +201,27 @@ def parse_category(cat_url):
 
         visited_pages.add(url)
 
-        soup = get_soup(url)
+        print("=" * 80)
+        print("REAL URL:", url)
+
+        r = session.get(
+            url,
+            headers=HEADERS,
+            timeout=30,
+            allow_redirects=True
+        )
+
+        print("FINAL URL :", r.url)
+        print("STATUS    :", r.status_code)
 
         if page == 16:
-            print("=" * 80)
-            print(soup.prettify()[:15000])
-            print("=" * 80)        
-        
-        # -------------------------
-        # Сбор товаров
-        # -------------------------
+            with open("page16.html", "w", encoding="utf-8") as f:
+                f.write(r.text)
+
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        print("li.product =", len(soup.select("li.product")))
+        print("LoopProduct =", len(soup.select("a.woocommerce-LoopProduct-link")))
 
         products = []
 
@@ -228,8 +238,6 @@ def parse_category(cat_url):
             if href not in products:
                 products.append(href)
 
-
-        # запасной вариант
         if not products:
 
             for li in soup.select("li.product"):
@@ -248,35 +256,15 @@ def parse_category(cat_url):
                     products.append(href)
 
         print(f"📄 Страница {page}: {len(products)} товаров")
-        
-        if page == 16:
-            print("=" * 80)
-            print("URL:", url)
-            print("li.product =", len(soup.select("li.product")))
-            print("LoopProduct =", len(soup.select("a.woocommerce-LoopProduct-link")))
-            print("products =", len(products))
-            print("=" * 80)
-        
+
         if not products:
             break
 
-        # -------------------------
-        # Парсим товары
-        # -------------------------
-
         for href in products:
-
             result.append(parse_product(href))
-
             time.sleep(0.05)
 
-
-        # -------------------------
-        # Следующая страница
-        # -------------------------
-
         next_btn = soup.select_one("a.next.page-numbers")
-
 
         if next_btn:
 
@@ -289,38 +277,24 @@ def parse_category(cat_url):
 
                 url = next_url
                 page += 1
-
                 continue
 
-
-        # если next нет - проверяем последний номер страницы
-        current = soup.select_one(
-            "span.page-numbers.current"
-        )
+        current = soup.select_one("span.page-numbers.current")
 
         if current:
 
-            current_page = current.get_text(strip=True)
+            current_page = int(current.get_text(strip=True))
 
-            links = soup.select(
-                "a.page-numbers"
-            )
+            last_page = current_page
 
-            last_page = 0
-
-            for link in links:
+            for link in soup.select("a.page-numbers"):
 
                 txt = link.get_text(strip=True)
 
                 if txt.isdigit():
+                    last_page = max(last_page, int(txt))
 
-                    last_page = max(
-                        last_page,
-                        int(txt)
-                    )
-
-
-            if last_page and int(current_page) < last_page:
+            if current_page < last_page:
 
                 page += 1
 
@@ -330,10 +304,8 @@ def parse_category(cat_url):
 
                 continue
 
-
         print("🏁 Последняя страница")
         break
-
 
     print(f"✅ Всего в категории: {len(result)}")
 
