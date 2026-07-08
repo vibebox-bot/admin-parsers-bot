@@ -13,7 +13,7 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Харьковская 4421-4422 Jmax")
 
-BASE = "https://hi-tech-odessa.com.ua"
+BASE = "http://www.jmaxtvshop.com.ua"
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
