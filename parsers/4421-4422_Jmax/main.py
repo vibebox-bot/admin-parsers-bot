@@ -21,8 +21,8 @@ PASSWORD = "18022021"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 1
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
 
 OUTPUT_DIR = os.path.abspath("output/4421-4422_Jmax")
 FILE_PATH = os.path.join(OUTPUT_DIR, "4421-4422_Jmax_LIVE.xlsx")
@@ -189,7 +189,7 @@ def get_categories():
             "url": href
         })
 
-    print(f"📂 Найдено категорий: {len(cats)}")
+    #print(f"📂 Найдено категорий: {len(cats)}")
 
     return cats
     
@@ -230,7 +230,7 @@ def parse_category(cat_url):
         if not products:
             break
 
-        print(f"📄 Страница {page}: {len(products)} товаров")
+        #print(f"📄 Страница {page}: {len(products)} товаров")
 
         for href in products:
             result.append(parse_product(href))
