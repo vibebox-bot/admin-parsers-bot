@@ -209,9 +209,6 @@ def parse_category(cat_url):
 
         visited_pages.add(url)
 
-        print("=" * 80)
-        print("REAL URL:", url)
-
         r = session.get(
             url,
             headers=HEADERS,
@@ -219,25 +216,13 @@ def parse_category(cat_url):
             allow_redirects=True
         )
         
-        print("REQUEST URL:", r.request.url)
-        print("STATUS:", r.status_code)
-        
         if r.status_code != 200:
-            print("BODY:")
-            print(r.text[:1000])
-        
-
-        print("FINAL URL :", r.url)
-        print("STATUS    :", r.status_code)
 
         if page == 16:
             with open("page16.html", "w", encoding="utf-8") as f:
                 f.write(r.text)
 
         soup = BeautifulSoup(r.text, "html.parser")
-
-        print("li.product =", len(soup.select("li.product")))
-        print("LoopProduct =", len(soup.select("a.woocommerce-LoopProduct-link")))
 
         products = []
 
@@ -270,8 +255,6 @@ def parse_category(cat_url):
 
                 if href not in products:
                     products.append(href)
-
-        print(f"📄 Страница {page}: {len(products)} товаров")
 
         if not products:
             break
@@ -319,11 +302,7 @@ def parse_category(cat_url):
                 url = f"{cat_url}{sep}paged={page}"
 
                 continue
-
-        print("🏁 Последняя страница")
         break
-
-    print(f"✅ Всего в категории: {len(result)}")
 
     return result
     
@@ -433,8 +412,6 @@ def run_parser():
             )
 
             items = parse_category(cat["url"])
-
-            #print("TOTAL ITEMS:", len(items))
 
             for sku, title, price, status, url in items:
                 
