@@ -11,18 +11,18 @@ import sys
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 Харьковская 208")
+print("🔥 Харьковская 4399-4400")
 
 BASE = "https://hi-tech-odessa.com.ua"
 
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 1
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
 
-OUTPUT_DIR = os.path.abspath("output/208")
-FILE_PATH = os.path.join(OUTPUT_DIR, "208_LIVE.xlsx")
+OUTPUT_DIR = os.path.abspath("output/4399-4400")
+FILE_PATH = os.path.join(OUTPUT_DIR, "4399-4400_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
@@ -433,7 +433,7 @@ def run_parser():
 
         save_status(False, 100, USER, FILE_PATH)
 
-        print("✅ Готово. Харьковская 208")
+        print("✅ Готово. Харьковская 4399-4400")
 
     finally:
 
