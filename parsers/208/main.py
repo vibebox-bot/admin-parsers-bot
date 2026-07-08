@@ -96,6 +96,8 @@ def save_status(running=False, progress=0, user="", file_path=""):
 # =========================
 def get_soup(url):
 
+    session.cookies.clear()
+
     for _ in range(3):
 
         try:
