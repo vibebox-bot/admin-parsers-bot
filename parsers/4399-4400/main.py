@@ -21,8 +21,8 @@ PASSWORD = "380931937922"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 1
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
 
 OUTPUT_DIR = os.path.abspath("output/4399-4400")
 FILE_PATH = os.path.join(OUTPUT_DIR, "4399-4400_LIVE.xlsx")
@@ -125,7 +125,7 @@ def get_soup(url):
 
 def login():
 
-    print("🔐 LOGIN...")
+    #print("🔐 LOGIN...")
 
     soup = get_soup(BASE + "/login")
 
