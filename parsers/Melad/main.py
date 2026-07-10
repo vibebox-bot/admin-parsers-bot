@@ -63,7 +63,7 @@ def save_status(running=False, progress=0, user="", file_path=""):
 
 def create_lock():
     if os.path.exists(LOCK_FILE):
-        print("❌ Already running")
+        #print("❌ Already running")
         exit()
 
     with open(LOCK_FILE, "w") as f:
@@ -87,7 +87,7 @@ def get_soup(url, retries=3):
             return BeautifulSoup(r.text, "html.parser")
 
         except Exception as e:
-            print(f"⚠️ Retry {i+1}/{retries} for {url}: {e}")
+            #print(f"⚠️ Retry {i+1}/{retries} for {url}: {e}")
             time.sleep(2)
 
     return BeautifulSoup("", "html.parser")
@@ -98,7 +98,7 @@ def get_soup(url, retries=3):
 # =========================
 
 def login():
-    print("🔐 LOGIN...")
+    #print("🔐 LOGIN...")
 
     payload = {
         "email": EMAIL,
@@ -120,7 +120,7 @@ def login():
 # =========================
 
 def get_categories():
-    print("📂 GET CATEGORIES...")
+    #print("📂 GET CATEGORIES...")
 
     soup = get_soup(BASE_URL)
 
@@ -153,7 +153,7 @@ def get_categories():
     # убираем дубликаты (очень важно для таких меню)
     categories = list(dict.fromkeys(categories))
 
-    print(f"✅ FOUND CATEGORIES: {len(categories)}")
+    #print(f"✅ FOUND CATEGORIES: {len(categories)}")
 
     return categories
 
@@ -181,7 +181,7 @@ def get_pages(url):
 # =========================
 
 def get_products_from_category(url):
-    print(f"📦 PARSING CATEGORY: {url}")
+    #print(f"📦 PARSING CATEGORY: {url}")
 
     soup = get_soup(url)
 
@@ -217,7 +217,7 @@ def get_products_from_category(url):
             "stock": stock
         })
 
-    print(f"   → FOUND PRODUCTS: {len(products)}")
+    #print(f"   → FOUND PRODUCTS: {len(products)}")
 
     return products
 
@@ -283,14 +283,20 @@ def main():
     
     print("🚀 STARTED MELAD")
 
-    with open("test_melad.txt", "w", encoding="utf-8") as f:
-        f.write("hello")
-
     if not login():
+        remove_lock()
+    
+        save_status(
+            running=False,
+            progress=0,
+            user=USER,
+            file_path=FILE_PATH
+        )
+    
         return
-
+    
     excel = ExcelWriter(FILE_PATH)
-    print("EXCEL FILE:", FILE_PATH)
+    #print("EXCEL FILE:", FILE_PATH)
     excel.save()
 
     seen = set()
