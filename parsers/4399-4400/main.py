@@ -156,20 +156,6 @@ def login():
         timeout=30
     )
 
-    print("STATUS:", r.status_code)
-    print("FINAL URL:", r.url)
-    print("COOKIES:", session.cookies.get_dict())
-
-    test = session.get(
-        BASE + "/instrumenty-i-oborudovanie/pnevmoinstrument/akumulyatornij-farbopult-spraygun-2-akb-48-v-x-448-12"
-    )
-
-    print("TEST STATUS:", test.status_code)
-    print("PRICE BLOCK:", "#block_price" in test.text)
-    print("PROD PRICE:", "prod_price" in test.text)
-    print("LOGIN FORM:", "loginsave" in test.text)
-    print("LOGOUT:", "logout" in test.text.lower())
-
     if "/login" in r.url:
         print("❌ LOGIN FAILED")
         return False
@@ -211,7 +197,7 @@ def get_categories():
             "url": href
         })
 
-    print(f"📂 Найдено категорий: {len(cats)}")
+    #print(f"📂 Найдено категорий: {len(cats)}")
 
     return cats    
 
@@ -245,7 +231,7 @@ def parse_category(cat_url):
         if not products:
             break
 
-        print(f"📄 Страница {page // 12 + 1}: {len(products)} товаров")
+        #print(f"📄 Страница {page // 12 + 1}: {len(products)} товаров")
 
         for href in products:
             result.append(parse_product(href))
@@ -257,7 +243,7 @@ def parse_category(cat_url):
 
         page += 12
 
-    print(f"✅ Всего в категории: {len(result)}")
+    #print(f"✅ Всего в категории: {len(result)}")
 
     return result
     
@@ -343,13 +329,13 @@ def run_parser():
                 key = sku if sku else url
 
                 if key in seen:
-                    print("🔁 ДУБЛЬ:", key, "|", title)
+                    #print("🔁 ДУБЛЬ:", key, "|", title)
                     continue
                 
                 seen.add(key)
                 
                 if not title:
-                    print("❌ Пустой TITLE:", url)
+                    #print("❌ Пустой TITLE:", url)
                     continue
         
 
