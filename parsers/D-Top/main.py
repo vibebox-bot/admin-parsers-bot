@@ -18,8 +18,8 @@ BASE = "http://www.dtopelectronic.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 10
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 10
+CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
@@ -251,8 +251,8 @@ def parse_category(cat_url):
     
     last_page = get_last_page(first_page)
 
-    print(cat_url)
-    print("LAST PAGE =", last_page)
+    #print(cat_url)
+    #print("LAST PAGE =", last_page)
     
     for page in range(1, last_page + 1):
     
@@ -265,7 +265,7 @@ def parse_category(cat_url):
         soup = get_soup(url)
 
         cards = soup.select("div.product-thumb")
-        print("PAGE", page, "PRODUCTS", len(cards))
+        #print("PAGE", page, "PRODUCTS", len(cards))
 
         #print(f"Page {page}: {len(cards)} products")
 
