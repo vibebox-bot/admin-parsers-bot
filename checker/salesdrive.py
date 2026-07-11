@@ -1,17 +1,55 @@
 import requests
+import xml.etree.ElementTree as ET
 
-API_KEY = "iCqBJpalnO_rAtMXmIcaGdUelJP7HFOOm41kxD0FVxH9fo0jyBCcGyQNF12YYy3ppdDRmMsQjxn9fXyW4Dkyz4YJYArSEP_ADUdF"
 
-url = "https://kindlytech.salesdrive.me/api/products"
+YML_URL = "https://kindlytech.salesdrive.me/export/yml/export.yml?publicKey=YEWxvIKV_z6Hjx4-zqWiGLmmsFAS05TLQQ23qZbeoR_2UjOCNEtx-QxFfP0JFfUv45Q"
 
-headers = {
-    "X-Api-Key": API_KEY
-}
 
-r = requests.get(
-    url,
-    headers=headers
-)
+def get_products():
 
-print(r.status_code)
-print(r.text[:500])
+    r = requests.get(YML_URL, timeout=60)
+
+    r.raise_for_status()
+
+    root = ET.fromstring(r.text)
+
+    products = []
+
+    for offer in root.findall(".//offer"):
+
+        product = {
+
+            "name": offer.findtext("name", ""),
+
+            "article": offer.findtext("article", ""),
+
+            "barcode": offer.findtext("barcode", ""),
+
+            "note": offer.findtext("note", ""),
+
+            "vendorprice": offer.findtext("vendorprice", ""),
+
+            "stock": offer.findtext("quantity_in_stock", ""),
+
+            "price": offer.findtext("price", ""),
+
+        }
+
+        products.append(product)
+
+
+    return products
+
+
+
+if __name__ == "__main__":
+
+    items = get_products()
+
+    print("ТОВАРОВ:", len(items))
+
+
+    for x in items[:5]:
+
+        print("----------------")
+        print(x)
