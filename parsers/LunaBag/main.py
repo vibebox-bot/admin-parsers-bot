@@ -315,35 +315,34 @@ def parse_product(url):
 
         r = get_page(url)
 
-        print(
-            "STATUS PAGE:",
-            r.status_code,
-            url
-        )
-
+        print("STATUS PAGE:", r.status_code)
 
         soup = BeautifulSoup(
             r.text,
             "html.parser"
         )
 
-        print(
-            "TITLE CHECK:",
-            soup.select_one("h1")
-        )
-
 
         # TITLE
-
         h1 = soup.select_one(
             "h1.product-title"
         )
 
         if h1:
-
             result["title"] = clean(
                 h1.get_text()
             )
+
+
+        # если h1 не нашли - берем title страницы
+        if not result["title"]:
+
+            page_title = soup.find("title")
+
+            if page_title:
+                result["title"] = clean(
+                    page_title.get_text()
+                )
 
 
         # SKU
@@ -375,43 +374,48 @@ def parse_product(url):
                 stock.get_text()
             )
 
-        # PRICE
-        
+
+        # PRICE USD
+
         price = soup.select_one(
             ".product-header__price"
         )
-        
+
         if price:
-        
+
             result["price"] = clean(
                 price.get_text()
             )
-        
-        else:
-        
-            # запасной поиск цены в meta
+
+
+        if not result["price"]:
+
             meta_price = soup.select_one(
                 'meta[property="product:price:amount"]'
             )
-        
+
             if meta_price:
-                result["price"] = meta_price.get("content")
+
+                result["price"] = meta_price.get(
+                    "content"
+                )
+
+
+        print(
+            "FOUND PRODUCT:",
+            result
+        )
+
 
     except Exception as e:
 
         print(
-            "ERROR:",
+            "PRODUCT ERROR:",
             e
         )
 
 
-    return [
-        result["sku"],
-        result["title"],
-        result["price"],
-        result["status"],
-        result["url"]
-    ]
+    return result
   
 # =========================
 # MAIN
@@ -474,21 +478,23 @@ def run_parser():
             )
 
 
-            sku, title, price, status, link = parse_product(url)
 
-
-
-            if not title:
-                continue
-
-
+            product = parse_product(url)
+            
+            
             ws.append([
-                sku,
-                title,
-                price,
-                status,
-                link
+                product["sku"],
+                product["title"],
+                product["price"],
+                product["status"],
+                product["url"]
             ])
+            
+            
+            print(
+                "WRITE EXCEL:",
+                product
+            )
 
 
             time.sleep(2)
