@@ -11,7 +11,7 @@ import sys
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 Харьковская 205 AND")
+print("🔥 LunaBag")
 
 BASE = "https://andopt2.com.ua"
 
@@ -24,8 +24,8 @@ CATEGORY_LIMIT = None
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
 
-OUTPUT_DIR = os.path.abspath("output/205_AND")
-FILE_PATH = os.path.join(OUTPUT_DIR, "205_AND_LIVE.xlsx")
+OUTPUT_DIR = os.path.abspath("output/LunaBag")
+FILE_PATH = os.path.join(OUTPUT_DIR, "LunaBag_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
@@ -371,7 +371,7 @@ def run_parser():
 
         save_status(False, 100, USER, FILE_PATH)
 
-        print("✅ Готово.Харьковская 205 AND")
+        print("✅ Готово. LunaBag")
 
     finally:
 
@@ -380,4 +380,3 @@ def run_parser():
 
 if __name__ == "__main__":
     run_parser()
-
