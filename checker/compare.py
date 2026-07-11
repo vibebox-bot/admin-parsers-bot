@@ -30,66 +30,47 @@ def get_salesdrive():
 
     for offer in root.findall(".//offer"):
 
-        article = offer.findtext(
-            "article",
-            ""
-        ).strip()
+        note = offer.findtext("note", "")
+        barcode = offer.findtext("barcode", "")
 
-        if not article:
-            continue
+        note = note.strip() if note else ""
+        barcode = barcode.strip() if barcode else ""
 
         keys = []
-        
-        if offer.findtext("note"):
-            keys.append(offer.findtext("note").strip())
-        
-        if offer.findtext("barcode"):
-            keys.append(offer.findtext("barcode").strip())
-        
-        
+
+        if note:
+            keys.append(note)
+
+        if barcode:
+            keys.append(barcode)
+
+
         for key in keys:
-        
+
             products[key] = {
-        
-                "name": offer.findtext("name",""),
-        
+
+                "name": offer.findtext(
+                    "name",
+                    ""
+                ),
+
                 "stock": offer.findtext(
                     "quantity_in_stock",
                     "0"
                 ),
-        
+
                 "price": offer.findtext(
                     "price",
                     ""
                 ),
-        
-                "note": offer.findtext(
-                    "note",
-                    ""
-                )
+
+                "note": note,
+
+                "barcode": barcode
             }
-
-            "name": offer.findtext("name",""),
-
-            "stock": offer.findtext(
-                "quantity_in_stock",
-                "0"
-            ),
-
-            "price": offer.findtext(
-                "price",
-                ""
-            ),
-
-            "note": offer.findtext(
-                "note",
-                ""
-            )
-        }
 
 
     return products
-
 
 
 # =========================
