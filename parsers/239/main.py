@@ -156,32 +156,63 @@ def clean(t):
 # =========================
 # CATEGORIES
 # =========================
-# =========================
-# CATEGORIES
-# =========================
 def get_categories():
 
-    soup = get_soup(BASE)
+    categories = set()
+    checked = set()
 
-    categories = []
+    def scan(url):
 
-    for a in soup.select("#menu-list a.dropdown-img"):
+        if url in checked:
+            return
 
-        href = a.get("href", "").strip()
+        checked.add(url)
 
-        if not href:
-            continue
+        soup = get_soup(url)
 
-        if href.startswith("javascript"):
-            continue
+        for a in soup.select("a[href]"):
 
-        if href.startswith("http"):
-            url = href
-        else:
-            url = BASE.rstrip("/") + "/" + href.lstrip("/")
+            href = a.get("href", "").strip()
 
-        if url not in categories:
-            categories.append(url)
+            if not href:
+                continue
+
+            if href.startswith("javascript"):
+                continue
+
+            if href.startswith("#"):
+                continue
+
+            if href.startswith("/"):
+                href = BASE.rstrip("/") + href
+
+            elif not href.startswith("http"):
+                href = BASE.rstrip("/") + "/" + href.lstrip("/")
+
+            if not href.startswith(BASE):
+                continue
+
+            # только категории
+            if "/category/" not in href:
+                continue
+
+            # убираем page
+            href = re.sub(r'([?&])page=\d+', '', href)
+            href = href.rstrip("&?")
+
+            if href not in categories:
+
+                categories.add(href)
+
+                #print("📂", href)
+
+                scan(href)
+
+    scan(BASE)
+
+    categories = sorted(categories)
+
+    print("📂 TOTAL CATEGORIES:", len(categories))
 
     return categories
 
@@ -363,7 +394,7 @@ def run_parser():
 
         save_status(False, 100, USER, FILE_PATH)
 
-        print("DONE")
+        print("DONE Masterberg")
 
     finally:
 
