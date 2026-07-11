@@ -168,8 +168,14 @@ def main():
 
             status = "OK"
 
-            if str(crm_item["stock"]) == "0":
-                status = "НЕТ В CRM"
+
+            crm_stock = str(crm_item["stock"]).strip()
+            crm_price = str(crm_item["price"]).strip()
+            
+            if crm_stock == "0" or crm_price == "1":
+                status = "НЕТ В НАЛИЧИИ"
+            else:
+                status = "ЕСТЬ"
 
 
             ws.append([
