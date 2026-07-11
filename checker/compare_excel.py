@@ -123,13 +123,13 @@ def get_melad():
         except:
             price = 0
 
-        # Наличие
-        try:
-            stock = int(float(stock))
-        except:
+       # Наличие
+        stock = str(stock).strip().lower()
+        
+        if "в корзину" in stock:
+            stock = 1
+        else:
             stock = 0
-
-        stock = 1 if stock > 0 else 0
 
         products[article] = {
             "name": name,
