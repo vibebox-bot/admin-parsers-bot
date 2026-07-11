@@ -245,35 +245,35 @@ def get_products():
 
 def get_page(url):
 
-    for attempt in range(3):
+    for attempt in range(5):
 
         r = session.get(
             url,
             timeout=60,
             headers={
                 "User-Agent": "Mozilla/5.0",
-                "Accept-Language": "uk-UA,uk;q=0.9"
+                "Accept-Language": "uk-UA,uk;q=0.9",
+                "Referer": BASE
             }
         )
 
-        # проверяем защиту
+
+        # проверяем challenge
+
         if "challenge_passed" in r.text and "document.cookie" in r.text:
 
             print("🛡 CHALLENGE")
+
 
             m = re.search(
                 r'document\.cookie\s*=\s*"challenge_passed=([^"]+)',
                 r.text
             )
 
+
             if m:
 
                 cookie = m.group(1)
-
-                print(
-                    "🍪 SET COOKIE:",
-                    cookie[:20]
-                )
 
                 session.cookies.set(
                     "challenge_passed",
@@ -283,17 +283,33 @@ def get_page(url):
                 )
 
 
-                time.sleep(2)
+                print(
+                    "🍪 COOKIE SET"
+                )
 
-                # ВАЖНО: повторно грузим страницу
+
+                time.sleep(3)
+
                 continue
 
 
+        # проверяем что это товар
+
+        if "product-title" in r.text:
+
+            print(
+                "✅ PRODUCT PAGE FOUND"
+            )
+
+            return r
+
+
         print(
-            "REAL PAGE OK"
+            "⚠️ NOT PRODUCT PAGE"
         )
 
-        return r
+
+        time.sleep(2)
 
 
     return r
@@ -320,6 +336,11 @@ def parse_product(url):
         soup = BeautifulSoup(
             r.text,
             "html.parser"
+        )
+
+        print(
+            "H1 DEBUG:",
+            soup.select_one("h1")
         )
 
 
