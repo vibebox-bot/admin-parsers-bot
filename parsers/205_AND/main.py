@@ -18,8 +18,8 @@ BASE = "https://andopt2.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 2
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 2
+#CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
@@ -223,7 +223,7 @@ def parse_category(cat_url):
 
     last_page = get_last_page(first_page)
 
-    print(f"📄 Pages: {last_page}")
+    #print(f"📄 Pages: {last_page}")
 
     for page in range(1, last_page + 1):
 
@@ -236,7 +236,7 @@ def parse_category(cat_url):
 
         cards = soup.select("div.product-layout")
 
-        print(f"Page {page}: {len(cards)} products")
+        #print(f"Page {page}: {len(cards)} products")
 
         for card in cards:
 
@@ -258,12 +258,16 @@ def parse_category(cat_url):
                     href = BASE + href
 
                 url_product = href
-
+           
             # SKU
-            sku_el = card.select_one(".us-product-list-description")
-
-            if sku_el:
-                sku = clean(sku_el.get_text()).replace("Артикул -", "").strip()
+            sku = ""
+            
+            for div in card.select("div"):
+                text = clean(div.get_text())
+            
+                if text.startswith("Артикул"):
+                    sku = text.replace("Артикул -", "").replace("Артикул:", "").strip()
+                    break
 
             # PRICE
             price_el = card.select_one(".us-module-price-actual")
