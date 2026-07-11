@@ -266,86 +266,29 @@ def parse_product(url):
             timeout=60,
             headers={
                 "User-Agent": "Mozilla/5.0",
-                "Accept-Language": "uk-UA,uk;q=0.9",
-                "Referer": BASE
+                "Accept-Language": "uk-UA,uk;q=0.9"
             }
         )
-        
-        # если снова защита — пробуем получить cookie
-        if "challenge_passed" in r.text:
-        
-            print("⚠️ CHALLENGE ON PRODUCT")
-        
-            m = re.search(
-                r'document\.cookie\s*=\s*"challenge_passed=([^"]+)',
-                r.text
-            )
-        
-            if m:
-        
-                session.cookies.set(
-                    "challenge_passed",
-                    m.group(1),
-                    domain="luna-toys.com.ua",
-                    path="/"
-                )
-        
-                time.sleep(1)
-        
-                r = session.get(
-                    url,
-                    timeout=60,
-                    headers={
-                        "User-Agent": "Mozilla/5.0",
-                        "Accept-Language": "uk-UA,uk;q=0.9",
-                        "Referer": BASE
-                    }
-                )
-        
+
         print(
             "STATUS PAGE:",
-            r.status_code,
-            url
+            r.status_code
         )
+
 
         soup = BeautifulSoup(
             r.text,
             "html.parser"
         )
-        with open("product_debug.html", "w", encoding="utf-8") as f:
-            f.write(r.text)
-        
-
-        print("TITLE PAGE:", soup.title)
-        print("H1:", soup.select_one("h1"))
-
-        # DEBUG классы товара
-
-        for item in soup.select("[class]"):
-            cls = item.get("class")
-        
-            text = clean(item.get_text())
-        
-            if text and (
-                "грн" in text.lower()
-                or "артикул" in text.lower()
-                or "наяв" in text.lower()
-                or "код" in text.lower()
-            ):
-                print(
-                    "FOUND:",
-                    cls,
-                    "=>",
-                    text[:100]
-                )
-        
-        print("FIRST TEXT:")
-        print(r.text[:1000])
 
 
+        # =====================
         # TITLE
+        # =====================
 
-        h1 = soup.select_one("h1")
+        h1 = soup.select_one(
+            "h1.product-title"
+        )
 
         if h1:
             result["title"] = clean(
@@ -353,10 +296,12 @@ def parse_product(url):
             )
 
 
+        # =====================
         # SKU
+        # =====================
 
         sku = soup.select_one(
-            ".product-code"
+            ".product-header__code"
         )
 
         if sku:
@@ -370,36 +315,42 @@ def parse_product(url):
 
 
 
+        # =====================
+        # STATUS
+        # =====================
+
+        status = soup.select_one(
+            ".product-header__availability"
+        )
+
+        if status:
+
+            result["status"] = clean(
+                status.get_text()
+            )
+
+
+
+        # =====================
         # PRICE
+        # =====================
 
         price = soup.select_one(
-            ".product-price"
+            "[itemprop='price']"
         )
 
         if price:
 
-            result["price"] = clean(
-                price.get_text()
+            result["price"] = price.get(
+                "content",
+                ""
             )
 
-
-
-        # STATUS
-
-        availability = soup.select_one(
-            ".product-availability"
-        )
-
-        if availability:
-
-            result["status"] = clean(
-                availability.get_text()
-            )
 
 
         print(
-            "OK:",
-            result["title"]
+            "FOUND:",
+            result
         )
 
 
@@ -407,7 +358,6 @@ def parse_product(url):
 
         print(
             "ERROR:",
-            url,
             e
         )
 
