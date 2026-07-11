@@ -171,11 +171,6 @@ def get_categories():
         soup = get_soup(url)
 
         for a in soup.select("a[href]"):
-            href = a.get("href", "").strip()
-            if href:
-                print(href)
-
-        for a in soup.select("a[href]"):
 
             href = a.get("href", "").strip()
 
@@ -197,8 +192,8 @@ def get_categories():
             if not href.startswith(BASE):
                 continue
 
-            # только категории
-            if "/category/" not in href:
+            # только категории OpenCart
+            if "route=product/category" not in href:
                 continue
 
             # убираем page
@@ -209,7 +204,7 @@ def get_categories():
 
                 categories.add(href)
 
-                #print("📂", href)
+                print("📂", href)
 
                 scan(href)
 
