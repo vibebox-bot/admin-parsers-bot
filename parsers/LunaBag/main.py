@@ -19,11 +19,12 @@ BASE = "https://luna-toys.com.ua"
 # ⚙️ SWITCH
 # =========================
 
+TEST_MODE = False
+
+
 #TEST_MODE = True
 TEST_LIMIT = 1
 
-# после проверки поменяем:
-TEST_MODE = False
 
 OUTPUT_DIR = os.path.abspath("output/LunaBag")
 FILE_PATH = os.path.join(OUTPUT_DIR, "LunaBag_LIVE.xlsx")
