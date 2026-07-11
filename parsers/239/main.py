@@ -158,59 +158,33 @@ def clean(t):
 # =========================
 def get_categories():
 
-    categories = set()
-    checked = set()
+    soup = get_soup(BASE)
 
-    def scan(url):
+    categories = []
 
-        if url in checked:
-            return
+    for a in soup.select("#menu-list a[href*='route=product/category']"):
 
-        checked.add(url)
+        href = a.get("href", "").strip()
 
-        soup = get_soup(url)
+        if not href:
+            continue
 
-        for a in soup.select("a[href]"):
+        if href.startswith("/"):
+            href = BASE + href
 
-            href = a.get("href", "").strip()
+        elif not href.startswith("http"):
+            href = BASE.rstrip("/") + "/" + href.lstrip("/")
 
-            if not href:
-                continue
+        # оставляем только path
+        m = re.search(r'path=([\d_]+)', href)
 
-            if href.startswith("javascript"):
-                continue
+        if not m:
+            continue
 
-            if href.startswith("#"):
-                continue
+        href = f"{BASE}/index.php?route=product/category&path={m.group(1)}"
 
-            if href.startswith("/"):
-                href = BASE.rstrip("/") + href
-
-            elif not href.startswith("http"):
-                href = BASE.rstrip("/") + "/" + href.lstrip("/")
-
-            if not href.startswith(BASE):
-                continue
-
-            # только категории OpenCart
-            if "route=product/category" not in href:
-                continue
-
-            # убираем page
-            href = re.sub(r'([?&])page=\d+', '', href)
-            href = href.rstrip("&?")
-
-            if href not in categories:
-
-                categories.add(href)
-
-                print("📂", href)
-
-                scan(href)
-
-    scan(BASE)
-
-    categories = sorted(categories)
+        if href not in categories:
+            categories.append(href)
 
     print("📂 TOTAL CATEGORIES:", len(categories))
 
