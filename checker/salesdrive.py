@@ -40,16 +40,10 @@ def get_products():
 
     return products
 
-
-
 if __name__ == "__main__":
 
     items = get_products()
 
     print("ТОВАРОВ:", len(items))
 
-
-    for x in items:
-        if "Melad" in str(x):
-            print(x)
-            break
+    print(items[0])
