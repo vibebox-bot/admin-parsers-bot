@@ -15,7 +15,11 @@ RESULT_FILE = "output/Melad/Melad_CHECK.xlsx"
 
 def get_salesdrive():
 
-    wb = load_workbook(SALES_FILE, data_only=True)
+    wb = load_workbook(
+        SALES_FILE,
+        data_only=True
+    )
+
     ws = wb.active
 
     headers = {}
@@ -42,7 +46,7 @@ def get_salesdrive():
         ).value
 
 
-        if supplier != "Melad":
+        if str(supplier).strip() != "Melad":
             continue
 
 
@@ -56,64 +60,58 @@ def get_salesdrive():
             continue
 
 
-        products[str(sku)] = {
+        sku = str(sku).strip()
 
-            "name":
-                ws.cell(row, headers["Товар/Послуга"]).value,
 
-            "cost":
-                ws.cell(row, headers["Собівартість"]).value,
+        products[sku] = {
 
-            "cost_currency":
-                ws.cell(row, headers["Собівартість - Валюта"]).value,
+            "name": ws.cell(
+                row,
+                headers["Товар/Послуга"]
+            ).value,
 
-            "stock":
-                ws.cell(row, headers["Залишок на складі"]).value,
+            "cost": ws.cell(
+                row,
+                headers["Собівартість"]
+            ).value,
 
-            "price":
-                ws.cell(row, headers["Ціна"]).value,
+            "cost_currency": ws.cell(
+                row,
+                headers["Собівартість - Валюта"]
+            ).value,
 
-            "note":
-                ws.cell(row, headers["Нотатка"]).value
+            "stock": ws.cell(
+                row,
+                headers["Залишок на складі"]
+            ).value,
+
+            "price": ws.cell(
+                row,
+                headers["Ціна"]
+            ).value,
+
+            "note": ws.cell(
+                row,
+                headers["Нотатка"]
+            ).value
         }
 
 
+    print("ПРИМЕР CRM SKU:")
+
+    for k in list(products.keys())[:10]:
+        print(
+            repr(k)
+        )
+
+
     return products
-
-
 
 # =========================
 # MELAD
 # =========================
 
 def get_melad():
-
-    wb = load_workbook(MELAD_FILE, data_only=True)
-    ws = wb.active
-
-
-    products = {}
-
-
-    for row in ws.iter_rows(min_row=2, values_only=True):
-
-        name, price, article, stock, url = row
-
-
-        if article:
-
-            products[str(article)] = {
-
-                "name": name,
-                "price": price,
-                "stock": stock,
-                "url": url
-
-            }
-
-
-    return products
-
 
 
 # =========================
