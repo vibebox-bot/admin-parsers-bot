@@ -266,6 +266,11 @@ def parse_product(url):
             r.text,
             "html.parser"
         )
+        with open("product_debug.html", "w", encoding="utf-8") as f:
+            f.write(r.text)
+        
+        print("TITLE PAGE:", soup.title)
+        print("H1:", soup.select_one("h1"))
 
 
         # TITLE
