@@ -38,8 +38,36 @@ def get_salesdrive():
         if not article:
             continue
 
-
-        products[article] = {
+        keys = []
+        
+        if offer.findtext("note"):
+            keys.append(offer.findtext("note").strip())
+        
+        if offer.findtext("barcode"):
+            keys.append(offer.findtext("barcode").strip())
+        
+        
+        for key in keys:
+        
+            products[key] = {
+        
+                "name": offer.findtext("name",""),
+        
+                "stock": offer.findtext(
+                    "quantity_in_stock",
+                    "0"
+                ),
+        
+                "price": offer.findtext(
+                    "price",
+                    ""
+                ),
+        
+                "note": offer.findtext(
+                    "note",
+                    ""
+                )
+            }
 
             "name": offer.findtext("name",""),
 
