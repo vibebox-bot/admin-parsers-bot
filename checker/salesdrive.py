@@ -49,7 +49,7 @@ if __name__ == "__main__":
     print("ТОВАРОВ:", len(items))
 
 
-    for x in items[:5]:
-
-        print("----------------")
+    for x in items:
+    if "Melad" in str(x):
         print(x)
+        break
