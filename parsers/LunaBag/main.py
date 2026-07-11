@@ -49,7 +49,7 @@ m = re.search(
 if m:
     cookie_value = m.group(1)
 
-    print("🍪 FOUND CHALLENGE COOKIE:", cookie_value[:20])
+    #print("🍪 FOUND CHALLENGE COOKIE:", cookie_value[:20])
 
     session.cookies.set(
         "challenge_passed",
@@ -75,7 +75,7 @@ m = re.search(
 
 CSRF = m.group(1) if m else ""
 
-print("CSRF:", CSRF)
+#print("CSRF:", CSRF)
 
 
 # Переключаем валюту
@@ -205,9 +205,9 @@ def get_products():
         timeout=30
     )
 
-    print("SITEMAP STATUS:", r.status_code)
+    #print("SITEMAP STATUS:", r.status_code)
 
-    print(r.text[:500])
+    #print(r.text[:500])
 
     xml = r.text
 
@@ -221,7 +221,7 @@ def get_products():
         if "catalog-sitemap" not in sm:
             continue
 
-        print("📄", sm)
+        #print("📄", sm)
 
         xml2 = session.get(
             sm,
@@ -262,7 +262,7 @@ def get_page(url):
 
         if "challenge_passed" in r.text and "document.cookie" in r.text:
 
-            print("🛡 CHALLENGE")
+            #print("🛡 CHALLENGE")
 
 
             m = re.search(
@@ -282,12 +282,6 @@ def get_page(url):
                     path="/"
                 )
 
-
-                print(
-                    "🍪 COOKIE SET"
-                )
-
-
                 time.sleep(3)
 
                 continue
@@ -297,16 +291,8 @@ def get_page(url):
 
         if "product-title" in r.text:
 
-            print(
-                "✅ PRODUCT PAGE FOUND"
-            )
 
             return r
-
-
-        print(
-            "⚠️ NOT PRODUCT PAGE"
-        )
 
 
         time.sleep(2)
@@ -331,7 +317,7 @@ def parse_product(url):
 
         r = get_page(url)
 
-        print("STATUS PAGE:", r.status_code)
+        #print("STATUS PAGE:", r.status_code)
 
         soup = BeautifulSoup(
             r.text,
