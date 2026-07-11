@@ -204,7 +204,7 @@ def get_categories():
 
             if href not in categories:
                 categories.add(href)
-                print("📂", href)
+                #print("📂", href)
 
                 # идём глубже
                 scan(href)
@@ -246,22 +246,18 @@ def parse_category(cat_url):
     all_items = []
 
     base_url = cat_url
-
-    # всегда стартуем с первой страницы
-    first_url = base_url + "&limit=100"
-
-    first_page = get_soup(first_url)
-
+    
+    first_page = get_soup(base_url)
+    
     last_page = get_last_page(first_page)
-
-    #print(f"📄 Pages: {last_page}")
-
+    
     for page in range(1, last_page + 1):
-
+    
         if page == 1:
-            url = first_url
+            url = base_url
         else:
-            url = f"{base_url}&limit=100&page={page}"
+            url = f"{base_url}&page={page}"
+      
 
         soup = get_soup(url)
 
