@@ -177,7 +177,49 @@ def get_soup(url):
 
 def clean(t):
     return re.sub(r"\s+", " ", t).strip() if t else ""
-    
+
+
+def get_products():
+
+    products = []
+
+    xml = session.get(
+        BASE + "/sitemap.xml",
+        timeout=30
+    ).text
+
+    maps = re.findall(
+        r"<loc>(.*?)</loc>",
+        xml
+    )
+
+    for sm in maps:
+
+        if "catalog-sitemap" not in sm:
+            continue
+
+        print("📄", sm)
+
+        xml2 = session.get(
+            sm,
+            timeout=30
+        ).text
+
+        urls = re.findall(
+            r"<loc>(https://luna-toys\.com\.ua/(?!ru/).*?)</loc>",
+            xml2
+        )
+
+        for url in urls:
+
+            if url not in products:
+                products.append(url)
+
+    print("✅ Products:", len(products))
+
+    return products
+
+
 # =========================
 # CATEGORIES
 # =========================
@@ -301,7 +343,10 @@ def run_parser():
 
         seen = set()
 
-        cats = get_categories()
+        #cats = get_categories()
+        products = get_products()
+
+        return
 
         if CATEGORY_LIMIT:
             cats = cats[:CATEGORY_LIMIT]
