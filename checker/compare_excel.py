@@ -1,229 +1,186 @@
 import os
 from openpyxl import load_workbook, Workbook
 
+# =========================
+# ФАЙЛЫ
+# =========================
 
-SALES_FILE = "checker/export-2026-07-12_00-14-43.xlsx"
-
+CRM_FILE = "checker/export-2026-07-12_00-14-43.xlsx"
 MELAD_FILE = "output/Melad/Melad_LIVE.xlsx"
-
 RESULT_FILE = "output/Melad/Melad_CHECK.xlsx"
 
 
 # =========================
-# SALES DRIVE EXCEL
+# CRM EXCEL
 # =========================
 
 def get_salesdrive():
 
-    wb = load_workbook(
-        SALES_FILE,
-        data_only=True
-    )
-
+    wb = load_workbook(CRM_FILE, data_only=True)
     ws = wb.active
 
     headers = {}
 
-    for col in range(1, ws.max_column + 1):
-        name = ws.cell(1, col).value
+    for i, cell in enumerate(ws[1], start=1):
+        headers[str(cell.value).strip()] = i
 
-        if name:
-            headers[name] = col
-
-
+    print("📥 SalesDrive Excel")
     print("Колонки найдены:")
     print(headers)
 
+    supplier_col = headers["Постачальник"]
+    sku_col = headers["SKU"]
+    cost_col = headers["Собівартість"]
+    stock_col = headers["Залишок на складі"]
 
     products = {}
 
+    for row in ws.iter_rows(min_row=2, values_only=True):
 
-    for row in range(2, ws.max_row + 1):
+        supplier = row[supplier_col - 1]
 
-        supplier = ws.cell(
-            row,
-            headers["Постачальник"]
-        ).value
-
-
-        if str(supplier).strip() != "Melad":
+        if supplier != "Melad":
             continue
 
-
-        sku = ws.cell(
-            row,
-            headers["SKU"]
-        ).value
-
+        sku = row[sku_col - 1]
 
         if not sku:
             continue
 
-
-        sku = str(sku).strip()
-
-
-        products[sku] = {
-
-            "name": ws.cell(
-                row,
-                headers["Товар/Послуга"]
-            ).value,
-
-            "cost": ws.cell(
-                row,
-                headers["Собівартість"]
-            ).value,
-
-            "cost_currency": ws.cell(
-                row,
-                headers["Собівартість - Валюта"]
-            ).value,
-
-            "stock": ws.cell(
-                row,
-                headers["Залишок на складі"]
-            ).value,
-
-            "price": ws.cell(
-                row,
-                headers["Ціна"]
-            ).value,
-
-            "note": ws.cell(
-                row,
-                headers["Нотатка"]
-            ).value
+        products[str(sku).strip()] = {
+            "cost": row[cost_col - 1],
+            "stock": row[stock_col - 1]
         }
 
-
-    print("ПРИМЕР CRM SKU:")
-
-    for k in list(products.keys())[:10]:
-        print(
-            repr(k)
-        )
-
+    print("Melad в CRM:", len(products))
 
     return products
 
+
 # =========================
-# MELAD
+# MELAD PARSER
 # =========================
 
 def get_melad():
 
+    wb = load_workbook(MELAD_FILE, data_only=True)
+    ws = wb.active
+
+    products = {}
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+
+        name = row[0]
+        price = row[1]
+        article = row[2]
+        stock = row[3]
+        url = row[4]
+
+        if not article:
+            continue
+
+        products[str(article).strip()] = {
+            "name": name,
+            "price": price,
+            "stock": stock,
+            "url": url
+        }
+
+    print("📥 Melad parser")
+    print("Melad товаров:", len(products))
+
+    return products
 
 # =========================
-# COMPARE
+# MAIN
 # =========================
 
 def main():
 
-    print("📥 SalesDrive Excel")
-
     crm = get_salesdrive()
-
-    print(
-        "Melad в CRM:",
-        len(crm)
-    )
-
-
-    print("📥 Melad parser")
-
     melad = get_melad()
 
-    print(
-        "Melad товаров:",
-        len(melad)
-    )
-
-
     wb = Workbook()
-
     ws = wb.active
-
-    ws.title = "Проверка"
-
+    ws.title = "Melad"
 
     ws.append([
-
-        "Товар Melad",
-        "SKU",
-        "Поставщик",
-        "Себестоимость",
-        "Остаток CRM",
-        "Цена CRM",
-        "Цена сайта",
-        "Статус",
-        "URL"
-
+        "Артикул",
+        "Название",
+        "Цена поставщика",
+        "Себестоимость CRM",
+        "Наличие поставщика",
+        "Наличие CRM",
+        "URL",
+        "Статус"
     ])
 
+    ok = 0
+    missing = 0
 
-    count = 0
+    for article, item in melad.items():
 
-
-    for sku, item in melad.items():
-
-        crm_item = crm.get(str(sku))
-
+        crm_item = crm.get(article)
 
         if crm_item:
 
+            supplier_stock = str(item["stock"]).strip()
 
-            stock = crm_item["stock"]
+            try:
+                crm_stock = int(float(crm_item["stock"]))
+            except:
+                crm_stock = 0
 
-
-            if stock in [0, "0", None]:
-                status = "❌ НЕТ В НАЛИЧИИ"
+            if supplier_stock in ("", "0", "Нет", "нет", "Немає"):
+                supplier_have = 0
             else:
-                status = "✅ ЕСТЬ"
+                supplier_have = 1
 
+            if supplier_have == crm_stock:
+                status = "OK"
+            elif supplier_have == 1 and crm_stock == 0:
+                status = "❌ НЕТ В CRM"
+            elif supplier_have == 0 and crm_stock == 1:
+                status = "➕ ПОЯВИЛСЯ"
+            else:
+                status = "⚠ ПРОВЕРИТЬ"
 
             ws.append([
-
+                article,
                 item["name"],
-
-                sku,
-
-                "Melad",
-
-                crm_item["cost"],
-
-                stock,
-
-                crm_item["price"],
-
                 item["price"],
-
-                status,
-
-                item["url"]
-
+                crm_item["cost"],
+                supplier_have,
+                crm_stock,
+                item["url"],
+                status
             ])
 
+            ok += 1
 
-            count += 1
+        else:
 
+            ws.append([
+                article,
+                item["name"],
+                item["price"],
+                "",
+                item["stock"],
+                "",
+                item["url"],
+                "❌ НЕТ В CRM"
+            ])
 
+            missing += 1
 
-    os.makedirs(
-        "output/Melad",
-        exist_ok=True
-    )
-
-
-    wb.save(
-        RESULT_FILE
-    )
-
+    os.makedirs("output/Melad", exist_ok=True)
+    wb.save(RESULT_FILE)
 
     print()
-    print("ГОТОВО:", count)
+    print("ГОТОВО")
+    print("Совпало:", ok)
+    print("Нет в CRM:", missing)
     print(RESULT_FILE)
-
 
 
 if __name__ == "__main__":
