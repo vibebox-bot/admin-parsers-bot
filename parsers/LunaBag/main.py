@@ -20,7 +20,7 @@ BASE = "https://luna-toys.com.ua"
 # =========================
 
 TEST_MODE = True
-TEST_LIMIT = 1
+TEST_LIMIT = 10
 
 # после проверки поменяем:
 # TEST_MODE = False
@@ -324,11 +324,6 @@ def parse_product(url):
             "html.parser"
         )
 
-        print(
-            "H1 DEBUG:",
-            soup.select_one("h1")
-        )
-
 
         # TITLE
         h1 = soup.select_one(
@@ -406,12 +401,6 @@ def parse_product(url):
                 result["price"] = meta_price.get(
                     "content"
                 )
-
-
-        print(
-            "FOUND PRODUCT:",
-            result
-        )
 
 
     except Exception as e:
@@ -497,12 +486,6 @@ def run_parser():
                 product["url"]
             ])
             
-            
-            print(
-                "WRITE EXCEL:",
-                product
-            )
-
 
             time.sleep(2)
 
