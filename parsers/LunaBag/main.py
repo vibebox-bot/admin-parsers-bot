@@ -66,7 +66,6 @@ if m:
     
 # Загружаем страницу повторно уже с cookie
 r = session.get(BASE, timeout=30)
-#print(r.text[:1000])
 
 # Ищем CSRF
 m = re.search(
@@ -248,10 +247,8 @@ def get_page(url):
 
     for attempt in range(3):
 
-        r = session.get(
-            url,
-            timeout=60,
-            print(r.text[:200])
+        r = get_page(url)
+        
             headers={
                 "User-Agent": "Mozilla/5.0",
                 "Accept-Language": "uk-UA,uk;q=0.9"
@@ -291,8 +288,7 @@ def get_page(url):
 # =========================
 # PRODUCT PARSER
 # =========================
-
-def parse_catalog_product(item):
+def parse_product(url):    
 
     result = {
         "sku": "",
@@ -370,12 +366,6 @@ def parse_catalog_product(item):
             result["status"] = clean(
                 stock.get_text()
             )
-
-
-        print(
-            "FOUND:",
-            result
-        )
 
 
     except Exception as e:
