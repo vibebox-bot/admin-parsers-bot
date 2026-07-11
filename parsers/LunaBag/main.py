@@ -101,27 +101,39 @@ def get_soup(url):
 
     csrf = "1bc3361d698d203571a8ef05cbebe4c069d5dead"
 
-    r = session.post(
-        url,
-        data={
-            "catalogBuilder": "1"
-        },
-        headers={
-            "X-Requested-With": "XMLHttpRequest",
-            "X-CSRF-Token": csrf,
-            "Referer": url,
-        },
-        timeout=30
-    )
+    try:
 
-    print("STATUS:", r.status_code)
+        r = session.post(
+            url,
+            data={
+                "catalogBuilder": "1"
+            },
+            headers={
+                "X-Requested-With": "XMLHttpRequest",
+                "X-CSRF-Token": csrf,
+                "Referer": url,
+            },
+            timeout=30
+        )
 
-    data = r.json()
+        if r.status_code != 200:
+            return BeautifulSoup("", "html.parser")
 
-    print(data["response"]["html"].keys())
+        data = r.json()
 
-    exit()
-    
+        html = ""
+
+        if "products" in data["response"]["html"]:
+            html += data["response"]["html"]["products"]
+
+        if "pagination" in data["response"]["html"]:
+            html += data["response"]["html"]["pagination"]
+
+        return BeautifulSoup(html, "html.parser")
+
+    except Exception as e:
+        print(e)
+        return BeautifulSoup("", "html.parser")
 
 
 def clean(t):
@@ -132,17 +144,8 @@ def clean(t):
 # =========================
 def get_categories():
 
-    #soup = get_soup(BASE)
-    soup = get_soup(BASE + "/katalog/")
-
-    print("TITLE:", soup.title)
-    print("CARDS:", len(soup.select("div.catalogCard-box")))
-
-    with open("debug.html", "w", encoding="utf-8") as f:
-        f.write(str(soup))    
-
-    categories = []
-    seen = set()
+    r = session.get(BASE + "/katalog/", timeout=30)
+    soup = BeautifulSoup(r.text, "html.parser")
 
     for a in soup.select("a.productsMenu-submenu-a"):
 
