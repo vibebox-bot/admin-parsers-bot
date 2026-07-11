@@ -13,16 +13,13 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 LunaBag")
 
-BASE = "https://andopt2.com.ua"
+BASE = "https://luna-toys.com.ua"
 
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 2
-CATEGORY_LIMIT = None
-
-EMAIL = "angelinatitor@gmail.com"
-PASSWORD = "18022021"
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
 
 OUTPUT_DIR = os.path.abspath("output/LunaBag")
 FILE_PATH = os.path.join(OUTPUT_DIR, "LunaBag_LIVE.xlsx")
@@ -35,6 +32,16 @@ HEADERS = {
 
 session = requests.Session()
 session.headers.update(HEADERS)
+
+session.get(BASE, timeout=30)
+
+try:
+    session.get(
+        BASE + "/_widget/currency_selector/change/3",
+        timeout=30
+    )
+except:
+    pass
 
 def is_locked():
 
@@ -65,51 +72,7 @@ def set_lock(state):
 
         if os.path.exists(LOCK_FILE):
             os.remove(LOCK_FILE)
-
-# =========================
-# LOGIN
-# =========================
-def login():
-
-    #login_url = BASE + "/login-ru"
-    login_url = BASE + "/index.php?route=account/login"
-
-    # Получаем страницу логина (куки + возможные hidden поля)
-    r = session.get(login_url)
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    payload = {}
-
-    form = soup.select_one("form")
-
-    if form:
-        for inp in form.select("input"):
-            name = inp.get("name")
-            if name:
-                payload[name] = inp.get("value", "")
-
-    # Подставляем логин
-    payload["email"] = EMAIL
-    payload["password"] = PASSWORD
-
-    # Отправляем форму
-    session.post(
-        login_url,
-        data=payload,
-        headers={
-            "Referer": login_url
-        },
-        allow_redirects=True
-    )
-
-    # Можно проверить успешность авторизации
-    account = session.get(BASE)
-
-    if "logout" in account.text.lower() or "выход" in account.text.lower():
-        print("✅ LOGIN OK")
-    else:
-        print("⚠ LOGIN CHECK")
-        
+            
 # =========================
 # STATUS
 # =========================
@@ -165,19 +128,9 @@ def get_categories():
     soup = get_soup(BASE)
 
     categories = []
+    seen = set()
 
-    menu = soup.select_one("#oct-menu-ul")
-
-    if not menu:
-        return categories
-
-    # только первый уровень
-    for li in menu.find_all("li", recursive=False):
-
-        a = li.select_one("a.oct-menu-a")
-
-        if not a:
-            continue
+    for a in soup.select("a.productsMenu-submenu-a"):
 
         href = a.get("href", "").strip()
 
@@ -187,56 +140,57 @@ def get_categories():
         if href.startswith("/"):
             href = BASE + href
 
+        if href in seen:
+            continue
+
+        seen.add(href)
         categories.append(href)
 
     print(f"📂 Categories: {len(categories)}")
 
     return categories
     
-# =========================
-# LAST PAGE DETECTION
-# =========================
-def get_last_page(soup):
+    
+def get_pages(cat_url):
 
-    pages = [1]
+    soup = get_soup(cat_url)
 
-    for a in soup.select("ul.pagination a"):
+    pages = [cat_url]
+    seen = {cat_url}
 
-        href = a.get("href", "")
+    for a in soup.select("nav.pager a[href]"):
 
-        m = re.search(r"[?&]page=(\d+)", href)
+        href = a.get("href", "").strip()
 
-        if m:
-            pages.append(int(m.group(1)))
+        if not href:
+            continue
 
-    return max(pages)
+        if "page=all" in href:
+            continue
+
+        if href.startswith("/"):
+            href = BASE + href
+
+        if href not in seen:
+            seen.add(href)
+            pages.append(href)
+
+    return pages
 
 # =========================
 # PARSE CATEGORY
 # =========================
 def parse_category(cat_url):
 
-    all_items = []
+    result = []
 
-    # первая страница без limit
-    first_page = get_soup(cat_url)
+    pages = get_pages(cat_url)
 
-    last_page = get_last_page(first_page)
+    for page in pages:
 
-    #print(f"📄 Pages: {last_page}")
+        soup = get_soup(page)
 
-    for page in range(1, last_page + 1):
-
-        if page == 1:
-            url = cat_url
-        else:
-            url = f"{cat_url}&page={page}"
-
-        soup = get_soup(url)
-
-        cards = soup.select("div.product-layout")
-
-        #print(f"Page {page}: {len(cards)} products")
+        cards = soup.select("div.catalogCard-box")
 
         for card in cards:
 
@@ -244,55 +198,46 @@ def parse_category(cat_url):
             sku = ""
             price = ""
             status = ""
-            url_product = ""
+            url = ""
 
-            # TITLE + URL
-            title_el = card.select_one(".us-module-title a")
+            a = card.select_one(".catalogCard-title a")
 
-            if title_el:
-                title = clean(title_el.get_text())
+            if a:
+                title = clean(a.get_text())
 
-                href = title_el.get("href", "").strip()
+                href = a.get("href", "").strip()
 
                 if href.startswith("/"):
                     href = BASE + href
 
-                url_product = href
-           
-            # SKU
-            sku = ""
-            
-            for div in card.select("div"):
-                text = clean(div.get_text())
-            
-                if text.startswith("Артикул"):
-                    sku = text.replace("Артикул -", "").replace("Артикул:", "").strip()
-                    break
+                url = href
 
-            # PRICE
-            price_el = card.select_one(".us-module-price-actual")
+            sku_el = card.select_one(".catalogCard-code")
+
+            if sku_el:
+                sku = clean(
+                    sku_el.get_text()
+                ).replace("Артикул:", "").strip()
+
+            price_el = card.select_one(".catalogCard-price")
 
             if price_el:
                 price = clean(price_el.get_text())
 
-            # STATUS
-            status = ""
-            
-            for span in card.select(".us-module-caption span"):
-                text = clean(span.get_text())
-                if text:
-                    status = text
-                    break
+            status_el = card.select_one(".catalogCard-availability")
 
-            all_items.append([
+            if status_el:
+                status = clean(status_el.get_text())
+
+            result.append([
                 sku,
                 title,
                 price,
                 status,
-                url_product
+                url
             ])
 
-    return all_items
+    return result
   
 # =========================
 # MAIN
@@ -307,8 +252,6 @@ def run_parser():
     try:
 
         save_status(True, 0, USER, FILE_PATH)
-
-        login()
 
         wb = Workbook()
         ws = wb.active
