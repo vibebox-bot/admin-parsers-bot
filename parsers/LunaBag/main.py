@@ -33,48 +33,6 @@ HEADERS = {
 session = requests.Session()
 session.headers.update(HEADERS)
 
-csrf = "1bc3361d698d203571a8ef05cbebe4c069d5dead"
-
-r = session.post(
-    BASE + "/aksessuary/",
-    data={
-        "catalogBuilder": "1"
-    },
-    headers={
-        "X-Requested-With": "XMLHttpRequest",
-        "X-CSRF-Token": csrf,
-        "Referer": BASE + "/aksessuary/",
-    },
-    timeout=30
-)
-
-print("STATUS:", r.status_code)
-print(r.text[:1000])
-
-exit()
-
-# Первый заход (получаем JS-челлендж)
-r = session.get(BASE, timeout=30)
-
-# Пытаемся извлечь challenge_passed
-m = re.search(
-    r'document\.cookie\s*=\s*"challenge_passed=([^"]+)',
-    r.text
-)
-
-if m:
-    token = m.group(1)
-
-    session.cookies.set(
-        "challenge_passed",
-        token,
-        domain="luna-toys.com.ua",
-        path="/"
-    )
-
-# Повторный запрос уже с cookie
-session.get(BASE, timeout=30)
-
 # Переключаем валюту
 try:
     session.get(
@@ -141,33 +99,29 @@ def save_status(running=False, progress=0, user="", file_path=""):
 # =========================
 def get_soup(url):
 
-    for _ in range(3):
+    csrf = "1bc3361d698d203571a8ef05cbebe4c069d5dead"
 
-        try:
+    r = session.post(
+        url,
+        data={
+            "catalogBuilder": "1"
+        },
+        headers={
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRF-Token": csrf,
+            "Referer": url,
+        },
+        timeout=30
+    )
 
-            r = session.get(
-                url,
-                timeout=30,
-                allow_redirects=True
-            )
+    print("STATUS:", r.status_code)
 
-            print("URL:", url)
-            print("STATUS:", r.status_code)
-            print("FINAL:", r.url)
-            print("HEAD:", r.text[:500])
+    data = r.json()
 
-            with open("debug.html", "w", encoding="utf-8") as f:
-                f.write(r.text)
+    print(data["response"]["html"].keys())
 
-            if r.status_code == 200:
-                return BeautifulSoup(r.text, "html.parser")
-
-        except Exception as e:
-            print(e)
-
-        time.sleep(1)
-
-    return BeautifulSoup("", "html.parser")
+    exit()
+    
 
 
 def clean(t):
