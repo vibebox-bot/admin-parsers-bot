@@ -318,6 +318,26 @@ def parse_product(url):
 
         print("TITLE PAGE:", soup.title)
         print("H1:", soup.select_one("h1"))
+
+        # DEBUG классы товара
+
+        for item in soup.select("[class]"):
+            cls = item.get("class")
+        
+            text = clean(item.get_text())
+        
+            if text and (
+                "грн" in text.lower()
+                or "артикул" in text.lower()
+                or "наяв" in text.lower()
+                or "код" in text.lower()
+            ):
+                print(
+                    "FOUND:",
+                    cls,
+                    "=>",
+                    text[:100]
+                )
         
         print("FIRST TEXT:")
         print(r.text[:1000])
