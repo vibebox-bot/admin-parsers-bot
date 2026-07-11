@@ -18,8 +18,8 @@ BASE = "http://www.dtopelectronic.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 2
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 2
+#CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
@@ -161,34 +161,59 @@ def clean(t):
 # =========================
 def get_categories():
 
-    soup = get_soup(BASE)
+    categories = set()
+    checked = set()
 
-    categories = []
+    def scan(url):
 
-    menu = soup.select_one("ul.menu__collapse.main-menu__collapse")
+        if url in checked:
+            return
 
-    if not menu:
-        return categories
+        checked.add(url)
 
-    # берем только 1 уровень (главные категории)
-    for li in menu.select("li.menu__level-1-li"):
+        soup = get_soup(url)
 
-        a = li.select_one("a.menu__level-1-a")
+        # все ссылки меню
+        for a in soup.select("a[href]"):
 
-        if not a:
-            continue
+            href = a.get("href", "").strip()
 
-        href = a.get("href", "").strip()
+            if not href:
+                continue
 
-        if not href:
-            continue
+            if href.startswith("javascript"):
+                continue
 
-        if href.startswith("/"):
-            href = BASE + href
+            if href.startswith("#"):
+                continue
 
-        categories.append(href)
+            if href.startswith("/"):
+                href = BASE + href
 
-    print(f"📂 Categories: {len(categories)}")
+            if not href.startswith(BASE):
+                continue
+
+            # только ссылки категорий OpenCart
+            if "route=product/category" not in href:
+                continue
+
+            # убираем limit/page
+            href = re.sub(r'([?&])page=\d+', '', href)
+            href = re.sub(r'([?&])limit=\d+', '', href)
+            href = href.rstrip("&?")
+
+            if href not in categories:
+                categories.add(href)
+                print("📂", href)
+
+                # идём глубже
+                scan(href)
+
+    scan(BASE)
+
+    categories = sorted(categories)
+
+    print(f"📂 TOTAL CATEGORIES: {len(categories)}")
 
     return categories
     
