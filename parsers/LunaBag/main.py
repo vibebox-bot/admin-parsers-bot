@@ -20,7 +20,7 @@ BASE = "https://luna-toys.com.ua"
 # =========================
 
 TEST_MODE = True
-TEST_LIMIT = 5
+TEST_LIMIT = 1
 
 # после проверки поменяем:
 # TEST_MODE = False
@@ -246,9 +246,20 @@ def parse_product(url):
 
     try:
 
+
         r = session.get(
             url,
-            timeout=30
+            timeout=60,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept-Language": "uk-UA,uk;q=0.9"
+            }
+        )
+        
+        print(
+            "STATUS PAGE:",
+            r.status_code,
+            url
         )
 
         soup = BeautifulSoup(
@@ -413,7 +424,7 @@ def run_parser():
             ])
 
 
-            time.sleep(0.2)
+            time.sleep(2)
 
 
 
