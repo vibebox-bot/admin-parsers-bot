@@ -171,6 +171,11 @@ def get_categories():
         soup = get_soup(url)
 
         for a in soup.select("a[href]"):
+            href = a.get("href", "").strip()
+            if href:
+                print(href)
+
+        for a in soup.select("a[href]"):
 
             href = a.get("href", "").strip()
 
@@ -347,7 +352,15 @@ def run_parser():
         total = len(cats)
 
         if total == 0:
+
+            os.makedirs(OUTPUT_DIR, exist_ok=True)
+        
+            wb.save(FILE_PATH)
+        
             save_status(False, 100, USER, FILE_PATH)
+        
+            print("❌ Категории не найдены")
+        
             return
 
         for i, cat in enumerate(cats, 1):
