@@ -189,7 +189,11 @@ def main():
                 f"{item['price']}$ / {'Есть' if item['stock'] else 'Нет'}",
                 item["url"]
             ])
-
+            
+            row = ws.max_row
+            
+            for cell in ws[row]:
+                cell.fill = GREEN
         
 
             missing += 1
