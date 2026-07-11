@@ -33,8 +33,29 @@ HEADERS = {
 session = requests.Session()
 session.headers.update(HEADERS)
 
+# Первый заход (получаем JS-челлендж)
+r = session.get(BASE, timeout=30)
+
+# Пытаемся извлечь challenge_passed
+m = re.search(
+    r'document\.cookie\s*=\s*"challenge_passed=([^"]+)',
+    r.text
+)
+
+if m:
+    token = m.group(1)
+
+    session.cookies.set(
+        "challenge_passed",
+        token,
+        domain="luna-toys.com.ua",
+        path="/"
+    )
+
+# Повторный запрос уже с cookie
 session.get(BASE, timeout=30)
 
+# Переключаем валюту
 try:
     session.get(
         BASE + "/_widget/currency_selector/change/3",
@@ -129,6 +150,9 @@ def get_soup(url):
     return BeautifulSoup("", "html.parser")
 
 
+def clean(t):
+    return re.sub(r"\s+", " ", t).strip() if t else ""
+    
 # =========================
 # CATEGORIES
 # =========================
