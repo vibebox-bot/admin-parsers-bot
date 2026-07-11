@@ -106,6 +106,8 @@ SUPPLIERS = {
         "file": path("output/Melad/Melad_LIVE.xlsx"),
         "status": path("output/Melad/status.json"),
         "lock": path("output/Melad/lock.txt"),
+        "checker": "checker/compare_excel.py",
+        "report": "output/Melad/Melad_CHECK.xlsx",
     },
         "Харьковская 220 Kithen Plus": {
             "name": "Харьковская 220 Kithen Plus",
@@ -897,41 +899,75 @@ async def cb(call: types.CallbackQuery):
     
         return
 
-    # CHECK
-    
+     # CHECK
     if data.startswith("check_"):
-    
+
+        import sys
+
         key = data.replace("check_", "")
-    
+
         s = SUPPLIERS[key]
-    
-        file = s["file"]
-    
-        if not os.path.exists(file):
+
+        if "checker" not in s:
             await call.answer(
-                "❌ Excel не найден",
+                "Для этого поставщика проверка не настроена.",
                 show_alert=True
             )
             return
-    
-    
-        from openpyxl import load_workbook
-    
-        wb = load_workbook(
-            file,
-            read_only=True
+
+        checker = s["checker"]
+
+        report = s.get(
+            "report",
+            "output/Melad/Melad_CHECK.xlsx"
         )
-    
-        ws = wb.active
-    
-        count = ws.max_row - 1
-    
-    
-        await call.message.answer(
-            f"🔍 Проверка {s['name']}\n\n"
-            f"📦 Товаров в Excel: {count}"
+
+        msg = await call.message.answer(
+            "🔍 Проверяю CRM...\n\n"
+            "⏳ Пожалуйста, подождите..."
         )
-    
+
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable,
+            checker,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        stdout, stderr = await proc.communicate()
+
+        if stdout:
+            print(stdout.decode(errors="ignore"))
+
+        if stderr:
+            print(stderr.decode(errors="ignore"))
+
+        if proc.returncode != 0:
+
+            await msg.edit_text(
+                "❌ Проверка завершилась с ошибкой."
+            )
+
+            return
+
+        if not os.path.exists(report):
+
+            await msg.edit_text(
+                "❌ Отчет не найден."
+            )
+
+            return
+
+        await msg.edit_text(
+            "✅ Проверка завершена.\n\n"
+            "📤 Отправляю отчет..."
+        )
+
+        await call.message.answer_document(
+            types.FSInputFile(report),
+            caption="📊 Отчет проверки CRM"
+        )
+
         return
 
 
