@@ -158,10 +158,11 @@ def clean(t):
 # =========================
 def get_categories():
 
-    soup = get_soup(BASE)
+    #soup = get_soup(BASE)
+    soup = get_soup(BASE + "/katalog/")
 
     print("TITLE:", soup.title)
-    print("LINKS:", len(soup.select("a")))
+    print("CARDS:", len(soup.select("div.catalogCard-box")))
 
     with open("debug.html", "w", encoding="utf-8") as f:
         f.write(str(soup))    
