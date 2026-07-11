@@ -148,11 +148,12 @@ def get_categories():
         for child in li.select(":scope > .dropdown-menu li"):
             walk(child)
 
-    for li in soup.select("#menu > ul > li.has-children"):
+    for li in soup.select("ul.nav.navbar-nav > li.has-children"):
         walk(li)
+    
 
     # одиночные категории без подкатегорий
-    for a in soup.select("#menu > ul > li:not(.has-children) > a[href]"):
+    for a in soup.select("ul.nav.navbar-nav > li:not(.has-children) > a[href]"):
 
         href = a.get("href", "").strip()
 
