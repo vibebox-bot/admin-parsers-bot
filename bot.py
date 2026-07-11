@@ -190,8 +190,15 @@ SUPPLIERS = {
             "file": path("output/237/237_LIVE.xlsx"),
             "status": path("output/237/status.json"),
             "lock": path("output/237/lock.txt"),
-        },   
-    
+        },
+
+        "LunaBag": {
+            "name": "LunaBag",
+            "script": "parsers/LunaBag/run.py",
+            "file": path("output/LunaBag/LunaBag_LIVE.xlsx"),
+            "status": path("output/LunaBag/status.json"),
+            "lock": path("output/LunaBag/lock.txt"),
+        },       
 }
 
 
