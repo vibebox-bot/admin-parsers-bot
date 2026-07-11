@@ -116,44 +116,60 @@ def login():
 
 
 # =========================
-# CATEGORIES (ТОЛЬКО ГЛАВНЫЕ)
+# CATEGORIES
 # =========================
-
 def get_categories():
-    #print("📂 GET CATEGORIES...")
 
     soup = get_soup(BASE_URL)
 
     categories = []
+    seen = set()
 
-    # ищем главное меню
-    menu_items = soup.select("li.has-children > a")
+    def walk(li):
 
-    for item in menu_items:
-        name = item.get_text(strip=True)
+        # ссылка текущей категории
+        a = li.select_one(":scope > a[href]")
 
-        # чистим лишние иконки/стрелки
-        name = name.replace("›", "").replace("›", "").strip()
+        if a:
 
-        url = item.get("href")
+            href = a.get("href", "").strip()
 
-        if not url:
+            if href \
+                and "javascript" not in href \
+                and href not in seen:
+
+                if href.startswith("/"):
+                    href = BASE_URL + href
+
+                seen.add(href)
+                categories.append((a.get_text(" ", strip=True), href))
+
+        # ищем все вложенные li (любая глубина)
+        for child in li.select(":scope > .dropdown-menu li"):
+            walk(child)
+
+    for li in soup.select("#menu > ul > li.has-children"):
+        walk(li)
+
+    # одиночные категории без подкатегорий
+    for a in soup.select("#menu > ul > li:not(.has-children) > a[href]"):
+
+        href = a.get("href", "").strip()
+
+        if not href:
             continue
 
-        # приводим относительные ссылки к абсолютным
-        if url.startswith("/"):
-            url = BASE_URL + url
-
-        # фильтр от мусора (если вдруг попадётся вложенное)
-        if "javascript" in url:
+        if "javascript" in href:
             continue
 
-        categories.append((name, url))
+        if href.startswith("/"):
+            href = BASE_URL + href
 
-    # убираем дубликаты (очень важно для таких меню)
-    categories = list(dict.fromkeys(categories))
+        if href not in seen:
+            seen.add(href)
+            categories.append((a.get_text(" ", strip=True), href))
 
-    #print(f"✅ FOUND CATEGORIES: {len(categories)}")
+    print("📂 TOTAL CATEGORIES:", len(categories))
 
     return categories
 
