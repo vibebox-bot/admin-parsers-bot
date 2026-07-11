@@ -165,6 +165,14 @@ def get_soup(url):
 
         return BeautifulSoup(html, "html.parser")
 
+        print(html[:1000])
+
+        soup = BeautifulSoup(html, "html.parser")
+        
+        print("CARDS:", len(soup.select("div.catalogCard-box")))
+        
+        return soup
+
     except Exception as e:
         print(e)
         return BeautifulSoup("", "html.parser")
@@ -227,6 +235,7 @@ def parse_category(cat_url):
         soup = get_soup(page)
 
         cards = soup.select("div.catalogCard-box")
+        print("FOUND:", len(cards), page)
 
         for card in cards:
 
