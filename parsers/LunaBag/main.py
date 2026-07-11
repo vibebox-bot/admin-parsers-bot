@@ -52,7 +52,8 @@ if m:
 
 # Загружаем страницу повторно уже с cookie
 r = session.get(BASE, timeout=30)
-print(r.text[:1000])
+#print(r.text[:1000])
+
 # Ищем CSRF
 m = re.search(
     r"GLOBAL_CSRF_TOKEN:\s*'([^']+)'",
@@ -152,8 +153,13 @@ def get_soup(url):
 
         data = r.json()
 
-        print(data.keys())
-        print(data["response"]["html"].keys())
+        import json
+
+        with open("catalog.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        #print(data.keys())
+        #print(data["response"]["html"].keys())
 
         html = ""
 
@@ -165,13 +171,6 @@ def get_soup(url):
 
         return BeautifulSoup(html, "html.parser")
 
-        print(html[:1000])
-
-        soup = BeautifulSoup(html, "html.parser")
-        
-        print("CARDS:", len(soup.select("div.catalogCard-box")))
-        
-        return soup
 
     except Exception as e:
         print(e)
