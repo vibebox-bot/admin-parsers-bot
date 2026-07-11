@@ -232,108 +232,157 @@ def parse_product(url):
         "",
         url
     ]
-# =========================
-# CATEGORIES
-# =========================
-def get_categories():
 
-    categories = [
-        BASE + "/aksessuary/"
+
+# =========================
+# PRODUCTS FROM SITEMAP
+# =========================
+
+def get_products():
+
+    products = []
+
+    xml = session.get(
+        BASE + "/sitemap.xml",
+        timeout=30
+    ).text
+
+    maps = re.findall(
+        r"<loc>(.*?)</loc>",
+        xml
+    )
+
+    for sm in maps:
+
+        if "catalog-sitemap" not in sm:
+            continue
+
+        print("📄", sm)
+
+        xml2 = session.get(
+            sm,
+            timeout=30
+        ).text
+
+        urls = re.findall(
+            r"<loc>(https://luna-toys\.com\.ua/(?!ru/).*?)</loc>",
+            xml2
+        )
+
+        for url in urls:
+
+            if url not in products:
+                products.append(url)
+
+    print("✅ TOTAL PRODUCTS:", len(products))
+
+    return products
+
+
+
+# =========================
+# PRODUCT PARSER
+# =========================
+
+def parse_product(url):
+
+    result = {
+        "sku": "",
+        "title": "",
+        "price": "",
+        "status": "",
+        "url": url
+    }
+
+    try:
+
+        r = session.get(
+            url,
+            timeout=30
+        )
+
+        soup = BeautifulSoup(
+            r.text,
+            "html.parser"
+        )
+
+
+        # TITLE
+
+        h1 = soup.select_one("h1")
+
+        if h1:
+            result["title"] = clean(
+                h1.get_text()
+            )
+
+
+        # SKU
+
+        sku = soup.select_one(
+            ".product-code"
+        )
+
+        if sku:
+
+            result["sku"] = clean(
+                sku.get_text()
+            ).replace(
+                "Артикул:",
+                ""
+            ).strip()
+
+
+
+        # PRICE
+
+        price = soup.select_one(
+            ".product-price"
+        )
+
+        if price:
+
+            result["price"] = clean(
+                price.get_text()
+            )
+
+
+
+        # STATUS
+
+        availability = soup.select_one(
+            ".product-availability"
+        )
+
+        if availability:
+
+            result["status"] = clean(
+                availability.get_text()
+            )
+
+
+        print(
+            "OK:",
+            result["title"]
+        )
+
+
+    except Exception as e:
+
+        print(
+            "ERROR:",
+            url,
+            e
+        )
+
+
+    return [
+        result["sku"],
+        result["title"],
+        result["price"],
+        result["status"],
+        result["url"]
     ]
-
-    print(f"📂 Categories: {len(categories)}")
-
-    return categories
-    
-    
-def get_pages(cat_url):
-
-    soup = get_soup(cat_url)
-
-    pages = [cat_url]
-    seen = {cat_url}
-
-    for a in soup.select("nav.pager a[href]"):
-
-        href = a.get("href", "").strip()
-
-        if not href:
-            continue
-
-        if "page=all" in href:
-            continue
-
-        if href.startswith("/"):
-            href = BASE + href
-
-        if href not in seen:
-            seen.add(href)
-            pages.append(href)
-
-    return pages
-
-# =========================
-# PARSE CATEGORY
-# =========================
-def parse_category(cat_url):
-
-    result = []
-
-    pages = get_pages(cat_url)
-
-    for page in pages:
-
-        soup = get_soup(page)
-
-        cards = soup.select("div.catalogCard-box")
-        print("FOUND:", len(cards), page)
-
-        for card in cards:
-
-            title = ""
-            sku = ""
-            price = ""
-            status = ""
-            url = ""
-
-            a = card.select_one(".catalogCard-title a")
-
-            if a:
-                title = clean(a.get_text())
-
-                href = a.get("href", "").strip()
-
-                if href.startswith("/"):
-                    href = BASE + href
-
-                url = href
-
-            sku_el = card.select_one(".catalogCard-code")
-
-            if sku_el:
-                sku = clean(
-                    sku_el.get_text()
-                ).replace("Артикул:", "").strip()
-
-            price_el = card.select_one(".catalogCard-price")
-
-            if price_el:
-                price = clean(price_el.get_text())
-
-            status_el = card.select_one(".catalogCard-availability")
-
-            if status_el:
-                status = clean(status_el.get_text())
-
-            result.append([
-                sku,
-                title,
-                price,
-                status,
-                url
-            ])
-
-    return result
   
 # =========================
 # MAIN
@@ -343,31 +392,42 @@ def run_parser():
     if is_locked():
         return
 
+
     set_lock(True)
+
 
     try:
 
-        save_status(True, 0, USER, FILE_PATH)
+        save_status(
+            True,
+            0,
+            USER,
+            FILE_PATH
+        )
+
 
         wb = Workbook()
+
         ws = wb.active
-        ws.append(["SKU", "TITLE", "PRICE", "STATUS", "URL"])
 
-        seen = set()
+        ws.append([
+            "SKU",
+            "TITLE",
+            "PRICE",
+            "STATUS",
+            "URL"
+        ])
 
-        #cats = get_categories()
+
+
         products = get_products()
+
 
         total = len(products)
 
-        if CATEGORY_LIMIT:
-            products = products[:CATEGORY_LIMIT]
 
-        if total == 0:
-            save_status(False, 100, USER, FILE_PATH)
-            return
-            
-        for i, url in enumerate(products, 1):    
+        for i, url in enumerate(products,1):
+
 
             save_status(
                 True,
@@ -376,31 +436,59 @@ def run_parser():
                 FILE_PATH
             )
 
-            items = parse_category(cat)
 
-            sku, title, price, status, url = parse_product(url)
+            sku, title, price, status, link = parse_product(url)
 
-                ws.append([
-                    sku,
-                    title,
-                    price,
-                    status,
-                    url
-                ])
+
+
+            if not title:
+                continue
+
+
+            ws.append([
+                sku,
+                title,
+                price,
+                status,
+                link
+            ])
+
 
             time.sleep(0.2)
 
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+
+        os.makedirs(
+            OUTPUT_DIR,
+            exist_ok=True
+        )
+
 
         tmp = FILE_PATH + ".tmp"
 
+
         wb.save(tmp)
 
-        os.replace(tmp, FILE_PATH)
 
-        save_status(False, 100, USER, FILE_PATH)
+        os.replace(
+            tmp,
+            FILE_PATH
+        )
 
-        print("✅ Готово. LunaBag")
+
+        save_status(
+            False,
+            100,
+            USER,
+            FILE_PATH
+        )
+
+
+        print(
+            "✅ Готово LunaBag"
+        )
+
+
 
     finally:
 
