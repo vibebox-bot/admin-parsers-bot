@@ -247,11 +247,6 @@ def get_page(url):
 
     for attempt in range(3):
 
-        session.get(
-                    BASE + "/_widget/currency_selector/change/3",
-                    timeout=10
-                )
-        
         r = session.get(
             url,
             timeout=60,
@@ -261,9 +256,7 @@ def get_page(url):
             }
         )
 
-        print("STATUS PAGE:", r.status_code)
-
-        # если это challenge
+        # проверяем защиту
         if "challenge_passed" in r.text and "document.cookie" in r.text:
 
             print("🛡 CHALLENGE")
@@ -275,16 +268,30 @@ def get_page(url):
 
             if m:
 
+                cookie = m.group(1)
+
+                print(
+                    "🍪 SET COOKIE:",
+                    cookie[:20]
+                )
+
                 session.cookies.set(
                     "challenge_passed",
-                    m.group(1),
+                    cookie,
                     domain="luna-toys.com.ua",
                     path="/"
                 )
 
-                time.sleep(1)
+
+                time.sleep(2)
+
+                # ВАЖНО: повторно грузим страницу
                 continue
 
+
+        print(
+            "REAL PAGE OK"
+        )
 
         return r
 
@@ -318,6 +325,11 @@ def parse_product(url):
         soup = BeautifulSoup(
             r.text,
             "html.parser"
+        )
+
+        print(
+            "TITLE CHECK:",
+            soup.select_one("h1")
         )
 
 
