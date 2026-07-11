@@ -25,13 +25,13 @@ def get_salesdrive():
         headers[str(cell.value).strip()] = i
 
     print("📥 SalesDrive Excel")
-    print("Колонки найдены:")
     print(headers)
 
     supplier_col = headers["Постачальник"]
-    sku_col = headers["SKU"]
+    barcode_col = headers["Штрихкод"]
+    note_col = headers["Нотатка"]
     cost_col = headers["Собівартість"]
-    stock_col = headers["Залишок на складі"]
+    price_col = headers["Ціна"]
 
     products = {}
 
@@ -39,17 +39,39 @@ def get_salesdrive():
 
         supplier = row[supplier_col - 1]
 
-        if supplier != "Melad":
+        if str(supplier).strip() != "Melad":
             continue
 
-        sku = row[sku_col - 1]
+        article = ""
 
-        if not sku:
+        barcode = row[barcode_col - 1]
+        note = row[note_col - 1]
+
+        if barcode not in ("", None):
+            article = str(barcode).strip()
+
+        elif note not in ("", None):
+            article = str(note).strip()
+
+        if article == "":
             continue
 
-        products[str(sku).strip()] = {
-            "cost": row[cost_col - 1],
-            "stock": row[stock_col - 1]
+        cost = row[cost_col - 1]
+
+        try:
+            site_price = float(row[price_col - 1])
+        except:
+            site_price = 0
+
+        if site_price <= 1:
+            stock = 0
+        else:
+            stock = 1
+
+        products[article] = {
+            "cost": cost,
+            "stock": stock,
+            "site_price": site_price
         }
 
     print("Melad в CRM:", len(products))
@@ -79,7 +101,28 @@ def get_melad():
         if not article:
             continue
 
-        products[str(article).strip()] = {
+        article = str(article).strip()
+
+        # Цена
+        price = str(price).replace("$", "")
+        price = price.replace("грн", "")
+        price = price.replace(",", ".")
+        price = price.strip()
+
+        try:
+            price = float(price)
+        except:
+            price = 0
+
+        # Наличие
+        try:
+            stock = int(float(stock))
+        except:
+            stock = 0
+
+        stock = 1 if stock > 0 else 0
+
+        products[article] = {
             "name": name,
             "price": price,
             "stock": stock,
@@ -107,14 +150,16 @@ def main():
     ws.append([
         "Артикул",
         "Название",
-        "Цена поставщика",
-        "Себестоимость CRM",
-        "Наличие поставщика",
+        "Цена парсер ($)",
+        "Себестоимость CRM ($)",
+        "Наличие парсер",
         "Наличие CRM",
-        "URL",
-        "Статус"
+        "Статус",
+        "URL"
     ])
 
+    changed_price = 0
+    changed_stock = 0
     ok = 0
     missing = 0
 
@@ -122,43 +167,7 @@ def main():
 
         crm_item = crm.get(article)
 
-        if crm_item:
-
-            supplier_stock = str(item["stock"]).strip()
-
-            try:
-                crm_stock = int(float(crm_item["stock"]))
-            except:
-                crm_stock = 0
-
-            if supplier_stock in ("", "0", "Нет", "нет", "Немає"):
-                supplier_have = 0
-            else:
-                supplier_have = 1
-
-            if supplier_have == crm_stock:
-                status = "OK"
-            elif supplier_have == 1 and crm_stock == 0:
-                status = "❌ НЕТ В CRM"
-            elif supplier_have == 0 and crm_stock == 1:
-                status = "➕ ПОЯВИЛСЯ"
-            else:
-                status = "⚠ ПРОВЕРИТЬ"
-
-            ws.append([
-                article,
-                item["name"],
-                item["price"],
-                crm_item["cost"],
-                supplier_have,
-                crm_stock,
-                item["url"],
-                status
-            ])
-
-            ok += 1
-
-        else:
+        if crm_item is None:
 
             ws.append([
                 article,
@@ -167,21 +176,66 @@ def main():
                 "",
                 item["stock"],
                 "",
-                item["url"],
-                "❌ НЕТ В CRM"
+                "❌ Нет в CRM",
+                item["url"]
             ])
 
             missing += 1
+            continue
 
-    os.makedirs("output/Melad", exist_ok=True)
+        # ---------- Цена ----------
+
+        parser_price = item["price"]
+
+        try:
+            crm_cost = float(str(crm_item["cost"]).replace(",", "."))
+        except:
+            crm_cost = 0
+
+        # ---------- Наличие ----------
+
+        parser_stock = 0 if str(item["stock"]).strip() == "0" else 1
+        crm_stock = crm_item["stock"]
+
+        status = []
+
+        if abs(parser_price - crm_cost) > 0.001:
+            status.append("💲 Цена")
+
+        if parser_stock != crm_stock:
+            status.append("📦 Наличие")
+
+        if not status:
+            status.append("✅ OK")
+            ok += 1
+        else:
+            if "💲 Цена" in status:
+                changed_price += 1
+
+            if "📦 Наличие" in status:
+                changed_stock += 1
+
+        ws.append([
+            article,
+            item["name"],
+            parser_price,
+            crm_cost,
+            parser_stock,
+            crm_stock,
+            ", ".join(status),
+            item["url"]
+        ])
+
     wb.save(RESULT_FILE)
 
     print()
-    print("ГОТОВО")
-    print("Совпало:", ok)
+    print("==========")
+    print("OK:", ok)
+    print("Цена:", changed_price)
+    print("Наличие:", changed_stock)
     print("Нет в CRM:", missing)
+    print("==========")
     print(RESULT_FILE)
-
 
 if __name__ == "__main__":
     main()
