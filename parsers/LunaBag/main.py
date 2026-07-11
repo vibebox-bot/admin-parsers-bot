@@ -33,6 +33,26 @@ HEADERS = {
 session = requests.Session()
 session.headers.update(HEADERS)
 
+csrf = "1bc3361d698d203571a8ef05cbebe4c069d5dead"
+
+r = session.post(
+    BASE + "/aksessuary/",
+    data={
+        "catalogBuilder": "1"
+    },
+    headers={
+        "X-Requested-With": "XMLHttpRequest",
+        "X-CSRF-Token": csrf,
+        "Referer": BASE + "/aksessuary/",
+    },
+    timeout=30
+)
+
+print("STATUS:", r.status_code)
+print(r.text[:1000])
+
+exit()
+
 # Первый заход (получаем JS-челлендж)
 r = session.get(BASE, timeout=30)
 
