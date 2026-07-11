@@ -1,10 +1,11 @@
-import os
 import requests
 import xml.etree.ElementTree as ET
 from openpyxl import load_workbook, Workbook
+from openpyxl.styles import PatternFill, Font
 
 
 YML_URL = "https://kindlytech.salesdrive.me/export/yml/export.yml?publicKey=YEWxvIKV_z6Hjx4-zqWiGLmmsFAS05TLQQ23qZbeoR_2UjOCNEtx-QxFfP0JFfUv45Q"
+
 
 MELAD_FILE = "output/Melad/Melad_LIVE.xlsx"
 
@@ -49,10 +50,7 @@ def get_salesdrive():
 
             products[key] = {
 
-                "name": offer.findtext(
-                    "name",
-                    ""
-                ),
+                "name": offer.findtext("name", ""),
 
                 "stock": offer.findtext(
                     "quantity_in_stock",
@@ -62,15 +60,12 @@ def get_salesdrive():
                 "price": offer.findtext(
                     "price",
                     ""
-                ),
-
-                "note": note,
-
-                "barcode": barcode
+                )
             }
 
 
     return products
+
 
 
 # =========================
@@ -85,7 +80,6 @@ def get_melad():
 
     ws = wb.active
 
-
     products = {}
 
     for row in ws.iter_rows(
@@ -98,14 +92,10 @@ def get_melad():
 
         if article:
 
-            products[str(article)] = {
+            products[str(article).strip()] = {
 
                 "name": name,
-
                 "price": price,
-
-                "stock": stock,
-
                 "url": url
             }
 
@@ -140,42 +130,69 @@ def main():
 
     wb = Workbook()
 
-    ws = wb.active
 
+    # =====================
+    # НАЙДЕННЫЕ
+    # =====================
+
+    ws = wb.active
     ws.title = "Проверка"
 
 
     ws.append([
         "Название",
-        "Артикул",
+        "Арт поставщика",
         "Цена Melad",
-        "Наличие Melad",
-        "Наличие CRM",
         "Цена CRM",
+        "Наличие CRM",
         "Статус"
     ])
 
 
-    count = 0
+    # =====================
+    # НЕ НАЙДЕНЫ
+    # =====================
+
+    ws2 = wb.create_sheet(
+        "Не найдено"
+    )
+
+    ws2.append([
+        "Название",
+        "Арт поставщика",
+        "URL"
+    ])
+
+
+    found = 0
+    not_found = 0
 
 
     for article, item in melad.items():
+
 
         crm_item = crm.get(article)
 
 
         if crm_item:
 
-            status = "OK"
+            crm_price = str(
+                crm_item["price"]
+            )
 
 
-            crm_stock = str(crm_item["stock"]).strip()
-            crm_price = str(crm_item["price"]).strip()
-            
+            crm_stock = str(
+                crm_item["stock"]
+            )
+
+
             if crm_stock == "0" or crm_price == "1":
-                status = "НЕТ В НАЛИЧИИ"
+
+                status = "❌ НЕТ В НАЛИЧИИ"
+
             else:
-                status = "ЕСТЬ"
+
+                status = "✅ ЕСТЬ"
 
 
             ws.append([
@@ -186,17 +203,54 @@ def main():
 
                 item["price"],
 
-                item["stock"],
+                crm_price,
 
-                crm_item["stock"],
-
-                crm_item["price"],
+                crm_stock,
 
                 status
             ])
 
-            count += 1
 
+            found += 1
+
+
+        else:
+
+
+            ws2.append([
+
+                item["name"],
+
+                article,
+
+                item["url"]
+
+            ])
+
+            not_found += 1
+
+
+
+    # ширина колонок
+
+    for sheet in [ws, ws2]:
+
+        for col in sheet.columns:
+
+            sheet.column_dimensions[
+                col[0].column_letter
+            ].width = 25
+
+
+    # жирный заголовок
+
+    for sheet in [ws, ws2]:
+
+        for cell in sheet[1]:
+
+            cell.font = Font(
+                bold=True
+            )
 
 
     wb.save(
@@ -204,14 +258,10 @@ def main():
     )
 
 
-    print(
-        "ГОТОВО:",
-        count
-    )
-
-    print(
-        RESULT_FILE
-    )
+    print("----------------")
+    print("НАЙДЕНО:", found)
+    print("НЕ НАЙДЕНО:", not_found)
+    print(RESULT_FILE)
 
 
 
