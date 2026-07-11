@@ -52,7 +52,7 @@ if m:
 
 # Загружаем страницу повторно уже с cookie
 r = session.get(BASE, timeout=30)
-
+print(r.text[:1000])
 # Ищем CSRF
 m = re.search(
     r"GLOBAL_CSRF_TOKEN:\s*'([^']+)'",
@@ -143,14 +143,10 @@ def get_soup(url):
             data={
                 "catalogBuilder": "1"
             },
-            headers={
-                "X-Requested-With": "XMLHttpRequest",
-                "X-CSRF-Token": csrf,
-                "Referer": url,
-            },
+            headers=headers,
             timeout=30
         )
-
+        
         if r.status_code != 200:
             return BeautifulSoup("", "html.parser")
 
