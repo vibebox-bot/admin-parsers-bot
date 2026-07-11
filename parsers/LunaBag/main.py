@@ -247,17 +247,19 @@ def get_page(url):
 
     for attempt in range(3):
 
-        r = get_page(url)
-        
+        r = session.get(
+            url,
+            timeout=60,
             headers={
                 "User-Agent": "Mozilla/5.0",
                 "Accept-Language": "uk-UA,uk;q=0.9"
             }
         )
 
+        print("STATUS PAGE:", r.status_code)
 
         # если это challenge
-        if "challenge_passed" in r.text and "<script>" in r.text:
+        if "challenge_passed" in r.text and "document.cookie" in r.text:
 
             print("🛡 CHALLENGE")
 
@@ -276,7 +278,6 @@ def get_page(url):
                 )
 
                 time.sleep(1)
-
                 continue
 
 
