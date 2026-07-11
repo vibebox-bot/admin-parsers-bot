@@ -251,6 +251,7 @@ def get_page(url):
         r = session.get(
             url,
             timeout=60,
+            print(r.text[:200])
             headers={
                 "User-Agent": "Mozilla/5.0",
                 "Accept-Language": "uk-UA,uk;q=0.9"
@@ -291,97 +292,47 @@ def get_page(url):
 # PRODUCT PARSER
 # =========================
 
-def parse_product(url):
+def parse_catalog_product(item):
 
     result = {
         "sku": "",
         "title": "",
         "price": "",
         "status": "",
-        "url": url
+        "url": ""
     }
+
 
     try:
 
-        r = session.get(
-            url,
-            timeout=60,
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Accept-Language": "uk-UA,uk;q=0.9"
-            }
+        # ссылка
+
+        link = item.select_one(
+            "a.catalogCard-image"
         )
 
+        if link:
 
-        # ==========================
-        # CHALLENGE
-        # ==========================
-
-        if "challenge_passed" in r.text:
-
-            print("🛡 CHALLENGE")
-
-            m = re.search(
-                r'challenge_passed=([^"]+)',
-                r.text
-            )
-
-            if m:
-
-                session.cookies.set(
-                    "challenge_passed",
-                    m.group(1),
-                    domain="luna-toys.com.ua",
-                    path="/"
-                )
+            result["url"] = BASE + link["href"]
 
 
-                time.sleep(2)
+        # название
 
-
-                r = session.get(
-                    url,
-                    timeout=60,
-                    headers={
-                        "User-Agent": "Mozilla/5.0",
-                        "Accept-Language": "uk-UA,uk;q=0.9"
-                    }
-                )
-
-
-        print(
-            "STATUS PAGE:",
-            r.status_code
+        title = item.select_one(
+            ".catalogCard-title a"
         )
 
-
-        soup = BeautifulSoup(
-            r.text,
-            "html.parser"
-        )
-
-
-        # ==========================
-        # TITLE
-        # ==========================
-
-        h1 = soup.select_one(
-            "h1.product-title"
-        )
-
-        if h1:
+        if title:
 
             result["title"] = clean(
-                h1.get_text()
+                title.get_text()
             )
 
 
-        # ==========================
-        # SKU
-        # ==========================
+        # артикул
 
-        code = soup.select_one(
-            ".product-header__code"
+        code = item.select_one(
+            ".catalogCard-code"
         )
 
         if code:
@@ -395,36 +346,30 @@ def parse_product(url):
 
 
 
-        # ==========================
-        # STATUS
-        # ==========================
+        # цена
 
-        status = soup.select_one(
-            ".product-header__availability"
-        )
-
-        if status:
-
-            result["status"] = clean(
-                status.get_text()
-            )
-
-
-        # ==========================
-        # PRICE USD
-        # ==========================
-
-        price = soup.select_one(
-            ".product-price"
+        price = item.select_one(
+            ".catalogCard-price"
         )
 
         if price:
 
-            text = clean(
+            result["price"] = clean(
                 price.get_text()
             )
 
-            result["price"] = text
+
+        # наличие
+
+        stock = item.select_one(
+            ".catalogCard-availability"
+        )
+
+        if stock:
+
+            result["status"] = clean(
+                stock.get_text()
+            )
 
 
         print(
@@ -437,7 +382,6 @@ def parse_product(url):
 
         print(
             "ERROR:",
-            url,
             e
         )
 
