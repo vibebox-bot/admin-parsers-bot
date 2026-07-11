@@ -219,7 +219,19 @@ def get_products():
 
     return products
 
+def parse_product(url):
 
+    soup = get_soup(url)
+
+    print("OPEN:", url)
+
+    return [
+        "",
+        "",
+        "",
+        "",
+        url
+    ]
 # =========================
 # CATEGORIES
 # =========================
@@ -346,18 +358,16 @@ def run_parser():
         #cats = get_categories()
         products = get_products()
 
-        return
+        total = len(products)
 
         if CATEGORY_LIMIT:
-            cats = cats[:CATEGORY_LIMIT]
-
-        total = len(cats)
+            products = products[:CATEGORY_LIMIT]
 
         if total == 0:
             save_status(False, 100, USER, FILE_PATH)
             return
-
-        for i, cat in enumerate(cats, 1):
+            
+        for i, url in enumerate(products, 1):    
 
             save_status(
                 True,
@@ -368,18 +378,7 @@ def run_parser():
 
             items = parse_category(cat)
 
-            for sku, title, price, status, url in items:
-
-                #key = sku if sku else url
-                key = (title, price)
-
-                if key in seen:
-                    continue
-
-                seen.add(key)
-
-                if not title:
-                    continue
+            sku, title, price, status, url = parse_product(url)
 
                 ws.append([
                     sku,
