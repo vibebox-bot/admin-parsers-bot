@@ -244,7 +244,49 @@ def get_products():
     return products
 
 
+def get_page(url):
 
+    for attempt in range(3):
+
+        r = session.get(
+            url,
+            timeout=60,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept-Language": "uk-UA,uk;q=0.9"
+            }
+        )
+
+
+        # если это challenge
+        if "challenge_passed" in r.text and "<script>" in r.text:
+
+            print("🛡 CHALLENGE")
+
+            m = re.search(
+                r'document\.cookie\s*=\s*"challenge_passed=([^"]+)',
+                r.text
+            )
+
+            if m:
+
+                session.cookies.set(
+                    "challenge_passed",
+                    m.group(1),
+                    domain="luna-toys.com.ua",
+                    path="/"
+                )
+
+                time.sleep(1)
+
+                continue
+
+
+        return r
+
+
+    return r
+    
 # =========================
 # PRODUCT PARSER
 # =========================
@@ -259,16 +301,10 @@ def parse_product(url):
         "url": url
     }
 
+
     try:
 
-        r = session.get(
-            url,
-            timeout=60,
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Accept-Language": "uk-UA,uk;q=0.9"
-            }
-        )
+        r = get_page(url)
 
         print(
             "STATUS PAGE:",
@@ -282,27 +318,30 @@ def parse_product(url):
         )
 
 
-        # =====================
+        # ======================
         # TITLE
-        # =====================
+        # ======================
 
         h1 = soup.select_one(
             "h1.product-title"
         )
 
         if h1:
+
             result["title"] = clean(
                 h1.get_text()
             )
 
 
-        # =====================
+
+        # ======================
         # SKU
-        # =====================
+        # ======================
 
         sku = soup.select_one(
             ".product-header__code"
         )
+
 
         if sku:
 
@@ -315,13 +354,14 @@ def parse_product(url):
 
 
 
-        # =====================
+        # ======================
         # STATUS
-        # =====================
+        # ======================
 
         status = soup.select_one(
             ".product-header__availability"
         )
+
 
         if status:
 
@@ -330,33 +370,33 @@ def parse_product(url):
             )
 
 
-        # =====================
-        # PRICE $
-        # =====================
+
+        # ======================
+        # PRICE USD
+        # ======================
 
         price = soup.select_one(
-            ".product-price"
+            ".product-price__current"
         )
 
 
         if price:
 
-            txt = clean(
+            text = clean(
                 price.get_text()
             )
 
-            # оставляем только цифры
-            m = re.search(
-                r"[\d\.,]+",
-                txt
+
+            numbers = re.findall(
+                r"\d+[.,]?\d*",
+                text
             )
 
-            if m:
 
-                result["price"] = (
-                    m.group(0)
-                    .replace(",", ".")
-                )
+            if numbers:
+
+                result["price"] = numbers[0].replace(",", ".")
+
 
 
         print(
@@ -369,7 +409,6 @@ def parse_product(url):
 
         print(
             "ERROR:",
-            url,
             e
         )
 
