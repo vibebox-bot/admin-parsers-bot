@@ -160,9 +160,10 @@ def get_categories():
 
     soup = get_soup(BASE)
 
-    categories = set()
+    categories = []
+    seen = set()
 
-    for a in soup.select("#menu-list a.dropdown-img, #menu-list .dropdown-inner a"):
+    for a in soup.select("#menu-list a.dropdown-img, #menu-list .dropdown-menu-simple a"):
 
         href = a.get("href", "").strip()
 
@@ -172,25 +173,35 @@ def get_categories():
         if href.startswith("javascript"):
             continue
 
-        # Подкатегории OpenCart
+        # ----------------------------
+        # Подкатегории (path=...)
+        # ----------------------------
         if "route=product/category" in href:
 
             m = re.search(r'path=([\d_]+)', href)
 
-            if m:
-                categories.add(
-                    f"{BASE}/index.php?route=product/category&path={m.group(1)}"
-                )
+            if not m:
+                continue
 
-            continue
+            url = f"{BASE}/index.php?route=product/category&path={m.group(1)}"
 
-        # Обычные SEO-категории
-        if not href.startswith("http"):
-            href = BASE.rstrip("/") + "/" + href.lstrip("/")
+        # ----------------------------
+        # Родительские категории
+        # ----------------------------
+        else:
 
-        categories.add(href)
+            if href.startswith("/"):
+                url = BASE.rstrip("/") + href
 
-    categories = sorted(categories)
+            elif href.startswith("http"):
+                url = href
+
+            else:
+                url = BASE.rstrip("/") + "/" + href.lstrip("/")
+
+        if url not in seen:
+            seen.add(url)
+            categories.append(url)
 
     print("📂 TOTAL CATEGORIES:", len(categories))
 
@@ -231,10 +242,10 @@ def parse_category(cat_url):
             soup = first
         else:
 
-            if "?" in cat_url:
+            if "route=product/category" in cat_url:
                 url = cat_url + f"&page={page}"
             else:
-                url = cat_url + f"/?page={page}"
+                url = cat_url + f"?page={page}"
 
             soup = get_soup(url)
 
