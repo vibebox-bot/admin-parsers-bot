@@ -247,6 +247,11 @@ def get_page(url):
 
     for attempt in range(3):
 
+        session.get(
+                    BASE + "/_widget/currency_selector/change/3",
+                    timeout=10
+                )
+        
         r = session.get(
             url,
             timeout=60,
@@ -289,47 +294,50 @@ def get_page(url):
 # =========================
 # PRODUCT PARSER
 # =========================
-def parse_product(url):    
+def parse_product(url):
 
     result = {
         "sku": "",
         "title": "",
         "price": "",
         "status": "",
-        "url": ""
+        "url": url
     }
-
 
     try:
 
-        # ссылка
+        r = get_page(url)
 
-        link = item.select_one(
-            "a.catalogCard-image"
+        print(
+            "STATUS PAGE:",
+            r.status_code,
+            url
         )
 
-        if link:
 
-            result["url"] = BASE + link["href"]
-
-
-        # название
-
-        title = item.select_one(
-            ".catalogCard-title a"
+        soup = BeautifulSoup(
+            r.text,
+            "html.parser"
         )
 
-        if title:
+
+        # TITLE
+
+        h1 = soup.select_one(
+            "h1.product-title"
+        )
+
+        if h1:
 
             result["title"] = clean(
-                title.get_text()
+                h1.get_text()
             )
 
 
-        # артикул
+        # SKU
 
-        code = item.select_one(
-            ".catalogCard-code"
+        code = soup.select_one(
+            ".product-header__code"
         )
 
         if code:
@@ -343,23 +351,10 @@ def parse_product(url):
 
 
 
-        # цена
+        # STATUS
 
-        price = item.select_one(
-            ".catalogCard-price"
-        )
-
-        if price:
-
-            result["price"] = clean(
-                price.get_text()
-            )
-
-
-        # наличие
-
-        stock = item.select_one(
-            ".catalogCard-availability"
+        stock = soup.select_one(
+            ".product-header__availability"
         )
 
         if stock:
@@ -368,6 +363,27 @@ def parse_product(url):
                 stock.get_text()
             )
 
+        # PRICE
+        
+        price = soup.select_one(
+            ".product-header__price"
+        )
+        
+        if price:
+        
+            result["price"] = clean(
+                price.get_text()
+            )
+        
+        else:
+        
+            # запасной поиск цены в meta
+            meta_price = soup.select_one(
+                'meta[property="product:price:amount"]'
+            )
+        
+            if meta_price:
+                result["price"] = meta_price.get("content")
 
     except Exception as e:
 
