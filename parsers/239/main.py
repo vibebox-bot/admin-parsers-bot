@@ -160,36 +160,42 @@ def get_categories():
 
     soup = get_soup(BASE)
 
-    categories = []
+    categories = set()
 
-    for a in soup.select("#menu-list a[href*='route=product/category']"):
+    for a in soup.select("#menu-list a.dropdown-img, #menu-list .dropdown-inner a"):
 
         href = a.get("href", "").strip()
 
         if not href:
             continue
 
-        if href.startswith("/"):
-            href = BASE + href
-
-        elif not href.startswith("http"):
-            href = BASE.rstrip("/") + "/" + href.lstrip("/")
-
-        # оставляем только path
-        m = re.search(r'path=([\d_]+)', href)
-
-        if not m:
+        if href.startswith("javascript"):
             continue
 
-        href = f"{BASE}/index.php?route=product/category&path={m.group(1)}"
+        # Подкатегории OpenCart
+        if "route=product/category" in href:
 
-        if href not in categories:
-            categories.append(href)
+            m = re.search(r'path=([\d_]+)', href)
+
+            if m:
+                categories.add(
+                    f"{BASE}/index.php?route=product/category&path={m.group(1)}"
+                )
+
+            continue
+
+        # Обычные SEO-категории
+        if not href.startswith("http"):
+            href = BASE.rstrip("/") + "/" + href.lstrip("/")
+
+        categories.add(href)
+
+    categories = sorted(categories)
 
     print("📂 TOTAL CATEGORIES:", len(categories))
 
     return categories
-
+    
 # =========================
 # LAST PAGE
 # =========================
