@@ -595,6 +595,13 @@ def kb_supplier(key, running=False):
 
     rows.append([
         InlineKeyboardButton(
+            text="🔍 Проверить",
+            callback_data=f"check_{key}"
+        )
+    ])
+    
+    rows.append([
+        InlineKeyboardButton(
             text="▶ Запустить заново",
             callback_data=f"run_{key}"
         )
@@ -889,6 +896,44 @@ async def cb(call: types.CallbackQuery):
             )
     
         return
+
+    # CHECK
+    
+    if data.startswith("check_"):
+    
+        key = data.replace("check_", "")
+    
+        s = SUPPLIERS[key]
+    
+        file = s["file"]
+    
+        if not os.path.exists(file):
+            await call.answer(
+                "❌ Excel не найден",
+                show_alert=True
+            )
+            return
+    
+    
+        from openpyxl import load_workbook
+    
+        wb = load_workbook(
+            file,
+            read_only=True
+        )
+    
+        ws = wb.active
+    
+        count = ws.max_row - 1
+    
+    
+        await call.message.answer(
+            f"🔍 Проверка {s['name']}\n\n"
+            f"📦 Товаров в Excel: {count}"
+        )
+    
+        return
+
 
     
     # RUN
