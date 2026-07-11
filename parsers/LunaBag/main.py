@@ -187,15 +187,20 @@ def clean(t):
 # =========================
 # PRODUCTS FROM SITEMAP
 # =========================
-
 def get_products():
 
     products = []
 
-    xml = session.get(
+    r = session.get(
         BASE + "/sitemap.xml",
         timeout=30
-    ).text
+    )
+
+    print("SITEMAP STATUS:", r.status_code)
+
+    print(r.text[:500])
+
+    xml = r.text
 
     maps = re.findall(
         r"<loc>(.*?)</loc>",
