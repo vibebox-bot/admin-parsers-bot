@@ -250,6 +250,9 @@ def parse_category(cat_url):
     first_page = get_soup(base_url)
     
     last_page = get_last_page(first_page)
+
+    print(cat_url)
+    print("LAST PAGE =", last_page)
     
     for page in range(1, last_page + 1):
     
@@ -262,6 +265,7 @@ def parse_category(cat_url):
         soup = get_soup(url)
 
         cards = soup.select("div.product-thumb")
+        print("PAGE", page, "PRODUCTS", len(cards))
 
         #print(f"Page {page}: {len(cards)} products")
 
