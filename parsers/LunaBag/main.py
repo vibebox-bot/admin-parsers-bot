@@ -18,8 +18,12 @@ BASE = "https://luna-toys.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 1
-#CATEGORY_LIMIT = None
+
+TEST_MODE = True
+TEST_LIMIT = 5
+
+# после проверки поменяем:
+# TEST_MODE = False
 
 OUTPUT_DIR = os.path.abspath("output/LunaBag")
 FILE_PATH = os.path.join(OUTPUT_DIR, "LunaBag_LIVE.xlsx")
@@ -178,60 +182,6 @@ def get_soup(url):
 def clean(t):
     return re.sub(r"\s+", " ", t).strip() if t else ""
 
-
-def get_products():
-
-    products = []
-
-    xml = session.get(
-        BASE + "/sitemap.xml",
-        timeout=30
-    ).text
-
-    maps = re.findall(
-        r"<loc>(.*?)</loc>",
-        xml
-    )
-
-    for sm in maps:
-
-        if "catalog-sitemap" not in sm:
-            continue
-
-        print("📄", sm)
-
-        xml2 = session.get(
-            sm,
-            timeout=30
-        ).text
-
-        urls = re.findall(
-            r"<loc>(https://luna-toys\.com\.ua/(?!ru/).*?)</loc>",
-            xml2
-        )
-
-        for url in urls:
-
-            if url not in products:
-                products.append(url)
-
-    print("✅ Products:", len(products))
-
-    return products
-
-def parse_product(url):
-
-    soup = get_soup(url)
-
-    print("OPEN:", url)
-
-    return [
-        "",
-        "",
-        "",
-        "",
-        url
-    ]
 
 
 # =========================
@@ -421,6 +371,15 @@ def run_parser():
 
 
         products = get_products()
+
+
+        # =========================
+        # TEST LIMIT
+        # =========================
+        
+        if TEST_MODE:
+            products = products[:TEST_LIMIT]
+            print(f"🧪 TEST MODE: {len(products)} товаров")
 
 
         total = len(products)
