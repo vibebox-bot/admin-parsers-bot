@@ -33,6 +33,37 @@ HEADERS = {
 session = requests.Session()
 session.headers.update(HEADERS)
 
+# Получаем главную страницу
+r = session.get(BASE, timeout=30)
+
+# challenge_passed
+m = re.search(
+    r'document\.cookie\s*=\s*"challenge_passed=([^"]+)',
+    r.text
+)
+
+if m:
+    session.cookies.set(
+        "challenge_passed",
+        m.group(1),
+        domain="luna-toys.com.ua",
+        path="/"
+    )
+
+# Загружаем страницу повторно уже с cookie
+r = session.get(BASE, timeout=30)
+
+# Ищем CSRF
+m = re.search(
+    r"GLOBAL_CSRF_TOKEN:\s*'([^']+)'",
+    r.text
+)
+
+CSRF = m.group(1) if m else ""
+
+print("CSRF:", CSRF)
+
+
 # Переключаем валюту
 try:
     session.get(
@@ -98,8 +129,12 @@ def save_status(running=False, progress=0, user="", file_path=""):
 # HTTP
 # =========================
 def get_soup(url):
-
-    csrf = "1bc3361d698d203571a8ef05cbebe4c069d5dead"
+    
+    headers={
+        "X-Requested-With": "XMLHttpRequest",
+        "X-CSRF-Token": CSRF,
+        "Referer": url,
+    }
 
     try:
 
@@ -120,6 +155,9 @@ def get_soup(url):
             return BeautifulSoup("", "html.parser")
 
         data = r.json()
+
+        print(data.keys())
+        print(data["response"]["html"].keys())
 
         html = ""
 
@@ -144,24 +182,9 @@ def clean(t):
 # =========================
 def get_categories():
 
-    r = session.get(BASE + "/katalog/", timeout=30)
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    for a in soup.select("a.productsMenu-submenu-a"):
-
-        href = a.get("href", "").strip()
-
-        if not href:
-            continue
-
-        if href.startswith("/"):
-            href = BASE + href
-
-        if href in seen:
-            continue
-
-        seen.add(href)
-        categories.append(href)
+    categories = [
+        BASE + "/aksessuary/"
+    ]
 
     print(f"📂 Categories: {len(categories)}")
 
