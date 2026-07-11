@@ -127,6 +127,12 @@ def get_categories():
 
     soup = get_soup(BASE)
 
+    print("TITLE:", soup.title)
+    print("LINKS:", len(soup.select("a")))
+
+    with open("debug.html", "w", encoding="utf-8") as f:
+        f.write(str(soup))    
+
     categories = []
     seen = set()
 
