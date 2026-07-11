@@ -1,5 +1,6 @@
 import os
 from openpyxl import load_workbook, Workbook
+from openpyxl.styles import PatternFill, Font
 
 # =========================
 # ФАЙЛЫ
@@ -9,6 +10,14 @@ CRM_FILE = "checker/export-2026-07-12_00-14-43.xlsx"
 MELAD_FILE = "output/Melad/Melad_LIVE.xlsx"
 RESULT_FILE = "output/Melad/Melad_CHECK.xlsx"
 
+
+
+YELLOW = PatternFill(fill_type="solid", fgColor="FFF59D")
+RED = PatternFill(fill_type="solid", fgColor="F8BBD0")
+ORANGE = PatternFill(fill_type="solid", fgColor="FFD180")
+GREEN = PatternFill(fill_type="solid", fgColor="C8E6C9")
+
+BOLD = Font(bold=True)
 
 # =========================
 # CRM EXCEL
@@ -147,16 +156,19 @@ def main():
     ws = wb.active
     ws.title = "Melad"
 
+
     ws.append([
+        "Действие",
         "Артикул",
         "Название",
-        "Цена парсер ($)",
-        "Себестоимость CRM ($)",
-        "Наличие парсер",
-        "Наличие CRM",
-        "Статус",
+        "Было (CRM)",
+        "Стало (Melad)",
         "URL"
     ])
+
+    for cell in ws[1]:
+        cell.font = BOLD
+
 
     changed_price = 0
     changed_stock = 0
@@ -170,15 +182,15 @@ def main():
         if crm_item is None:
 
             ws.append([
+                "🆕 Создать товар",
                 article,
                 item["name"],
-                item["price"],
-                "",
-                item["stock"],
-                "",
-                "❌ Нет в CRM",
+                "-",
+                f"{item['price']}$ / {'Есть' if item['stock'] else 'Нет'}",
                 item["url"]
             ])
+
+        
 
             missing += 1
             continue
@@ -197,34 +209,74 @@ def main():
         parser_stock = 0 if str(item["stock"]).strip() == "0" else 1
         crm_stock = crm_item["stock"]
 
-        status = []
-
-        if abs(parser_price - crm_cost) > 0.001:
-            status.append("💲 Цена")
-
-        if parser_stock != crm_stock:
-            status.append("📦 Наличие")
-
-        if not status:
-            status.append("✅ OK")
+        price_changed = abs(parser_price - crm_cost) > 0.001
+        stock_changed = parser_stock != crm_stock
+        
+        if not price_changed and not stock_changed:
             ok += 1
+            continue
+        
+        if price_changed and stock_changed:
+            action = "💲📦 Обновить цену и наличие"
+            changed_price += 1
+            changed_stock += 1
+        
+        elif price_changed:
+            action = "💲 Обновить себестоимость"
+            changed_price += 1
+        
         else:
-            if "💲 Цена" in status:
-                changed_price += 1
+            action = "📦 Обновить наличие"
+            changed_stock += 1
+        
+        crm_stock_text = "Есть" if crm_stock else "Нет"
+        melad_stock_text = "Есть" if parser_stock else "Нет"
+        
+        if price_changed and stock_changed:
+        
+            old_value = f"{crm_cost}$ / {crm_stock_text}"
+            new_value = f"{parser_price}$ / {melad_stock_text}"
+        
+        elif price_changed:
+        
+            old_value = f"{crm_cost}$"
+            new_value = f"{parser_price}$"
+        
+        else:
+        
+            old_value = crm_stock_text
+            new_value = melad_stock_text
 
-            if "📦 Наличие" in status:
-                changed_stock += 1
-
+       
         ws.append([
+            action,
             article,
             item["name"],
-            parser_price,
-            crm_cost,
-            parser_stock,
-            crm_stock,
-            ", ".join(status),
+            old_value,
+            new_value,
             item["url"]
         ])
+
+        row = ws.max_row
+    
+        fill = None
+        
+        if action == "💲 Обновить себестоимость":
+            fill = YELLOW
+        
+        elif action == "📦 Обновить наличие":
+            fill = RED
+        
+        elif action == "💲📦 Обновить цену и наличие":
+            fill = ORANGE
+        
+        elif action == "🆕 Создать товар":
+            fill = GREEN
+        
+        if fill:
+            for cell in ws[row]:
+                cell.fill = fill
+    
 
     wb.save(RESULT_FILE)
 
