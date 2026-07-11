@@ -46,4 +46,7 @@ if __name__ == "__main__":
 
     print("ТОВАРОВ:", len(items))
 
-    print(items[0])
+    for x in items:
+        if x["note"]:
+            print(x)
+            break
