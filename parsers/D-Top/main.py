@@ -18,7 +18,7 @@ BASE = "http://www.dtopelectronic.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 2
+CATEGORY_LIMIT = 10
 #CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
