@@ -106,8 +106,6 @@ SUPPLIERS = {
         "file": path("output/Melad/Melad_LIVE.xlsx"),
         "status": path("output/Melad/status.json"),
         "lock": path("output/Melad/lock.txt"),
-        "checker": "checker/compare_excel.py",
-        "report": "output/Melad/Melad_CHECK.xlsx",
     },
         "Харьковская 220 Kithen Plus": {
             "name": "Харьковская 220 Kithen Plus",
@@ -594,13 +592,6 @@ def kb_supplier(key, running=False):
                 callback_data=f"download_{key}"
             )
         ])
-
-    rows.append([
-        InlineKeyboardButton(
-            text="🔍 Проверить",
-            callback_data=f"check_{key}"
-        )
-    ])
     
     rows.append([
         InlineKeyboardButton(
@@ -898,79 +889,6 @@ async def cb(call: types.CallbackQuery):
             )
     
         return
-
-     # CHECK
-    if data.startswith("check_"):
-
-        import sys
-
-        key = data.replace("check_", "")
-
-        s = SUPPLIERS[key]
-
-        if "checker" not in s:
-            await call.answer(
-                "Для этого поставщика проверка не настроена.",
-                show_alert=True
-            )
-            return
-
-        checker = s["checker"]
-
-        report = s.get(
-            "report",
-            "output/Melad/Melad_CHECK.xlsx"
-        )
-
-        msg = await call.message.answer(
-            "🔍 Проверяю CRM...\n\n"
-            "⏳ Пожалуйста, подождите..."
-        )
-
-        proc = await asyncio.create_subprocess_exec(
-            sys.executable,
-            checker,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-
-        stdout, stderr = await proc.communicate()
-
-        if stdout:
-            print(stdout.decode(errors="ignore"))
-
-        if stderr:
-            print(stderr.decode(errors="ignore"))
-
-        if proc.returncode != 0:
-
-            await msg.edit_text(
-                "❌ Проверка завершилась с ошибкой."
-            )
-
-            return
-
-        if not os.path.exists(report):
-
-            await msg.edit_text(
-                "❌ Отчет не найден."
-            )
-
-            return
-
-        await msg.edit_text(
-            "✅ Проверка завершена.\n\n"
-            "📤 Отправляю отчет..."
-        )
-
-        await call.message.answer_document(
-            types.FSInputFile(report),
-            caption="📊 Отчет проверки CRM"
-        )
-
-        return
-
-
     
     # RUN
     if data.startswith("run_"):
