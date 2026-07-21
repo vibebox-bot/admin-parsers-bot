@@ -206,10 +206,13 @@ def parse_category(cat_url):
     result = []
 
     page = 0
+    last_products = None
 
     while True:
 
         url = f"{cat_url}?start={page}"
+
+        print(f"📄 {url}")
 
         soup = get_soup(url)
 
@@ -230,6 +233,13 @@ def parse_category(cat_url):
 
         if not products:
             break
+        current_products = tuple(products)
+
+        if current_products == last_products:
+            print("⚠️ Повтор страницы:", url)
+            break
+        
+        last_products = current_products    
 
         #print(f"📄 Страница {page // 12 + 1}: {len(products)} товаров")
 
