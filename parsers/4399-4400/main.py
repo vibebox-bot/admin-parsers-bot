@@ -236,7 +236,7 @@ def parse_category(cat_url):
         current_products = tuple(products)
 
         if current_products == last_products:
-            print("⚠️ Повтор страницы:", url)
+            #print("⚠️ Повтор страницы:", url)
             break
         
         last_products = current_products    
