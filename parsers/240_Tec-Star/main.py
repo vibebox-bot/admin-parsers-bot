@@ -123,17 +123,26 @@ def get_categories():
     if not menu:
         return categories
 
-
     def walk(li):
-
+    
+        a = li.select_one(":scope > a")
+    
+        if a:
+    
+            href = a.get("href", "").strip()
+    
+            if href:
+    
+                if href.startswith("/"):
+                    href = BASE + href
+    
+                categories.append(href)
+    
         child = li.select_one(":scope > div.sc-megamenu-child")
-
-        # Есть подкатегории
+    
         if child:
-
-            items = child.select(":scope > ul > li")
-
-            for item in items:
+    
+            for item in child.select(":scope > ul > li"):
                 walk(item)
 
             return
