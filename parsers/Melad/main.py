@@ -13,15 +13,15 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Melad")
 
-BASE = "https://andopt2.com.ua"
+BASE = "https://melad.com.ua"
 
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 2
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 2
+#CATEGORY_LIMIT = None
 
-EMAIL = "angelinatitor@gmail.com"
+EMAIL = "titorangelina@gmail.com"
 PASSWORD = "18022021"
 
 OUTPUT_DIR = os.path.abspath("output/Melad")
@@ -69,12 +69,13 @@ def set_lock(state):
 # =========================
 # LOGIN
 # =========================
+# =========================
+# LOGIN
+# =========================
 def login():
 
-    #login_url = BASE + "/login-ru"
-    login_url = BASE + "/index.php?route=account/login"
+    login_url = BASE + "/login/"
 
-    # Получаем страницу логина (куки + возможные hidden поля)
     r = session.get(login_url)
     soup = BeautifulSoup(r.text, "html.parser")
 
@@ -83,16 +84,17 @@ def login():
     form = soup.select_one("form")
 
     if form:
+
         for inp in form.select("input"):
+
             name = inp.get("name")
+
             if name:
                 payload[name] = inp.get("value", "")
 
-    # Подставляем логин
     payload["email"] = EMAIL
     payload["password"] = PASSWORD
 
-    # Отправляем форму
     session.post(
         login_url,
         data=payload,
@@ -102,7 +104,6 @@ def login():
         allow_redirects=True
     )
 
-    # Можно проверить успешность авторизации
     account = session.get(BASE)
 
     if "logout" in account.text.lower() or "выход" in account.text.lower():
@@ -156,7 +157,6 @@ def get_soup(url):
 def clean(t):
     return re.sub(r"\s+", " ", t).strip() if t else ""
 
-
 # =========================
 # CATEGORIES
 # =========================
@@ -166,28 +166,44 @@ def get_categories():
 
     categories = []
 
-    menu = soup.select_one("#oct-menu-ul")
+    menu = soup.select_one("#menu .navbar-nav")
 
     if not menu:
         return categories
 
-    # только первый уровень
-    for li in menu.find_all("li", recursive=False):
 
-        a = li.select_one("a.oct-menu-a")
+    def walk(container):
 
-        if not a:
-            continue
+        for li in container.find_all("li", recursive=False):
 
-        href = a.get("href", "").strip()
+            a = li.find("a", recursive=False)
 
-        if not href:
-            continue
+            if a:
 
-        if href.startswith("/"):
-            href = BASE + href
+                href = a.get("href", "").strip()
 
-        categories.append(href)
+                if href:
+
+                    if href.startswith("/"):
+                        href = BASE + href
+
+                    categories.append(href)
+
+            child = li.find("div", class_="dropdown-menu", recursive=False)
+
+            if child:
+
+                inner = child.find("div", class_="dropdown-inner")
+
+                if inner:
+
+                    for ul in inner.find_all("ul", recursive=False):
+                        walk(ul)
+
+
+    walk(menu)
+
+    categories = list(dict.fromkeys(categories))
 
     print(f"📂 Categories: {len(categories)}")
 
@@ -214,42 +230,47 @@ def get_last_page(soup):
 # =========================
 # PARSE CATEGORY
 # =========================
+# =========================
+# PARSE CATEGORY
+# =========================
 def parse_category(cat_url):
 
     all_items = []
 
-    # первая страница без limit
     first_page = get_soup(cat_url)
 
     last_page = get_last_page(first_page)
-
-    #print(f"📄 Pages: {last_page}")
 
     for page in range(1, last_page + 1):
 
         if page == 1:
             url = cat_url
         else:
-            url = f"{cat_url}&page={page}"
+
+            if "?" in cat_url:
+                url = f"{cat_url}&page={page}"
+            else:
+                url = f"{cat_url}?page={page}"
 
         soup = get_soup(url)
 
         cards = soup.select("div.product-layout")
 
-        #print(f"Page {page}: {len(cards)} products")
+        print(f"📄 Page {page}: {len(cards)} products")
 
         for card in cards:
 
-            title = ""
             sku = ""
+            title = ""
             price = ""
             status = ""
             url_product = ""
 
-            # TITLE + URL
-            title_el = card.select_one(".us-module-title a")
+            # URL + TITLE
+            title_el = card.select_one(".caption > a")
 
             if title_el:
+
                 title = clean(title_el.get_text())
 
                 href = title_el.get("href", "").strip()
@@ -258,31 +279,24 @@ def parse_category(cat_url):
                     href = BASE + href
 
                 url_product = href
-           
+
             # SKU
-            sku = ""
-            
-            for div in card.select("div"):
-                text = clean(div.get_text())
-            
-                if text.startswith("Артикул"):
-                    sku = text.replace("Артикул -", "").replace("Артикул:", "").strip()
-                    break
+            sku_el = card.select_one(".kod_sku b")
+
+            if sku_el:
+                sku = clean(sku_el.get_text())
 
             # PRICE
-            price_el = card.select_one(".us-module-price-actual")
+            price_el = card.select_one(".price")
 
             if price_el:
                 price = clean(price_el.get_text())
 
             # STATUS
-            status = ""
-            
-            for span in card.select(".us-module-caption span"):
-                text = clean(span.get_text())
-                if text:
-                    status = text
-                    break
+            status_el = card.select_one(".add_to_cart span")
+
+            if status_el:
+                status = clean(status_el.get_text())
 
             all_items.append([
                 sku,
@@ -341,7 +355,8 @@ def run_parser():
             for sku, title, price, status, url in items:
 
                 #key = sku if sku else url
-                key = (title, price)
+                #key = (title, price)
+                key = url
 
                 if key in seen:
                     continue
