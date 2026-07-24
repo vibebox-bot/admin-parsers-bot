@@ -253,7 +253,7 @@ def parse_category(cat_url):
 
         cards = soup.select("div.product-layout")
 
-        print(f"📄 Page {page}: {len(cards)} products")
+        #print(f"📄 Page {page}: {len(cards)} products")
 
         for card in cards:
 
