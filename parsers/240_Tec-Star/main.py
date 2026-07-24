@@ -349,7 +349,11 @@ def run_parser():
 
                 #key = sku if sku else url
                 #key = (title, price)
-                key = url
+                #key = url
+                key = (
+                    sku.strip(),
+                    price.strip()
+                )
 
                 if key in seen:
                     continue
