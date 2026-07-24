@@ -18,8 +18,8 @@ BASE = "https://tec-star.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 2
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 2
+CATEGORY_LIMIT = None
 
 OUTPUT_DIR = os.path.abspath("output/240_Tec-Star")
 FILE_PATH = os.path.join(OUTPUT_DIR, "240_Tec-Star_LIVE.xlsx")
