@@ -1,45 +1,120 @@
 import os
 import json
+import re
 import time
 import requests
-import random
+from datetime import datetime
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 
 import sys
-from datetime import datetime
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
+print("🔥 Melad")
+
+BASE = "https://andopt2.com.ua"
 
 # =========================
-# CONFIG
+# ⚙️ SWITCH
 # =========================
+#CATEGORY_LIMIT = 2
+CATEGORY_LIMIT = None
 
-BASE_DIR = os.path.abspath("output/Melad")
-
-FILE_PATH = os.path.join(BASE_DIR, "Melad_LIVE.xlsx")
-STATUS_PATH = os.path.join(BASE_DIR, "status.json")
-LOCK_FILE = os.path.join(BASE_DIR, "lock.txt")
-
-CATEGORY_LIMIT = None  # или 1 для теста
-#CATEGORY_LIMIT = 1  # или 1 для теста
-
-LOGIN_URL = "https://melad.com.ua/login/"
-BASE_URL = "https://melad.com.ua"
-
-EMAIL = "titorangelina@gmail.com"
+EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
+
+OUTPUT_DIR = os.path.abspath("output/Melad")
+FILE_PATH = os.path.join(OUTPUT_DIR, "Melad_LIVE.xlsx")
+STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
+LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
 session = requests.Session()
+session.headers.update(HEADERS)
+
+def is_locked():
+
+    if not os.path.exists(LOCK_FILE):
+        return False
+
+    try:
+        age = time.time() - os.path.getmtime(LOCK_FILE)
+
+        if age > 3600:
+            os.remove(LOCK_FILE)
+            return False
+
+        return True
+
+    except:
+        return False
 
 
+def set_lock(state):
+
+    if state:
+
+        with open(LOCK_FILE, "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
+
+    else:
+
+        if os.path.exists(LOCK_FILE):
+            os.remove(LOCK_FILE)
+
+# =========================
+# LOGIN
+# =========================
+def login():
+
+    #login_url = BASE + "/login-ru"
+    login_url = BASE + "/index.php?route=account/login"
+
+    # Получаем страницу логина (куки + возможные hidden поля)
+    r = session.get(login_url)
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    payload = {}
+
+    form = soup.select_one("form")
+
+    if form:
+        for inp in form.select("input"):
+            name = inp.get("name")
+            if name:
+                payload[name] = inp.get("value", "")
+
+    # Подставляем логин
+    payload["email"] = EMAIL
+    payload["password"] = PASSWORD
+
+    # Отправляем форму
+    session.post(
+        login_url,
+        data=payload,
+        headers={
+            "Referer": login_url
+        },
+        allow_redirects=True
+    )
+
+    # Можно проверить успешность авторизации
+    account = session.get(BASE)
+
+    if "logout" in account.text.lower() or "выход" in account.text.lower():
+        print("✅ LOGIN OK")
+    else:
+        print("⚠ LOGIN CHECK")
+        
+# =========================
+# STATUS
+# =========================
 def save_status(running=False, progress=0, user="", file_path=""):
-    os.makedirs(BASE_DIR, exist_ok=True)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     data = {
         "running": running,
@@ -58,61 +133,28 @@ def save_status(running=False, progress=0, user="", file_path=""):
 
 
 # =========================
-# LOCK
-# =========================
-
-def create_lock():
-    if os.path.exists(LOCK_FILE):
-        #print("❌ Already running")
-        exit()
-
-    with open(LOCK_FILE, "w") as f:
-        f.write("locked")
-
-
-def remove_lock():
-    if os.path.exists(LOCK_FILE):
-        os.remove(LOCK_FILE)
-
-
-# =========================
 # HTTP
 # =========================
+def get_soup(url):
 
-def get_soup(url, retries=3):
-    for i in range(retries):
+    for _ in range(3):
+
         try:
-            r = session.get(url, headers=HEADERS, timeout=20)
-            r.raise_for_status()
-            return BeautifulSoup(r.text, "html.parser")
 
-        except Exception as e:
-            #print(f"⚠️ Retry {i+1}/{retries} for {url}: {e}")
-            time.sleep(2)
+            r = session.get(url, timeout=30)
+            
+            if r.status_code == 200:
+                return BeautifulSoup(r.text, "html.parser")
+
+        except:
+            pass
+
+        time.sleep(1)
 
     return BeautifulSoup("", "html.parser")
 
-
-# =========================
-# LOGIN
-# =========================
-
-def login():
-    #print("🔐 LOGIN...")
-
-    payload = {
-        "email": EMAIL,
-        "password": PASSWORD
-    }
-
-    r = session.post(LOGIN_URL, data=payload, headers=HEADERS)
-
-    if "logout" in r.text.lower() or "account" in r.text.lower():
-        print("✅ LOGIN SUCCESS")
-        return True
-
-    print("❌ LOGIN FAILED")
-    return False
+def clean(t):
+    return re.sub(r"\s+", " ", t).strip() if t else ""
 
 
 # =========================
@@ -120,268 +162,221 @@ def login():
 # =========================
 def get_categories():
 
-    soup = get_soup(BASE_URL)
+    soup = get_soup(BASE)
 
     categories = []
-    seen = set()
 
-    def walk(li):
+    menu = soup.select_one("#oct-menu-ul")
 
-        # ссылка текущей категории
-        a = li.select_one(":scope > a[href]")
+    if not menu:
+        return categories
 
-        if a:
+    # только первый уровень
+    for li in menu.find_all("li", recursive=False):
 
-            href = a.get("href", "").strip()
+        a = li.select_one("a.oct-menu-a")
 
-            if href \
-                and "javascript" not in href \
-                and href not in seen:
-
-                if href.startswith("/"):
-                    href = BASE_URL + href
-
-                seen.add(href)
-                categories.append((a.get_text(" ", strip=True), href))
-
-        # ищем все вложенные li (любая глубина)
-        for child in li.select(":scope > .dropdown-menu li"):
-            walk(child)
-
-    for li in soup.select("ul.nav.navbar-nav > li.has-children"):
-        walk(li)
-    
-
-    # одиночные категории без подкатегорий
-    for a in soup.select("ul.nav.navbar-nav > li:not(.has-children) > a[href]"):
+        if not a:
+            continue
 
         href = a.get("href", "").strip()
 
         if not href:
             continue
 
-        if "javascript" in href:
-            continue
-
         if href.startswith("/"):
-            href = BASE_URL + href
+            href = BASE + href
 
-        if href not in seen:
-            seen.add(href)
-            categories.append((a.get_text(" ", strip=True), href))
+        categories.append(href)
 
-    print("📂 TOTAL CATEGORIES:", len(categories))
+    print(f"📂 Categories: {len(categories)}")
 
     return categories
+    
+# =========================
+# LAST PAGE DETECTION
+# =========================
+def get_last_page(soup):
 
+    pages = [1]
+
+    for a in soup.select("ul.pagination a"):
+
+        href = a.get("href", "")
+
+        m = re.search(r"[?&]page=(\d+)", href)
+
+        if m:
+            pages.append(int(m.group(1)))
+
+    return max(pages)
 
 # =========================
-# PAGES (ПАГИНАЦИЯ)
+# PARSE CATEGORY
 # =========================
+def parse_category(cat_url):
 
-def get_pages(url):
-    soup = get_soup(url)
+    all_items = []
 
-    pages = set()
-    pages.add(url)
+    # первая страница без limit
+    first_page = get_soup(cat_url)
 
-    for a in soup.select("div.pagination_wrap a[href]"):
-        href = a.get("href")
+    last_page = get_last_page(first_page)
 
-        if href and "page=" in href:
-            pages.add(href)
+    #print(f"📄 Pages: {last_page}")
 
-    return sorted(list(pages))
+    for page in range(1, last_page + 1):
 
-# =========================
-# PRODUCTS FROM CATEGORY
-# =========================
+        if page == 1:
+            url = cat_url
+        else:
+            url = f"{cat_url}&page={page}"
 
-def get_products_from_category(url):
-    #print(f"📦 PARSING CATEGORY: {url}")
+        soup = get_soup(url)
 
-    soup = get_soup(url)
+        cards = soup.select("div.product-layout")
 
-    products = []
+        #print(f"Page {page}: {len(cards)} products")
 
-    items = soup.select("div.product-layout.product-grid")
+        for card in cards:
 
-    for item in items:
+            title = ""
+            sku = ""
+            price = ""
+            status = ""
+            url_product = ""
 
-        a_tag = item.select_one("div.image a")
-        if not a_tag:
-            continue
+            # TITLE + URL
+            title_el = card.select_one(".us-module-title a")
 
-        link = a_tag.get("href")
+            if title_el:
+                title = clean(title_el.get_text())
 
-        name_tag = item.select_one("div.caption a")
-        name = name_tag.get_text(strip=True) if name_tag else ""
+                href = title_el.get("href", "").strip()
 
-        price_tag = item.select_one("p.price")
-        price = price_tag.get_text(strip=True) if price_tag else ""
+                if href.startswith("/"):
+                    href = BASE + href
 
-        sku_tag = item.select_one("span.kod_sku b")
-        sku = sku_tag.get_text(strip=True) if sku_tag else ""
+                url_product = href
+           
+            # SKU
+            sku = ""
+            
+            for div in card.select("div"):
+                text = clean(div.get_text())
+            
+                if text.startswith("Артикул"):
+                    sku = text.replace("Артикул -", "").replace("Артикул:", "").strip()
+                    break
 
-        btn = item.select_one("button.add_to_cart")
-        stock = btn.get_text(strip=True) if btn else ""
+            # PRICE
+            price_el = card.select_one(".us-module-price-actual")
 
-        products.append({
-            "url": link,
-            "name": name,
-            "price": price,
-            "article": sku,
-            "stock": stock
-        })
+            if price_el:
+                price = clean(price_el.get_text())
 
-    #print(f"   → FOUND PRODUCTS: {len(products)}")
+            # STATUS
+            status = ""
+            
+            for span in card.select(".us-module-caption span"):
+                text = clean(span.get_text())
+                if text:
+                    status = text
+                    break
 
-    return products
+            all_items.append([
+                sku,
+                title,
+                price,
+                status,
+                url_product
+            ])
 
-
-# =========================
-# PRODUCT PARSER
-# =========================
-
-def parse_product(url):
-    # TODO: вставим позже
-    return {
-        "name": "",
-        "price": "",
-        "article": "",
-        "stock": "",
-        "url": url
-    }
-
-
-# =========================
-# EXCEL
-# =========================
-
-class ExcelWriter:
-    def __init__(self, path):
-        self.path = path
-        self.wb = Workbook()
-        self.ws = self.wb.active
-
-        self.ws.append([
-            "Name",
-            "Price",
-            "Article",
-            "Stock",
-            "URL"
-        ])
-
-    def add(self, name, price, article, stock, url):
-        self.ws.append([name, price, article, stock, url])
-
-    def save(self):
-        tmp = self.path + ".tmp"
-        self.wb.save(tmp)
-        os.replace(tmp, self.path)
-        
-
+    return all_items
+  
 # =========================
 # MAIN
 # =========================
+def run_parser():
 
-def main():
-
-    create_lock()
-    
-    os.makedirs(BASE_DIR, exist_ok=True)
-    
-    save_status(
-        running=True,
-        progress=0,
-        user=USER,
-        file_path=FILE_PATH
-    )
-    
-    print("🚀 STARTED MELAD")
-
-    if not login():
-        remove_lock()
-    
-        save_status(
-            running=False,
-            progress=0,
-            user=USER,
-            file_path=FILE_PATH
-        )
-    
+    if is_locked():
         return
-    
-    excel = ExcelWriter(FILE_PATH)
-    #print("EXCEL FILE:", FILE_PATH)
-    excel.save()
 
-    seen = set()
-    found = 0
-    written = 0
+    set_lock(True)
 
-    categories = get_categories()
-    
-    if CATEGORY_LIMIT is not None:
-        categories = categories[:CATEGORY_LIMIT]
+    try:
 
-    for cat_name, cat_url in categories:
+        save_status(True, 0, USER, FILE_PATH)
 
-        pages = get_pages(cat_url)
+        login()
 
-        for page in pages:
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["SKU", "TITLE", "PRICE", "STATUS", "URL"])
 
-            product_links = get_products_from_category(page)
+        seen = set()
 
-            time.sleep(random.uniform(0.5, 1.5))
-            
-            found += len(product_links)
+        cats = get_categories()
 
-            for data in product_links:
+        if CATEGORY_LIMIT:
+            cats = cats[:CATEGORY_LIMIT]
 
+        total = len(cats)
 
-                url = data["url"].split("?")[0].rstrip("/").lower()
-                
-                if url in seen:
+        if total == 0:
+            save_status(False, 100, USER, FILE_PATH)
+            return
+
+        for i, cat in enumerate(cats, 1):
+
+            save_status(
+                True,
+                int(i / total * 100),
+                USER,
+                FILE_PATH
+            )
+
+            items = parse_category(cat)
+
+            for sku, title, price, status, url in items:
+
+                #key = sku if sku else url
+                key = (title, price)
+
+                if key in seen:
                     continue
-                
-                seen.add(url)
-                
-            
-                excel.add(
-                    data["name"],
-                    data["price"],
-                    data["article"],
-                    data["stock"],
-                    data["url"]
-                )
-            
-                written += 1
 
-                progress = int((written / max(found, 1)) * 100)
-        
-                save_status(
-                    running=True,
-                    progress=progress,
-                    user=USER,
-                    file_path=FILE_PATH
-                )
+                seen.add(key)
 
-        
+                if not title:
+                    continue
 
-        excel.save()
+                ws.append([
+                    sku,
+                    title,
+                    price,
+                    status,
+                    url
+                ])
 
-    save_status(
-        running=False,
-        progress=100,
-        user=USER,
-        file_path=FILE_PATH
-    )
-    
-    print("✅ DONE")
+            time.sleep(0.2)
 
-    remove_lock()
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+        tmp = FILE_PATH + ".tmp"
+
+        wb.save(tmp)
+
+        os.replace(tmp, FILE_PATH)
+
+        save_status(False, 100, USER, FILE_PATH)
+
+        print("✅ Готово. Melad")
+
+    finally:
+
+        set_lock(False)
 
 
 if __name__ == "__main__":
-    main()
+    run_parser()
