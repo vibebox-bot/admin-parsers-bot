@@ -351,9 +351,13 @@ def run_parser():
 
             for sku, title, price, status, url in items:
 
+                key = (
+                    sku.strip(),
+                    price.strip()
+                )
                 #key = sku if sku else url
                 #key = (title, price)
-                key = (sku, price)
+                #key = (sku, price)
 
                 if key in seen:
                     continue
