@@ -18,8 +18,8 @@ BASE = "https://melad.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = 2
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 2
+CATEGORY_LIMIT = None
 
 EMAIL = "titorangelina@gmail.com"
 PASSWORD = "18022021"
@@ -230,9 +230,6 @@ def get_last_page(soup):
 # =========================
 # PARSE CATEGORY
 # =========================
-# =========================
-# PARSE CATEGORY
-# =========================
 def parse_category(cat_url):
 
     all_items = []
@@ -356,7 +353,7 @@ def run_parser():
 
                 #key = sku if sku else url
                 #key = (title, price)
-                key = url
+                key = (sku, price)
 
                 if key in seen:
                     continue
