@@ -198,7 +198,15 @@ SUPPLIERS = {
             "file": path("output/LunaBag/LunaBag_LIVE.xlsx"),
             "status": path("output/LunaBag/status.json"),
             "lock": path("output/LunaBag/lock.txt"),
-        },       
+        }, 
+    
+            "Харьковская 240 Tec-Star": {
+            "name": "Харьковская 240 Tec-Star",
+            "script": "parsers/240_Tec-Star/run.py",
+            "file": path("output/240_Tec-Star/240_Tec-Star_LIVE.xlsx"),
+            "status": path("output/240_Tec-Star/status.json"),
+            "lock": path("output/240_Tec-Star/lock.txt"),
+        }, 
 }
 
 
