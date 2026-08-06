@@ -163,36 +163,61 @@ def get_categories():
 
     soup = get_soup(BASE)
 
-    cats = []
+    categories = []
     seen = set()
 
-    for a in soup.select("#menu a"):
+    def add_url(url):
 
-        href = a.get("href", "").strip()
+        if not url:
+            return
 
-        if not href:
-            continue
+        if url.startswith("#") or url.startswith("javascript"):
+            return
 
-        if "route=product/category" not in href:
-            continue
+        if not url.startswith("http"):
+            url = BASE + "/" + url.lstrip("/")
 
-        if not href.startswith("http"):
-            href = BASE + "/" + href.lstrip("/")
+        if "route=product/category" not in url:
+            return
 
-        if href in seen:
-            continue
+        if url in seen:
+            return
 
-        seen.add(href)
+        seen.add(url)
 
-        cats.append({
-            "name": clean(a.get_text()),
-            "url": href
+        categories.append({
+            "url": url
         })
 
-    #print(f"📂 Найдено категорий: {len(cats)}")
 
-    return cats
-    
+    def walk(node):
+
+        # все ссылки текущего уровня
+        for a in node.find_all("a", recursive=False):
+
+            add_url(
+                a.get("href") or
+                a.get("data-href")
+            )
+
+        # рекурсивно во все дочерние контейнеры
+        for child in node.find_all(recursive=False):
+
+            walk(child)
+
+
+    menu = soup.select_one("#menu")
+
+    if not menu:
+        return []
+
+    walk(menu)
+
+    print(f"📂 Categories: {len(categories)}")
+
+    return categories
+
+   
 VISITED_CATEGORIES = set()
 
 def parse_category(cat_url):
@@ -352,13 +377,15 @@ def run_parser():
             items = parse_category(cat["url"])
 
             for sku, title, price, status, url in items:
+
+
+                key = (sku or url, price)
+
+                if key in seen:
+                    continue
                 
-                #key = url
+                seen.add(key)
                 
-                #if key in seen:
-                    #continue
-                
-                #seen.add(key)
 
                 if not title:
                     continue
