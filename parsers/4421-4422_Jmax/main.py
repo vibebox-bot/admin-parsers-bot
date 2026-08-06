@@ -159,6 +159,7 @@ def login():
 def clean(t):
     return re.sub(r"\s+", " ", t).strip() if t else ""
 
+
 def get_categories():
 
     soup = get_soup(BASE)
@@ -171,7 +172,15 @@ def get_categories():
         if not url:
             return
 
-        if url.startswith("#") or url.startswith("javascript"):
+        url = url.strip()
+
+        if not url:
+            return
+
+        if url.startswith("#"):
+            return
+
+        if url.startswith("javascript"):
             return
 
         if not url.startswith("http"):
@@ -189,34 +198,15 @@ def get_categories():
             "url": url
         })
 
+    # Ищем абсолютно во всех тегах страницы
+    for tag in soup.find_all(True):
 
-    def walk(node):
-
-        # все ссылки текущего уровня
-        for a in node.find_all("a", recursive=False):
-
-            add_url(
-                a.get("href") or
-                a.get("data-href")
-            )
-
-        # рекурсивно во все дочерние контейнеры
-        for child in node.find_all(recursive=False):
-
-            walk(child)
-
-
-    menu = soup.select_one("#menu")
-
-    if not menu:
-        return []
-
-    walk(menu)
+        add_url(tag.get("href"))
+        add_url(tag.get("data-href"))
 
     print(f"📂 Categories: {len(categories)}")
 
     return categories
-
    
 VISITED_CATEGORIES = set()
 
