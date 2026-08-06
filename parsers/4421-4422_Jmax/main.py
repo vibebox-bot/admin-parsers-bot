@@ -320,6 +320,41 @@ def parse_product(url):
         url
     ]
 
+def parse_all_products():
+
+    print("🔍 Поиск товаров по product_id...")
+
+    result = []
+    seen = set()
+
+    for product_id in range(1, 20001):
+
+        url = BASE + f"/index.php?route=product/product&product_id={product_id}"
+
+        item = parse_product(url)
+
+        sku, title, price, status, url = item
+
+        if not title:
+            continue
+
+        if sku in seen:
+            continue
+
+        seen.add(sku)
+
+        result.append(item)
+
+        if product_id % 500 == 0:
+            print(f"Проверено ID: {product_id}")
+
+        time.sleep(0.03)
+
+    print(f"📦 Найдено товаров: {len(result)}")
+
+    return result
+
+
 
 PRODUCT_LINKS = set()
 
@@ -365,6 +400,8 @@ def run_parser():
 
         cats = get_categories()
 
+        extra_items = parse_all_products()
+
         #cats = [cats[8]]
         
         #print("DEBUG CATS:", cats)
@@ -409,19 +446,14 @@ def run_parser():
 
         os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-        print(f"🔍 Дополнительно найдено ссылок: {len(PRODUCT_LINKS)}")
 
-        for url in PRODUCT_LINKS:
+
+        print("➕ Добавляем товары по product_id...")
+
+        for item in extra_items:
         
-            item = parse_product(url)
-        
-            sku, title, price, status, url = item
-
-
-            if not title:
-                continue
-            
             ws.append(item)
+
         
 
         tmp = FILE_PATH + ".tmp"
