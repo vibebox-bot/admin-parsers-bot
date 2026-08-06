@@ -391,17 +391,11 @@ def run_parser():
             items = parse_category(cat["url"])
 
             for sku, title, price, status, url in items:
-            
-                key = (sku or url, price)
-            
-                if key in seen:
-                    continue
-            
-                seen.add(key)
-            
+
+
                 if not title:
                     continue
-            
+                
                 ws.append([
                     sku,
                     title,
@@ -409,6 +403,7 @@ def run_parser():
                     status,
                     url
                 ])
+            
             
             time.sleep(0.2)
 
@@ -421,18 +416,13 @@ def run_parser():
             item = parse_product(url)
         
             sku, title, price, status, url = item
-        
-            key = (sku or url, price)
-        
-            if key in seen:
-                continue
-        
-            seen.add(key)
-        
+
+
             if not title:
                 continue
-        
+            
             ws.append(item)
+        
 
         tmp = FILE_PATH + ".tmp"
 
