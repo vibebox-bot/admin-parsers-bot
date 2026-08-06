@@ -164,6 +164,8 @@ def get_categories():
 
     soup = get_soup(BASE)
 
+    collect_product_links(soup)
+
     categories = []
     seen = set()
 
@@ -227,6 +229,8 @@ def parse_category(cat_url):
 
         soup = get_soup(url)
 
+        collect_product_links(soup)
+
         products = []
 
         for a in soup.select(".product-thumb.uni-item a"):
@@ -261,6 +265,8 @@ def parse_category(cat_url):
 def parse_product(url):
 
     soup = get_soup(url)
+
+    collect_product_links(soup)
 
     # =========================
     # TITLE
@@ -313,7 +319,25 @@ def parse_product(url):
         status,
         url
     ]
-    
+
+
+PRODUCT_LINKS = set()
+
+def collect_product_links(soup):
+
+    for a in soup.find_all("a", href=True):
+
+        href = a["href"]
+
+        if not href.startswith("http"):
+            href = BASE + "/" + href.lstrip("/")
+
+        if "route=product/product" in href:
+
+            PRODUCT_LINKS.add(href)
+
+
+
 # =========================
 # MAIN
 # =========================
@@ -367,19 +391,17 @@ def run_parser():
             items = parse_category(cat["url"])
 
             for sku, title, price, status, url in items:
-
-
+            
                 key = (sku or url, price)
-
+            
                 if key in seen:
                     continue
-                
+            
                 seen.add(key)
-                
-
+            
                 if not title:
                     continue
-
+            
                 ws.append([
                     sku,
                     title,
@@ -387,11 +409,30 @@ def run_parser():
                     status,
                     url
                 ])
-                
-
+            
             time.sleep(0.2)
 
         os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+        print(f"🔍 Дополнительно найдено ссылок: {len(PRODUCT_LINKS)}")
+
+        for url in PRODUCT_LINKS:
+        
+            item = parse_product(url)
+        
+            sku, title, price, status, url = item
+        
+            key = (sku or url, price)
+        
+            if key in seen:
+                continue
+        
+            seen.add(key)
+        
+            if not title:
+                continue
+        
+            ws.append(item)
 
         tmp = FILE_PATH + ".tmp"
 
