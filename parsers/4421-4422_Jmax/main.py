@@ -155,9 +155,14 @@ def login():
 
     print("🔐 LOGIN...", flush=True)
 
-    login_url = BASE + "/index.php?route=account/login"
+    login_url = "https://www.jmaxtvshop.com.ua/index.php?route=account/login"
+
+    print(f"🔐 LOGIN URL: {login_url}", flush=True)
 
     try:
+
+        # Небольшая пауза перед логином
+        time.sleep(3)
 
         r = session.get(
             login_url,
@@ -165,34 +170,52 @@ def login():
             allow_redirects=True
         )
 
-        print(
-            f"🔐 LOGIN URL: {r.url}",
-            flush=True
-        )
+        print(f"🔐 STATUS: {r.status_code}", flush=True)
+        print(f"🔐 FINAL URL: {r.url}", flush=True)
+        print(f"🔐 HTML LENGTH: {len(r.text)}", flush=True)
 
-        print(
-            f"🔐 STATUS: {r.status_code}",
-            flush=True
-        )
+        # Если сайт временно ограничил запрос
+        if r.status_code == 429:
 
-        print(
-            f"🔐 HTML LENGTH: {len(r.text)}",
-            flush=True
-        )
+            print(
+                "⚠️ Сайт вернул 429 — слишком много запросов.",
+                flush=True
+            )
+
+            print(
+                "⏳ Ждём 15 секунд и пробуем ещё раз...",
+                flush=True
+            )
+
+            time.sleep(15)
+
+            r = session.get(
+                login_url,
+                timeout=30,
+                allow_redirects=True
+            )
+
+            print(
+                f"🔐 RETRY STATUS: {r.status_code}",
+                flush=True
+            )
+
+        if r.status_code != 200:
+
+            print(
+                f"❌ Страница логина недоступна: HTTP {r.status_code}",
+                flush=True
+            )
+
+            return False
 
         soup = BeautifulSoup(
             r.text,
             "html.parser"
         )
 
-        # Ищем форму авторизации
-        form = soup.select_one(
-            "form[action*='account/login']"
-        )
-
-        # Если не нашли — пробуем любую форму
-        if not form:
-            form = soup.select_one("form")
+        # Ищем форму
+        form = soup.select_one("form")
 
         if not form:
 
@@ -201,69 +224,37 @@ def login():
                 flush=True
             )
 
+            # Покажем все формы, если они есть
+            forms = soup.find_all("form")
+
+            print(
+                f"🔎 Найдено FORM: {len(forms)}",
+                flush=True
+            )
+
             return False
 
         action = form.get("action")
 
         if not action:
+
             action = login_url
 
         if not action.startswith("http"):
-            action = BASE + "/" + action.lstrip("/")
+
+            action = "https://www.jmaxtvshop.com.ua/" + action.lstrip("/")
 
         print(
-            f"🔐 LOGIN ACTION: {action}",
-            flush=True
-        )
-
-        # ======================================================
-        # Получаем реальные имена полей из формы
-        # ======================================================
-
-        email_input = form.select_one(
-            "input[type='email']"
-        )
-
-        password_input = form.select_one(
-            "input[type='password']"
-        )
-
-        if not email_input:
-            print(
-                "❌ EMAIL INPUT NOT FOUND",
-                flush=True
-            )
-            return False
-
-        if not password_input:
-            print(
-                "❌ PASSWORD INPUT NOT FOUND",
-                flush=True
-            )
-            return False
-
-        email_name = email_input.get("name")
-
-        password_name = password_input.get("name")
-
-        print(
-            f"🔐 EMAIL FIELD: {email_name}",
-            flush=True
-        )
-
-        print(
-            f"🔐 PASSWORD FIELD: {password_name}",
+            f"🔐 FORM ACTION: {action}",
             flush=True
         )
 
         payload = {
-            email_name: EMAIL,
-            password_name: PASSWORD
+            "email": EMAIL,
+            "password": PASSWORD
         }
 
-        # ======================================================
-        # LOGIN
-        # ======================================================
+        time.sleep(2)
 
         r = session.post(
             action,
@@ -273,26 +264,19 @@ def login():
         )
 
         print(
-            f"🔐 LOGIN RESULT URL: {r.url}",
+            f"🔐 LOGIN POST STATUS: {r.status_code}",
             flush=True
         )
 
         print(
-            f"🔐 LOGIN RESULT STATUS: {r.status_code}",
+            f"🔐 LOGIN FINAL URL: {r.url}",
             flush=True
         )
 
-        # ======================================================
-        # ПРОВЕРКА
-        # ======================================================
-
-        text = r.text.lower()
-
         if (
-            "account/logout" in text
-            or "route=account/logout" in text
-            or "выйти" in text
-            or "logout" in text
+            "logout" in r.text.lower()
+            or "account/logout" in r.text.lower()
+            or "account/account" in r.url
         ):
 
             print(
