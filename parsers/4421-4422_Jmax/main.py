@@ -198,33 +198,55 @@ def clean(t):
 
 def get_categories():
 
-    soup = get_soup(BASE)
-
-    collect_product_links(soup)
+    print("")
+    print("=" * 70)
+    print("🌳 ПОИСК ВСЕХ КАТЕГОРИЙ И СКРЫТЫХ ПОДКАТЕГОРИЙ")
+    print("=" * 70)
 
     categories = []
     seen = set()
+    queue = []
 
-    def add_url(url):
+    # ==========================================================
+    # Нормализация URL
+    # ==========================================================
+
+    def normalize_url(url):
 
         if not url:
-            return
+            return ""
 
         url = url.strip()
 
         if not url:
-            return
+            return ""
 
         if url.startswith("#"):
-            return
+            return ""
 
         if url.startswith("javascript"):
-            return
+            return ""
 
         if not url.startswith("http"):
             url = BASE + "/" + url.lstrip("/")
 
         if "route=product/category" not in url:
+            return ""
+
+        # Убираем пагинацию
+        url = re.sub(r"[&?]page=\d+", "", url)
+
+        return url
+
+    # ==========================================================
+    # Добавление категории в очередь
+    # ==========================================================
+
+    def add_category(url, source=""):
+
+        url = normalize_url(url)
+
+        if not url:
             return
 
         if url in seen:
@@ -232,21 +254,121 @@ def get_categories():
 
         seen.add(url)
 
-        categories.append({
-            "url": url
-        })
+        item = {
+            "url": url,
+            "source": source
+        }
 
-    # Ищем абсолютно во всех тегах страницы
+        categories.append(item)
+        queue.append(url)
+
+        print(
+            f"📂 Категория #{len(categories)}: {url}",
+            flush=True
+        )
+
+    # ==========================================================
+    # 1. Главная страница
+    # ==========================================================
+
+    soup = get_soup(BASE)
+
+    if not soup or not soup.find_all(True):
+
+        print("❌ Главная страница не загрузилась")
+
+        return []
+
+    print("🏠 Сканируем главную страницу...", flush=True)
+
     for tag in soup.find_all(True):
 
-        add_url(tag.get("href"))
-        add_url(tag.get("data-href"))
+        add_category(
+            tag.get("href"),
+            "MAIN"
+        )
 
-    print(f"📂 Categories: {len(categories)}")
+        add_category(
+            tag.get("data-href"),
+            "MAIN"
+        )
+
+    # ==========================================================
+    # 2. РЕКУРСИВНЫЙ ОБХОД КАТЕГОРИЙ
+    # ==========================================================
+
+    index = 0
+
+    while index < len(queue):
+
+        cat_url = queue[index]
+        index += 1
+
+        print(
+            f"🌳 [{index}/{len(queue)}] Сканируем категорию:",
+            cat_url,
+            flush=True
+        )
+
+        soup = get_soup(cat_url)
+
+        if not soup or not soup.find_all(True):
+
+            print(
+                f"⚠️ Не удалось загрузить категорию: {cat_url}",
+                flush=True
+            )
+
+            continue
+
+        found_before = len(queue)
+
+        # Ищем категории ВО ВСЁМ HTML страницы
+        for tag in soup.find_all(True):
+
+            add_category(
+                tag.get("href"),
+                cat_url
+            )
+
+            add_category(
+                tag.get("data-href"),
+                cat_url
+            )
+
+        found_now = len(queue) - found_before
+
+        if found_now:
+
+            print(
+                f"   ➕ Найдено новых категорий: {found_now}",
+                flush=True
+            )
+
+    # ==========================================================
+    # ИТОГ
+    # ==========================================================
+
+    print("")
+    print("=" * 70)
+    print(f"🌳 ВСЕГО КАТЕГОРИЙ: {len(categories)}")
+    print("=" * 70)
+
+    for i, cat in enumerate(categories, 1):
+
+        print(
+            f"{i:04d}. {cat['url']}",
+            flush=True
+        )
+
+    print("=" * 70)
+    print("✅ Полный обход категорий закончен")
+    print("=" * 70)
 
     return categories
    
 VISITED_CATEGORIES = set()
+
 
 def parse_category(cat_url):
 
@@ -259,17 +381,25 @@ def parse_category(cat_url):
 
     page = 1
 
+    seen_products = set()
+
     while True:
 
         url = f"{cat_url}&page={page}"
 
+        print(
+            f"📄 Категория | страница {page}: {url}",
+            flush=True
+        )
+
         soup = get_soup(url)
 
-        collect_product_links(soup)
+        if not soup or not soup.find_all(True):
+            break
 
         products = []
 
-        for a in soup.select(".product-thumb.uni-item a"):
+        for a in soup.find_all("a", href=True):
 
             href = a.get("href", "").strip()
 
@@ -279,21 +409,65 @@ def parse_category(cat_url):
             if not href.startswith("http"):
                 href = BASE + "/" + href.lstrip("/")
 
+            if "route=product/product" not in href:
+                continue
+
+            href = href.split("#")[0]
+
             if href not in products:
                 products.append(href)
 
         if not products:
+
+            print(
+                f"   ⛔ Товаров на странице {page} нет",
+                flush=True
+            )
+
             break
 
-        #print(f"📄 Страница {page}: {len(products)} товаров")
+        # Проверяем, не повторяет ли сайт предыдущую страницу
+        new_products = []
 
         for href in products:
-            result.append(parse_product(href))
+
+            if href in seen_products:
+                continue
+
+            seen_products.add(href)
+            new_products.append(href)
+
+        if not new_products:
+
+            print(
+                f"   ⛔ Новых товаров нет — "
+                f"останавливаем пагинацию",
+                flush=True
+            )
+
+            break
+
+        print(
+            f"   📦 Найдено новых товаров: {len(new_products)}",
+            flush=True
+        )
+
+        for href in new_products:
+
+            item = parse_product(href)
+
+            if item and item[1]:
+
+                result.append(item)
+
             time.sleep(0.05)
 
         page += 1
 
-    print(f"✅ Всего в категории: {len(result)}")
+    print(
+        f"✅ Категория закончена: {len(result)} товаров",
+        flush=True
+    )
 
     return result
 
@@ -412,62 +586,6 @@ def parse_product(url):
 
     return parse_product_soup(soup, url)
 
-def parse_all_products():
-
-    print("🔍 Поиск товаров по product_id...", flush=True)
-
-    result = []
-
-    max_product_id = 14100
-
-    for product_id in range(1, max_product_id + 1):
-
-        item = get_product_fast(product_id)
-
-        if item:
-
-            sku, title, price, status, url = item
-
-            result.append(item)
-
-            print(
-                f"📦 ID {product_id} | SKU {sku} | {title}",
-                flush=True
-            )
-
-        if product_id % 100 == 0:
-
-            print(
-                f"🔎 Проверено ID: {product_id} | "
-                f"Найдено: {len(result)}",
-                flush=True
-            )
-
-    print(
-        f"✅ Всего найдено товаров: {len(result)}",
-        flush=True
-    )
-
-    return result
-
-
-PRODUCT_LINKS = set()
-
-def collect_product_links(soup):
-
-    for a in soup.find_all("a", href=True):
-
-        href = a["href"]
-
-        if not href.startswith("http"):
-            href = BASE + "/" + href.lstrip("/")
-
-        if "route=product/product" in href:
-
-            PRODUCT_LINKS.add(href)
-
-
-
 # =========================
 # MAIN
 # =========================
@@ -480,7 +598,12 @@ def run_parser():
 
     try:
 
-        save_status(True, 0, USER, FILE_PATH)
+        save_status(
+            True,
+            0,
+            USER,
+            FILE_PATH
+        )
 
         if not login():
 
@@ -495,17 +618,9 @@ def run_parser():
 
             return
 
-        print("🧪 ТЕСТ PRODUCT_ID 14060")
-        
-        test_item = get_product_fast(14060)
-        
-        if test_item:
-            print("✅ PRODUCT_ID 14060 НАЙДЕН:")
-            print(test_item)
-        else:
-            print("❌ PRODUCT_ID 14060 НЕ НАЙДЕН")
-
-        
+        # ==========================================================
+        # СОЗДАЁМ EXCEL
+        # ==========================================================
 
         wb = Workbook()
 
@@ -524,10 +639,142 @@ def run_parser():
             exist_ok=True
         )
 
-        items = parse_all_products()
+        # ==========================================================
+        # 🌳 ПОЛНЫЙ ОБХОД ВСЕХ КАТЕГОРИЙ
+        # ==========================================================
+
+        cats = get_categories()
 
         print(
-            f"📦 Записываем в Excel: {len(items)} товаров"
+            f"🌳 Получено категорий: {len(cats)}",
+            flush=True
+        )
+
+        if CATEGORY_LIMIT:
+            cats = cats[:CATEGORY_LIMIT]
+
+        all_items = []
+
+        total_categories = len(cats)
+
+        if total_categories == 0:
+
+            print(
+                "❌ Категории не найдены",
+                flush=True
+            )
+
+            save_status(
+                False,
+                0,
+                USER,
+                FILE_PATH
+            )
+
+            return
+
+        # ==========================================================
+        # 📦 ОБХОД КАЖДОЙ КАТЕГОРИИ
+        # ==========================================================
+
+        for i, cat in enumerate(cats, 1):
+
+            progress = int(
+                (i - 1) / total_categories * 100
+            )
+
+            save_status(
+                True,
+                progress,
+                USER,
+                FILE_PATH
+            )
+
+            print("")
+            print("=" * 70)
+            print(
+                f"📂 КАТЕГОРИЯ {i}/{total_categories}"
+            )
+            print(
+                cat["url"],
+                flush=True
+            )
+            print("=" * 70)
+
+            items = parse_category(
+                cat["url"]
+            )
+
+            all_items.extend(items)
+
+            print(
+                f"📦 Получено товаров из категории: {len(items)}",
+                flush=True
+            )
+
+            print(
+                f"📦 Всего собрано до дедупликации: {len(all_items)}",
+                flush=True
+            )
+
+        # ==========================================================
+        # 🧹 УДАЛЯЕМ ДУБЛИ ТОВАРОВ
+        # ==========================================================
+
+        print("")
+        print("=" * 70)
+        print("🧹 УДАЛЕНИЕ ДУБЛЕЙ")
+        print("=" * 70)
+
+        unique_items = []
+        seen_products = set()
+
+        for item in all_items:
+
+            sku, title, price, status, url = item
+
+            # Основной ключ — SKU
+            key = sku.strip()
+
+            # Если SKU пустой — используем URL
+            if not key:
+                key = url.strip()
+
+            if not key:
+                continue
+
+            if key in seen_products:
+                continue
+
+            seen_products.add(key)
+
+            unique_items.append(item)
+
+        items = unique_items
+
+        print(
+            f"📦 Было собрано: {len(all_items)}",
+            flush=True
+        )
+
+        print(
+            f"✅ После удаления дублей: {len(items)}",
+            flush=True
+        )
+
+        print(
+            f"🗑️ Удалено дублей: "
+            f"{len(all_items) - len(items)}",
+            flush=True
+        )
+
+        # ==========================================================
+        # 💾 ЗАПИСЬ В EXCEL
+        # ==========================================================
+
+        print(
+            f"📦 Записываем в Excel: {len(items)} товаров",
+            flush=True
         )
 
         total = len(items)
@@ -550,8 +797,13 @@ def run_parser():
                 )
 
                 print(
-                    f"💾 Записано: {i}/{total}"
+                    f"💾 Записано: {i}/{total}",
+                    flush=True
                 )
+
+        # ==========================================================
+        # 💾 СОХРАНЕНИЕ ФАЙЛА
+        # ==========================================================
 
         tmp = FILE_PATH + ".tmp"
 
@@ -569,14 +821,18 @@ def run_parser():
             FILE_PATH
         )
 
+        print("")
+        print("=" * 70)
         print(
-            f"✅ Готово. "
-            f"Харьковская 4421-4422 Jmax"
+            "✅ ГОТОВО. Харьковская 4421-4422 Jmax"
         )
-
         print(
             f"📊 Всего товаров: {total}"
         )
+        print(
+            f"📂 Всего обработано категорий: {total_categories}"
+        )
+        print("=" * 70)
 
     finally:
 
