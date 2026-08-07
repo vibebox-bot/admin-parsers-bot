@@ -157,12 +157,44 @@ def login():
 
     login_url = "https://www.jmaxtvshop.com.ua/index.php?route=account/login"
 
-    print(f"🔐 LOGIN URL: {login_url}", flush=True)
+    print(
+        f"🔐 LOGIN URL: {login_url}",
+        flush=True
+    )
 
     try:
 
-        # Небольшая пауза перед логином
-        time.sleep(3)
+        # ======================================================
+        # ТЕСТ ГЛАВНОЙ СТРАНИЦЫ
+        # ======================================================
+
+        print(
+            "🧪 TEST MAIN PAGE...",
+            flush=True
+        )
+
+        test = session.get(
+            "https://www.jmaxtvshop.com.ua/",
+            timeout=30,
+            allow_redirects=True
+        )
+
+        print(
+            f"🧪 MAIN STATUS: {test.status_code} | "
+            f"URL: {test.url} | "
+            f"HTML: {len(test.text)}",
+            flush=True
+        )
+
+        # ======================================================
+        # ПАУЗА
+        # ======================================================
+
+        time.sleep(2)
+
+        # ======================================================
+        # ПОЛУЧАЕМ СТРАНИЦУ LOGIN
+        # ======================================================
 
         r = session.get(
             login_url,
@@ -170,11 +202,25 @@ def login():
             allow_redirects=True
         )
 
-        print(f"🔐 STATUS: {r.status_code}", flush=True)
-        print(f"🔐 FINAL URL: {r.url}", flush=True)
-        print(f"🔐 HTML LENGTH: {len(r.text)}", flush=True)
+        print(
+            f"🔐 STATUS: {r.status_code}",
+            flush=True
+        )
 
-        # Если сайт временно ограничил запрос
+        print(
+            f"🔐 FINAL URL: {r.url}",
+            flush=True
+        )
+
+        print(
+            f"🔐 HTML LENGTH: {len(r.text)}",
+            flush=True
+        )
+
+        # ======================================================
+        # 429
+        # ======================================================
+
         if r.status_code == 429:
 
             print(
@@ -183,11 +229,11 @@ def login():
             )
 
             print(
-                "⏳ Ждём 15 секунд и пробуем ещё раз...",
+                "⏳ Ждём 30 секунд и пробуем ещё раз...",
                 flush=True
             )
 
-            time.sleep(15)
+            time.sleep(30)
 
             r = session.get(
                 login_url,
@@ -200,21 +246,43 @@ def login():
                 flush=True
             )
 
+            print(
+                f"🔐 RETRY URL: {r.url}",
+                flush=True
+            )
+
+            print(
+                f"🔐 RETRY HTML LENGTH: {len(r.text)}",
+                flush=True
+            )
+
+        # ======================================================
+        # ЕСЛИ САЙТ НЕ ОТДАЛ СТРАНИЦУ
+        # ======================================================
+
         if r.status_code != 200:
 
             print(
-                f"❌ Страница логина недоступна: HTTP {r.status_code}",
+                f"❌ Страница логина недоступна: "
+                f"HTTP {r.status_code}",
                 flush=True
             )
 
             return False
+
+        # ======================================================
+        # HTML
+        # ======================================================
 
         soup = BeautifulSoup(
             r.text,
             "html.parser"
         )
 
-        # Ищем форму
+        # ======================================================
+        # ИЩЕМ ФОРМУ
+        # ======================================================
+
         form = soup.select_one("form")
 
         if not form:
@@ -224,7 +292,6 @@ def login():
                 flush=True
             )
 
-            # Покажем все формы, если они есть
             forms = soup.find_all("form")
 
             print(
@@ -234,6 +301,15 @@ def login():
 
             return False
 
+        print(
+            "✅ LOGIN FORM FOUND",
+            flush=True
+        )
+
+        # ======================================================
+        # ACTION
+        # ======================================================
+
         action = form.get("action")
 
         if not action:
@@ -242,17 +318,64 @@ def login():
 
         if not action.startswith("http"):
 
-            action = "https://www.jmaxtvshop.com.ua/" + action.lstrip("/")
+            action = (
+                "https://www.jmaxtvshop.com.ua/"
+                + action.lstrip("/")
+            )
 
         print(
             f"🔐 FORM ACTION: {action}",
             flush=True
         )
 
+        # ======================================================
+        # ПРОВЕРЯЕМ ПОЛЯ
+        # ======================================================
+
+        email_input = form.select_one(
+            'input[name="email"]'
+        )
+
+        password_input = form.select_one(
+            'input[name="password"]'
+        )
+
+        if not email_input:
+
+            print(
+                "❌ Поле email не найдено",
+                flush=True
+            )
+
+            return False
+
+        if not password_input:
+
+            print(
+                "❌ Поле password не найдено",
+                flush=True
+            )
+
+            return False
+
+        print(
+            "✅ Поля email/password найдены",
+            flush=True
+        )
+
+        # ======================================================
+        # LOGIN
+        # ======================================================
+
         payload = {
             "email": EMAIL,
             "password": PASSWORD
         }
+
+        print(
+            "🔐 Отправляем LOGIN POST...",
+            flush=True
+        )
 
         time.sleep(2)
 
@@ -273,11 +396,32 @@ def login():
             flush=True
         )
 
+        print(
+            f"🔐 LOGIN HTML LENGTH: {len(r.text)}",
+            flush=True
+        )
+
+        # ======================================================
+        # ПРОВЕРКА УСПЕШНОГО ВХОДА
+        # ======================================================
+
+        html_lower = r.text.lower()
+
         if (
-            "logout" in r.text.lower()
-            or "account/logout" in r.text.lower()
+            "account/logout" in html_lower
+            or "route=account/logout" in html_lower
             or "account/account" in r.url
         ):
+
+            print(
+                "✅ LOGIN OK",
+                flush=True
+            )
+
+            return True
+
+        # Дополнительная проверка
+        if "выйти" in html_lower:
 
             print(
                 "✅ LOGIN OK",
