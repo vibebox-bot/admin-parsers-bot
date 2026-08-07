@@ -95,9 +95,15 @@ def save_status(running=False, progress=0, user="", file_path=""):
 # =========================
 # HTTP
 # =========================
+# =========================
+# HTTP
+# =========================
+
 def get_soup(url):
 
-    for _ in range(3):
+    max_attempts = 4
+
+    for attempt in range(1, max_attempts + 1):
 
         try:
 
@@ -107,15 +113,430 @@ def get_soup(url):
                 allow_redirects=True
             )
 
+            print(
+                f"🌐 GET {r.status_code} | {url}",
+                flush=True
+            )
+
+            # ==================================================
+            # 429 — TOO MANY REQUESTS
+            # ==================================================
+
+            if r.status_code == 429:
+
+                if attempt >= max_attempts:
+
+                    print(
+                        f"❌ 429 после {attempt} попыток: {url}",
+                        flush=True
+                    )
+
+                    return BeautifulSoup(
+                        "",
+                        "html.parser"
+                    )
+
+                wait = 60 * attempt
+
+                print(
+                    f"⚠️ 429 | Ждём {wait} сек. "
+                    f"Попытка {attempt}/{max_attempts}",
+                    flush=True
+                )
+
+                time.sleep(wait)
+
+                continue
+
+            # ==================================================
+            # НОРМАЛЬНЫЙ ОТВЕТ
+            # ==================================================
+
             if r.status_code == 200:
-                return BeautifulSoup(r.text, "html.parser")
+
+                return BeautifulSoup(
+                    r.text,
+                    "html.parser"
+                )
+
+            # ==================================================
+            # ДРУГИЕ ОШИБКИ
+            # ==================================================
+
+            print(
+                f"⚠️ HTTP {r.status_code}: {url}",
+                flush=True
+            )
 
         except Exception as e:
-            print(e)
 
-        time.sleep(1)
+            print(
+                f"❌ HTTP ошибка: {e}",
+                flush=True
+            )
 
-    return BeautifulSoup("", "html.parser")
+            if attempt < max_attempts:
+
+                wait = 10 * attempt
+
+                print(
+                    f"⏳ Ждём {wait} сек.",
+                    flush=True
+                )
+
+                time.sleep(wait)
+
+    return BeautifulSoup(
+        "",
+        "html.parser"
+    )
+
+
+def get_product_fast(product_id):
+
+    url = (
+        BASE +
+        f"/index.php?route=product/product"
+        f"&product_id={product_id}"
+    )
+
+    try:
+
+        r = session.get(
+            url,
+            timeout=10,
+            allow_redirects=True
+        )
+
+        print(
+            f"🌐 PRODUCT ID {product_id} | "
+            f"HTTP {r.status_code}",
+            flush=True
+        )
+
+        # ==================================================
+        # 429
+        # ==================================================
+
+        if r.status_code == 429:
+
+            print(
+                "⚠️ Получен 429 при открытии товара.",
+                flush=True
+            )
+
+            return None
+
+        if r.status_code != 200:
+
+            return None
+
+        soup = BeautifulSoup(
+            r.text,
+            "html.parser"
+        )
+
+        h1 = soup.select_one("h1")
+
+        if not h1:
+
+            return None
+
+        title = clean(
+            h1.get_text()
+        )
+
+        if not title:
+
+            return None
+
+        return parse_product_soup(
+            soup,
+            url
+        )
+
+    except Exception as e:
+
+        print(
+            f"❌ ID {product_id}: {e}",
+            flush=True
+        )
+
+        return None
+
+
+def login():
+
+    print("")
+    print("=" * 70)
+    print("🔐 LOGIN")
+    print("=" * 70)
+
+    login_url = (
+        BASE +
+        "/index.php?route=account/login"
+    )
+
+    print(
+        f"🔐 LOGIN URL: {login_url}",
+        flush=True
+    )
+
+    # ==========================================================
+    # ОТКРЫВАЕМ СТРАНИЦУ ЛОГИНА
+    # ==========================================================
+
+    for attempt in range(1, 4):
+
+        try:
+
+            print(
+                f"🔐 Открытие логина "
+                f"{attempt}/3",
+                flush=True
+            )
+
+            r = session.get(
+                login_url,
+                timeout=30,
+                allow_redirects=True
+            )
+
+            print(
+                f"🔐 STATUS: {r.status_code}",
+                flush=True
+            )
+
+            print(
+                f"🔐 FINAL URL: {r.url}",
+                flush=True
+            )
+
+            print(
+                f"🔐 HTML LENGTH: {len(r.text)}",
+                flush=True
+            )
+
+            # ==================================================
+            # 429
+            # ==================================================
+
+            if r.status_code == 429:
+
+                if attempt < 3:
+
+                    wait = 60 * attempt
+
+                    print(
+                        f"⚠️ Jmax вернул 429.",
+                        flush=True
+                    )
+
+                    print(
+                        f"⏳ Ждём {wait} секунд...",
+                        flush=True
+                    )
+
+                    time.sleep(wait)
+
+                    continue
+
+                print(
+                    "❌ Jmax продолжает отдавать 429.",
+                    flush=True
+                )
+
+                return False
+
+            # ==================================================
+            # ДРУГОЙ HTTP ERROR
+            # ==================================================
+
+            if r.status_code != 200:
+
+                print(
+                    f"❌ Страница логина недоступна: "
+                    f"HTTP {r.status_code}",
+                    flush=True
+                )
+
+                return False
+
+            # ==================================================
+            # HTML
+            # ==================================================
+
+            soup = BeautifulSoup(
+                r.text,
+                "html.parser"
+            )
+
+            # ==================================================
+            # ИЩЕМ ФОРМУ ИМЕННО ЛОГИНА
+            # ==================================================
+
+            form = soup.select_one(
+                'form[action*="route=account/login"]'
+            )
+
+            if not form:
+
+                form = soup.select_one("form")
+
+            if not form:
+
+                print(
+                    "❌ Форма логина не найдена.",
+                    flush=True
+                )
+
+                return False
+
+            print(
+                "✅ Форма логина найдена.",
+                flush=True
+            )
+
+            # ==================================================
+            # ACTION
+            # ==================================================
+
+            action = form.get("action")
+
+            if not action:
+
+                action = login_url
+
+            if not action.startswith("http"):
+
+                action = (
+                    BASE +
+                    "/" +
+                    action.lstrip("/")
+                )
+
+            print(
+                f"🔐 POST URL: {action}",
+                flush=True
+            )
+
+            # ==================================================
+            # ДАННЫЕ ФОРМЫ
+            # ==================================================
+
+            payload = {
+                "email": EMAIL,
+                "password": PASSWORD
+            }
+
+            # ==================================================
+            # POST LOGIN
+            # ==================================================
+
+            response = session.post(
+                action,
+                data=payload,
+                headers={
+                    "Referer": login_url,
+                    "User-Agent": HEADERS["User-Agent"]
+                },
+                timeout=30,
+                allow_redirects=True
+            )
+
+            print(
+                f"🔐 LOGIN POST STATUS: "
+                f"{response.status_code}",
+                flush=True
+            )
+
+            print(
+                f"🔐 LOGIN FINAL URL: "
+                f"{response.url}",
+                flush=True
+            )
+
+            # ==================================================
+            # POST 429
+            # ==================================================
+
+            if response.status_code == 429:
+
+                print(
+                    "⚠️ POST LOGIN получил HTTP 429.",
+                    flush=True
+                )
+
+                return False
+
+            # ==================================================
+            # ПРОВЕРКА УСПЕШНОГО ВХОДА
+            # ==================================================
+
+            html = response.text.lower()
+
+            if (
+                "account/logout" in html
+                or "route=account/logout" in html
+                or "logout" in html
+                or "выйти" in html
+                or "вихід" in html
+            ):
+
+                print(
+                    "✅ LOGIN OK",
+                    flush=True
+                )
+
+                return True
+
+            # ==================================================
+            # ПРОВЕРКА URL
+            # ==================================================
+
+            if "account/account" in response.url:
+
+                print(
+                    "✅ LOGIN OK",
+                    flush=True
+                )
+
+                return True
+
+            # ==================================================
+            # НЕ УДАЛОСЬ
+            # ==================================================
+
+            print(
+                "❌ LOGIN FAILED",
+                flush=True
+            )
+
+            return False
+
+        except Exception as e:
+
+            print(
+                f"❌ Ошибка LOGIN: {e}",
+                flush=True
+            )
+
+            if attempt < 3:
+
+                wait = 30 * attempt
+
+                print(
+                    f"⏳ Ждём {wait} секунд...",
+                    flush=True
+                )
+
+                time.sleep(wait)
+
+            else:
+
+                return False
+
+    return False
 
 def get_product_fast(product_id):
 
@@ -682,7 +1103,7 @@ def parse_category(cat_url):
 
                 result.append(item)
 
-            time.sleep(0.05)
+            time.sleep(1)
 
         page += 1
 
@@ -928,6 +1349,8 @@ def run_parser():
             )
 
             all_items.extend(items)
+
+            time.sleep(2)
 
             print(
                 f"📦 Получено товаров из категории: {len(items)}",
