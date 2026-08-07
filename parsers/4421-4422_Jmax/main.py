@@ -1,3 +1,4 @@
+```python
 import os
 import json
 import re
@@ -13,50 +14,79 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Харьковская 4421-4422 Jmax")
 
+# ==========================================================
+# ⚙️ НАСТРОЙКИ
+# ==========================================================
+
 BASE = "https://www.jmaxtvshop.com.ua"
 
-# =========================
+# ==========================================================
 # ⚙️ SWITCH
-# =========================
-#CATEGORY_LIMIT = 2
+# ==========================================================
+
+# CATEGORY_LIMIT = 1
 CATEGORY_LIMIT = None
 
-EMAIL = "angelinatitor@gmail.com"
-PASSWORD = "18022021"
+# ==========================================================
+# 📁 FILES
+# ==========================================================
 
-OUTPUT_DIR = os.path.abspath("output/4421-4422_Jmax")
-FILE_PATH = os.path.join(OUTPUT_DIR, "4421-4422_Jmax_LIVE.xlsx")
-STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
-LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
+OUTPUT_DIR = os.path.abspath(
+    "output/4421-4422_Jmax"
+)
 
-# =========================
-# HEADERS
-# =========================
+FILE_PATH = os.path.join(
+    OUTPUT_DIR,
+    "4421-4422_Jmax_LIVE.xlsx"
+)
+
+STATUS_PATH = os.path.join(
+    OUTPUT_DIR,
+    "status.json"
+)
+
+LOCK_FILE = os.path.join(
+    OUTPUT_DIR,
+    "lock.txt"
+)
+
+# ==========================================================
+# 🌐 HEADERS
+# ==========================================================
 
 HEADERS = {
-    "User-Agent": (
+    "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 "
         "(KHTML, like Gecko) "
-        "Chrome/131.0.0.0 Safari/537.36"
-    ),
-    "Accept": (
+        "Chrome/131.0.0.0 Safari/537.36",
+
+    "Accept":
         "text/html,application/xhtml+xml,"
-        "application/xml;q=0.9,image/avif,image/webp,"
-        "image/apng,*/*;q=0.8"
-    ),
-    "Accept-Language": "ru-RU,ru;q=0.9,uk;q=0.8,en;q=0.7",
-    "Connection": "keep-alive"
+        "application/xml;q=0.9,image/avif,"
+        "image/webp,*/*;q=0.8",
+
+    "Accept-Language":
+        "ru-RU,ru;q=0.9,uk;q=0.8,en-US;q=0.7,en;q=0.6",
+
+    "Connection":
+        "keep-alive"
 }
+
+# ==========================================================
+# SESSION
+# ==========================================================
 
 session = requests.Session()
 
-session.headers.update(HEADERS)
+session.headers.update(
+    HEADERS
+)
 
 
-# =========================
+# ==========================================================
 # LOCK
-# =========================
+# ==========================================================
 
 def is_locked():
 
@@ -65,7 +95,11 @@ def is_locked():
 
     try:
 
-        age = time.time() - os.path.getmtime(LOCK_FILE)
+        age = (
+            time.time()
+            -
+            os.path.getmtime(LOCK_FILE)
+        )
 
         if age > 3600:
 
@@ -95,18 +129,24 @@ def set_lock(state):
             encoding="utf-8"
         ) as f:
 
-            f.write(str(time.time()))
+            f.write(
+                str(time.time())
+            )
 
     else:
 
-        if os.path.exists(LOCK_FILE):
+        if os.path.exists(
+            LOCK_FILE
+        ):
 
-            os.remove(LOCK_FILE)
+            os.remove(
+                LOCK_FILE
+            )
 
 
-# =========================
+# ==========================================================
 # STATUS
-# =========================
+# ==========================================================
 
 def save_status(
     running=False,
@@ -121,16 +161,29 @@ def save_status(
     )
 
     data = {
-        "running": running,
-        "progress": progress,
-        "user": user,
-        "time": datetime.now().strftime(
-            "%Y-%m-%d %H:%M:%S"
-        ),
-        "file_path": file_path
+
+        "running":
+            running,
+
+        "progress":
+            progress,
+
+        "user":
+            user,
+
+        "time":
+            datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+
+        "file_path":
+            file_path
     }
 
-    tmp = STATUS_PATH + ".tmp"
+    tmp = (
+        STATUS_PATH +
+        ".tmp"
+    )
 
     with open(
         tmp,
@@ -151,339 +204,9 @@ def save_status(
     )
 
 
-# =========================
-# LOGIN
-# =========================
-
-def login():
-
-    print("")
-    print("🔐 LOGIN...", flush=True)
-
-    login_url = (
-        BASE +
-        "/index.php?route=account/login"
-    )
-
-    print(
-        f"🔐 URL: {login_url}",
-        flush=True
-    )
-
-    try:
-
-        # ---------------------------------
-        # Получаем страницу логина
-        # ---------------------------------
-
-        r = session.get(
-            login_url,
-            timeout=30,
-            allow_redirects=True
-        )
-
-        print(
-            f"🔐 LOGIN GET STATUS: {r.status_code}",
-            flush=True
-        )
-
-        print(
-            f"🔐 LOGIN GET URL: {r.url}",
-            flush=True
-        )
-
-        print(
-            f"🔐 LOGIN HTML: {len(r.text)}",
-            flush=True
-        )
-
-        # ---------------------------------
-        # 429
-        # ---------------------------------
-
-        if r.status_code == 429:
-
-            print(
-                "❌ Jmax вернул HTTP 429.",
-                flush=True
-            )
-
-            print(
-                "⚠️ Railway IP сейчас ограничен сайтом.",
-                flush=True
-            )
-
-            return False
-
-        if r.status_code != 200:
-
-            print(
-                f"❌ LOGIN GET ERROR: HTTP {r.status_code}",
-                flush=True
-            )
-
-            return False
-
-        soup = BeautifulSoup(
-            r.text,
-            "html.parser"
-        )
-
-        # ---------------------------------
-        # Ищем форму
-        # ---------------------------------
-
-        form = soup.select_one(
-            'form[action*="route=account/login"]'
-        )
-
-        if not form:
-
-            form = soup.select_one("form")
-
-        if not form:
-
-            print(
-                "❌ Форма логина не найдена.",
-                flush=True
-            )
-
-            return False
-
-        print(
-            "✅ Форма логина найдена.",
-            flush=True
-        )
-
-        # ---------------------------------
-        # Собираем hidden-поля
-        # ---------------------------------
-
-        payload = {}
-
-        for inp in form.select("input"):
-
-            name = inp.get("name")
-
-            if not name:
-                continue
-
-            payload[name] = inp.get(
-                "value",
-                ""
-            )
-
-        # ---------------------------------
-        # Логин / пароль
-        # ---------------------------------
-
-        payload["email"] = EMAIL
-        payload["password"] = PASSWORD
-
-        print(
-            "🔐 Отправляем POST LOGIN...",
-            flush=True
-        )
-
-        # ---------------------------------
-        # POST
-        # ---------------------------------
-
-        response = session.post(
-            login_url,
-            data=payload,
-            headers={
-                "Referer": login_url,
-                "User-Agent": HEADERS["User-Agent"]
-            },
-            timeout=30,
-            allow_redirects=True
-        )
-
-        print(
-            f"🔐 LOGIN POST STATUS: "
-            f"{response.status_code}",
-            flush=True
-        )
-
-        print(
-            f"🔐 LOGIN POST URL: "
-            f"{response.url}",
-            flush=True
-        )
-
-        # ---------------------------------
-        # 429
-        # ---------------------------------
-
-        if response.status_code == 429:
-
-            print(
-                "❌ POST LOGIN получил HTTP 429.",
-                flush=True
-            )
-
-            return False
-
-        # ---------------------------------
-        # Проверяем ответ
-        # ---------------------------------
-
-        html = response.text.lower()
-
-        if (
-            "account/logout" in html
-            or "route=account/logout" in html
-            or "logout" in html
-            or "выйти" in html
-            or "вихід" in html
-        ):
-
-            print(
-                "✅ LOGIN OK",
-                flush=True
-            )
-
-            return True
-
-        # ---------------------------------
-        # Проверяем страницу аккаунта
-        # ---------------------------------
-
-        if (
-            "account/account"
-            in response.url
-        ):
-
-            print(
-                "✅ LOGIN OK",
-                flush=True
-            )
-
-            return True
-
-        # ---------------------------------
-        # Дополнительная проверка
-        # ---------------------------------
-
-        print(
-            "🔐 Проверяем авторизацию через главную...",
-            flush=True
-        )
-
-        account = session.get(
-            BASE,
-            timeout=30,
-            allow_redirects=True
-        )
-
-        print(
-            f"🔐 MAIN STATUS: "
-            f"{account.status_code}",
-            flush=True
-        )
-
-        if account.status_code == 429:
-
-            print(
-                "❌ Главная также вернула HTTP 429.",
-                flush=True
-            )
-
-            return False
-
-        account_html = account.text.lower()
-
-        if (
-            "account/logout" in account_html
-            or "route=account/logout" in account_html
-            or "logout" in account_html
-            or "выйти" in account_html
-            or "вихід" in account_html
-        ):
-
-            print(
-                "✅ LOGIN OK",
-                flush=True
-            )
-
-            return True
-
-        print(
-            "⚠️ LOGIN CHECK — не удалось подтвердить вход.",
-            flush=True
-        )
-
-        return False
-
-    except Exception as e:
-
-        print(
-            f"❌ LOGIN ERROR: {e}",
-            flush=True
-        )
-
-        return False
-
-
-# =========================
-# HTTP
-# =========================
-
-def get_soup(url):
-
-    for attempt in range(1, 4):
-
-        try:
-
-            r = session.get(
-                url,
-                timeout=30,
-                allow_redirects=True
-            )
-
-            if r.status_code == 200:
-
-                return BeautifulSoup(
-                    r.text,
-                    "html.parser"
-                )
-
-            if r.status_code == 429:
-
-                print(
-                    f"⚠️ HTTP 429: {url}",
-                    flush=True
-                )
-
-                return BeautifulSoup(
-                    "",
-                    "html.parser"
-                )
-
-            print(
-                f"⚠️ HTTP {r.status_code}: {url}",
-                flush=True
-            )
-
-        except Exception as e:
-
-            print(
-                f"⚠️ GET ERROR: {e}",
-                flush=True
-            )
-
-        time.sleep(attempt)
-
-    return BeautifulSoup(
-        "",
-        "html.parser"
-    )
-
-
-# =========================
+# ==========================================================
 # CLEAN
-# =========================
+# ==========================================================
 
 def clean(t):
 
@@ -498,9 +221,169 @@ def clean(t):
     )
 
 
-# =========================
+# ==========================================================
+# HTTP
+# ==========================================================
+
+def get_soup(url):
+
+    for attempt in range(1, 4):
+
+        try:
+
+            r = session.get(
+                url,
+                timeout=30,
+                allow_redirects=True
+            )
+
+            print(
+                f"🌐 GET {r.status_code} | "
+                f"{r.url}",
+                flush=True
+            )
+
+            print(
+                f"   HTML: {len(r.text)}",
+                flush=True
+            )
+
+            # --------------------------------------------------
+            # OK
+            # --------------------------------------------------
+
+            if r.status_code == 200:
+
+                return BeautifulSoup(
+                    r.text,
+                    "html.parser"
+                )
+
+            # --------------------------------------------------
+            # 429
+            # --------------------------------------------------
+
+            if r.status_code == 429:
+
+                print(
+                    "⚠️ HTTP 429",
+                    flush=True
+                )
+
+                # На тесте НЕ долбим сайт много раз.
+                # Если получили 429 — прекращаем запросы.
+
+                return BeautifulSoup(
+                    "",
+                    "html.parser"
+                )
+
+            # --------------------------------------------------
+            # OTHER ERROR
+            # --------------------------------------------------
+
+            print(
+                f"⚠️ HTTP ERROR: "
+                f"{r.status_code}",
+                flush=True
+            )
+
+        except Exception as e:
+
+            print(
+                f"❌ GET ERROR: {e}",
+                flush=True
+            )
+
+        if attempt < 3:
+
+            time.sleep(2)
+
+    return BeautifulSoup(
+        "",
+        "html.parser"
+    )
+
+
+# ==========================================================
+# TEST MAIN PAGE
+# ==========================================================
+
+def test_main_page():
+
+    print("")
+    print("=" * 70)
+    print("🧪 ТЕСТ ГЛАВНОЙ СТРАНИЦЫ")
+    print("=" * 70)
+
+    try:
+
+        r = session.get(
+            BASE,
+            timeout=30,
+            allow_redirects=True
+        )
+
+        print(
+            f"STATUS: {r.status_code}",
+            flush=True
+        )
+
+        print(
+            f"URL: {r.url}",
+            flush=True
+        )
+
+        print(
+            f"HTML: {len(r.text)}",
+            flush=True
+        )
+
+        print(
+            f"TITLE: "
+            f"{clean(BeautifulSoup(r.text, 'html.parser').title.get_text()) if BeautifulSoup(r.text, 'html.parser').title else ''}",
+            flush=True
+        )
+
+        if r.status_code == 200:
+
+            print(
+                "✅ ГЛАВНАЯ ДОСТУПНА",
+                flush=True
+            )
+
+            return True
+
+        if r.status_code == 429:
+
+            print(
+                "❌ ГЛАВНАЯ ТОЖЕ 429",
+                flush=True
+            )
+
+            return False
+
+        print(
+            f"❌ Главная вернула "
+            f"HTTP {r.status_code}",
+            flush=True
+        )
+
+        return False
+
+    except Exception as e:
+
+        print(
+            f"❌ MAIN ERROR: {e}",
+            flush=True
+        )
+
+        return False
+
+
+# ==========================================================
 # CATEGORIES
-# =========================
+# ==========================================================
 
 def get_categories():
 
@@ -509,9 +392,15 @@ def get_categories():
     print("🌳 ПОИСК ВСЕХ КАТЕГОРИЙ JMAX")
     print("=" * 70)
 
-    soup = get_soup(BASE)
+    soup = get_soup(
+        BASE
+    )
 
-    if not soup or not soup.find_all(True):
+    if (
+        not soup
+        or
+        not soup.find_all(True)
+    ):
 
         print(
             "❌ Главная страница не загрузилась",
@@ -521,189 +410,79 @@ def get_categories():
         return []
 
     categories = []
+
     seen = set()
 
-    # ---------------------------------
-    # Нормализация URL
-    # ---------------------------------
-
-    def normalize_url(url):
-
-        if not url:
-
-            return ""
-
-        url = url.strip()
-
-        if not url:
-
-            return ""
-
-        if url.startswith("#"):
-
-            return ""
-
-        if url.startswith(
-            "javascript:"
-        ):
-
-            return ""
-
-        if not url.startswith(
-            "http"
-        ):
-
-            url = (
-                BASE +
-                "/" +
-                url.lstrip("/")
-            )
-
-        if (
-            "route=product/category"
-            not in url
-        ):
-
-            return ""
-
-        # убираем page
-        url = re.sub(
-            r"[&?]page=\d+",
-            "",
-            url
-        )
-
-        return url
-
-    # ---------------------------------
-    # Добавление категории
-    # ---------------------------------
-
-    def add_category(url):
-
-        url = normalize_url(url)
-
-        if not url:
-
-            return
-
-        if url in seen:
-
-            return
-
-        seen.add(url)
-
-        categories.append(url)
-
-        print(
-            f"📂 Категория #{len(categories)}: "
-            f"{url}",
-            flush=True
-        )
-
-    # ---------------------------------
-    # Сканируем ВСЕ ссылки
-    # ---------------------------------
+    # ======================================================
+    # Ищем ссылки категорий
+    # ======================================================
 
     for a in soup.find_all(
         "a",
         href=True
     ):
 
-        add_category(
-            a.get("href")
-        )
+        href = a.get(
+            "href",
+            ""
+        ).strip()
 
-    # ---------------------------------
-    # data-href
-    # ---------------------------------
+        if not href:
+            continue
 
-    for tag in soup.find_all(
-        attrs={"data-href": True}
-    ):
+        if not href.startswith(
+            "http"
+        ):
 
-        add_category(
-            tag.get("data-href")
-        )
+            href = (
+                BASE +
+                "/" +
+                href.lstrip("/")
+            )
 
-    print("")
-    print(
-        f"🌳 Найдено категорий: "
-        f"{len(categories)}",
-        flush=True
-    )
-
-    # ---------------------------------
-    # Рекурсивно ищем скрытые категории
-    # ---------------------------------
-
-    index = 0
-
-    while index < len(categories):
-
-        cat_url = categories[index]
-
-        index += 1
-
-        print(
-            f"🌳 [{index}/{len(categories)}] "
-            f"Сканируем категорию:",
-            cat_url,
-            flush=True
-        )
-
-        soup = get_soup(cat_url)
-
-        if not soup or not soup.find_all(True):
+        if (
+            "route=product/category"
+            not in href
+        ):
 
             continue
 
-        before = len(categories)
-
-        for a in soup.find_all(
-            "a",
-            href=True
-        ):
-
-            add_category(
-                a.get("href")
-            )
-
-        for tag in soup.find_all(
-            attrs={"data-href": True}
-        ):
-
-            add_category(
-                tag.get("data-href")
-            )
-
-        new_count = (
-            len(categories) - before
+        # Убираем page
+        href = re.sub(
+            r"[&?]page=\d+",
+            "",
+            href
         )
 
-        if new_count:
+        if href in seen:
+            continue
 
-            print(
-                f"   ➕ Новых категорий: "
-                f"{new_count}",
-                flush=True
-            )
+        seen.add(href)
+
+        categories.append(
+            href
+        )
+
+        print(
+            f"📂 Категория "
+            f"#{len(categories)}: "
+            f"{href}",
+            flush=True
+        )
 
     print("")
-    print("=" * 70)
     print(
-        f"🌳 ВСЕГО КАТЕГОРИЙ: "
+        f"📂 ВСЕГО КАТЕГОРИЙ: "
         f"{len(categories)}",
         flush=True
     )
-    print("=" * 70)
 
     return categories
 
 
-# =========================
+# ==========================================================
 # LAST PAGE
-# =========================
+# ==========================================================
 
 def get_last_page(soup):
 
@@ -732,123 +511,41 @@ def get_last_page(soup):
     return max(pages)
 
 
-# =========================
-# PRODUCT
-# =========================
-
-def parse_product_soup(
-    soup,
-    url
-):
-
-    # TITLE
-
-    title = ""
-
-    h1 = soup.select_one("h1")
-
-    if h1:
-
-        title = clean(
-            h1.get_text()
-        )
-
-    # SKU
-
-    sku = ""
-
-    sku_tag = soup.select_one(
-        ".product-data__item.model"
-    )
-
-    if sku_tag:
-
-        sku = clean(
-            sku_tag.get_text()
-            .replace(
-                "Код товара:",
-                ""
-            )
-        )
-
-    # PRICE
-
-    price = ""
-
-    p = soup.select_one(
-        ".product-page__price"
-    )
-
-    if p:
-
-        price = clean(
-            p.get_text()
-        )
-
-    # STATUS
-
-    status = ""
-
-    btn = soup.select_one(
-        "#button-cart span"
-    )
-
-    if btn:
-
-        status = clean(
-            btn.get_text()
-        )
-
-    else:
-
-        status = "Нет кнопки"
-
-    return [
-        sku,
-        title,
-        price,
-        status,
-        url
-    ]
-
-
-def parse_product(url):
-
-    soup = get_soup(url)
-
-    if not soup.select_one("h1"):
-
-        return [
-            "",
-            "",
-            "",
-            "",
-            url
-        ]
-
-    return parse_product_soup(
-        soup,
-        url
-    )
-
-
-# =========================
+# ==========================================================
 # PARSE CATEGORY
-# =========================
+# ==========================================================
 
-def parse_category(cat_url):
+def parse_category(
+    cat_url
+):
 
     all_items = []
 
-    # ---------------------------------
-    # Первая страница
-    # ---------------------------------
+    print("")
+    print(
+        f"📂 CATEGORY: "
+        f"{cat_url}",
+        flush=True
+    )
+
+    # ------------------------------------------------------
+    # FIRST PAGE
+    # ------------------------------------------------------
 
     first_page = get_soup(
         cat_url
     )
 
-    if not first_page or not first_page.find_all(True):
+    if (
+        not first_page
+        or
+        not first_page.find_all(True)
+    ):
+
+        print(
+            "❌ Категория не загрузилась",
+            flush=True
+        )
 
         return []
 
@@ -857,16 +554,16 @@ def parse_category(cat_url):
     )
 
     print(
-        f"📄 Страниц в категории: "
+        f"📄 Последняя страница: "
         f"{last_page}",
         flush=True
     )
 
-    # ---------------------------------
-    # Все страницы
-    # ---------------------------------
-
     seen_products = set()
+
+    # ======================================================
+    # PAGES
+    # ======================================================
 
     for page in range(
         1,
@@ -893,15 +590,24 @@ def parse_category(cat_url):
             url
         )
 
-        if not soup or not soup.find_all(True):
+        if (
+            not soup
+            or
+            not soup.find_all(True)
+        ):
 
-            continue
+            print(
+                "⛔ Страница не загрузилась",
+                flush=True
+            )
+
+            break
 
         products = []
 
-        # ---------------------------------
-        # Ищем ссылки товаров
-        # ---------------------------------
+        # --------------------------------------------------
+        # PRODUCT LINKS
+        # --------------------------------------------------
 
         for a in soup.find_all(
             "a",
@@ -914,7 +620,6 @@ def parse_category(cat_url):
             ).strip()
 
             if not href:
-
                 continue
 
             if not href.startswith(
@@ -934,48 +639,69 @@ def parse_category(cat_url):
 
                 continue
 
-            href = href.split("#")[0]
+            href = href.split(
+                "#"
+            )[0]
 
             if href in products:
-
                 continue
 
             products.append(
                 href
             )
 
-        # ---------------------------------
-        # Нет товаров
-        # ---------------------------------
+        # --------------------------------------------------
+        # NO PRODUCTS
+        # --------------------------------------------------
 
         if not products:
 
             print(
-                "   ⛔ Товаров нет",
+                "⛔ Товаров нет",
                 flush=True
             )
 
-            continue
+            break
 
-        print(
-            f"   📦 Найдено товаров: "
-            f"{len(products)}",
-            flush=True
-        )
+        # --------------------------------------------------
+        # REMOVE DUPLICATES
+        # --------------------------------------------------
 
-        # ---------------------------------
-        # Парсим товары
-        # ---------------------------------
+        new_products = []
 
         for href in products:
 
             if href in seen_products:
-
                 continue
 
             seen_products.add(
                 href
             )
+
+            new_products.append(
+                href
+            )
+
+        if not new_products:
+
+            print(
+                "⛔ Новых товаров нет",
+                flush=True
+            )
+
+            break
+
+        print(
+            f"📦 Товаров: "
+            f"{len(new_products)}",
+            flush=True
+        )
+
+        # --------------------------------------------------
+        # PRODUCTS
+        # --------------------------------------------------
+
+        for href in new_products:
 
             item = parse_product(
                 href
@@ -987,7 +713,9 @@ def parse_category(cat_url):
                     item
                 )
 
-            time.sleep(0.05)
+            time.sleep(
+                0.1
+            )
 
     print(
         f"✅ Категория закончена: "
@@ -998,16 +726,153 @@ def parse_category(cat_url):
     return all_items
 
 
-# =========================
+# ==========================================================
+# PRODUCT SOUP
+# ==========================================================
+
+def parse_product_soup(
+    soup,
+    url
+):
+
+    # ======================================================
+    # TITLE
+    # ======================================================
+
+    title = ""
+
+    h1 = soup.select_one(
+        "h1"
+    )
+
+    if h1:
+
+        title = clean(
+            h1.get_text()
+        )
+
+    # ======================================================
+    # SKU
+    # ======================================================
+
+    sku = ""
+
+    sku_tag = soup.select_one(
+        ".product-data__item.model"
+    )
+
+    if sku_tag:
+
+        sku = clean(
+            sku_tag
+            .get_text()
+            .replace(
+                "Код товара:",
+                ""
+            )
+        )
+
+    # ======================================================
+    # PRICE
+    # ======================================================
+
+    price = ""
+
+    p = soup.select_one(
+        ".product-page__price"
+    )
+
+    if p:
+
+        price = clean(
+            p.get_text()
+        )
+
+    # ======================================================
+    # STATUS
+    # ======================================================
+
+    status = ""
+
+    btn = soup.select_one(
+        "#button-cart span"
+    )
+
+    if btn:
+
+        status = clean(
+            btn.get_text()
+        )
+
+    else:
+
+        text = clean(
+            soup.get_text(
+                " ",
+                strip=True
+            )
+        ).lower()
+
+        if (
+            "нет в наличии"
+            in text
+        ):
+
+            status = "Нет в наличии"
+
+        else:
+
+            status = "Нет кнопки"
+
+    return [
+        sku,
+        title,
+        price,
+        status,
+        url
+    ]
+
+
+# ==========================================================
+# PRODUCT
+# ==========================================================
+
+def parse_product(
+    url
+):
+
+    soup = get_soup(
+        url
+    )
+
+    if not soup.select_one(
+        "h1"
+    ):
+
+        return [
+            "",
+            "",
+            "",
+            "",
+            url
+        ]
+
+    return parse_product_soup(
+        soup,
+        url
+    )
+
+
+# ==========================================================
 # MAIN
-# =========================
+# ==========================================================
 
 def run_parser():
 
     if is_locked():
 
         print(
-            "⚠️ Парсер уже запущен",
+            "🔒 Парсер уже запущен",
             flush=True
         )
 
@@ -1024,15 +889,35 @@ def run_parser():
             FILE_PATH
         )
 
-        # ---------------------------------
-        # LOGIN
-        # ---------------------------------
+        # ==================================================
+        # 🧪 MAIN TEST
+        # ==================================================
 
-        if not login():
+        if not test_main_page():
+
+            print("")
+            print(
+                "=" * 70
+            )
 
             print(
-                "❌ Не удалось авторизоваться",
+                "❌ RAILWAY НЕ ПУСКАЕТ JMAX",
                 flush=True
+            )
+
+            print(
+                "❌ Обычная главная страница "
+                "тоже недоступна.",
+                flush=True
+            )
+
+            print(
+                "❌ Это не проблема логина.",
+                flush=True
+            )
+
+            print(
+                "=" * 70
             )
 
             save_status(
@@ -1044,9 +929,41 @@ def run_parser():
 
             return
 
-        # ---------------------------------
+        # ==================================================
+        # CATEGORIES
+        # ==================================================
+
+        cats = get_categories()
+
+        if CATEGORY_LIMIT:
+
+            cats = cats[
+                :CATEGORY_LIMIT
+            ]
+
+        total_categories = len(
+            cats
+        )
+
+        if total_categories == 0:
+
+            print(
+                "❌ Категории не найдены",
+                flush=True
+            )
+
+            save_status(
+                False,
+                100,
+                USER,
+                FILE_PATH
+            )
+
+            return
+
+        # ==================================================
         # EXCEL
-        # ---------------------------------
+        # ==================================================
 
         wb = Workbook()
 
@@ -1065,45 +982,9 @@ def run_parser():
             exist_ok=True
         )
 
-        # ---------------------------------
-        # CATEGORIES
-        # ---------------------------------
-
-        cats = get_categories()
-
-        print(
-            f"🌳 Получено категорий: "
-            f"{len(cats)}",
-            flush=True
-        )
-
-        if CATEGORY_LIMIT:
-
-            cats = cats[
-                :CATEGORY_LIMIT
-            ]
-
-        total_categories = len(cats)
-
-        if total_categories == 0:
-
-            print(
-                "❌ Категории не найдены",
-                flush=True
-            )
-
-            save_status(
-                False,
-                0,
-                USER,
-                FILE_PATH
-            )
-
-            return
-
-        # ---------------------------------
-        # PRODUCTS
-        # ---------------------------------
+        # ==================================================
+        # PARSE
+        # ==================================================
 
         seen = set()
 
@@ -1128,7 +1009,9 @@ def run_parser():
             )
 
             print("")
-            print("=" * 70)
+            print(
+                "=" * 70
+            )
 
             print(
                 f"📂 КАТЕГОРИЯ "
@@ -1141,11 +1024,23 @@ def run_parser():
                 flush=True
             )
 
-            print("=" * 70)
+            print(
+                "=" * 70
+            )
 
             items = parse_category(
                 cat
             )
+
+            print(
+                f"📦 Получено: "
+                f"{len(items)}",
+                flush=True
+            )
+
+            # --------------------------------------------------
+            # DEDUP
+            # --------------------------------------------------
 
             for item in items:
 
@@ -1156,12 +1051,7 @@ def run_parser():
                 url = item[4]
 
                 if not title:
-
                     continue
-
-                # ---------------------------------
-                # ДЕДУПЛИКАЦИЯ
-                # ---------------------------------
 
                 key = (
                     sku.strip()
@@ -1170,17 +1060,14 @@ def run_parser():
                 )
 
                 if not key:
-
-                    key = (
-                        title,
-                        price
-                    )
-
-                if key in seen:
-
                     continue
 
-                seen.add(key)
+                if key in seen:
+                    continue
+
+                seen.add(
+                    key
+                )
 
                 ws.append([
                     sku,
@@ -1190,25 +1077,41 @@ def run_parser():
                     url
                 ])
 
-            time.sleep(0.2)
+            time.sleep(
+                0.2
+            )
 
-        # ---------------------------------
+        # ==================================================
         # SAVE
-        # ---------------------------------
+        # ==================================================
 
         print("")
-        print("=" * 70)
-        print("💾 СОХРАНЕНИЕ EXCEL")
-        print("=" * 70)
+        print(
+            "=" * 70
+        )
 
-        tmp = FILE_PATH + ".tmp"
+        print(
+            "💾 Сохраняем Excel...",
+            flush=True
+        )
 
-        wb.save(tmp)
+        tmp = (
+            FILE_PATH +
+            ".tmp"
+        )
+
+        wb.save(
+            tmp
+        )
 
         os.replace(
             tmp,
             FILE_PATH
         )
+
+        # ==================================================
+        # FINISH
+        # ==================================================
 
         save_status(
             False,
@@ -1218,7 +1121,10 @@ def run_parser():
         )
 
         print("")
-        print("=" * 70)
+        print(
+            "=" * 70
+        )
+
         print(
             "✅ ГОТОВО. "
             "Харьковская 4421-4422 Jmax",
@@ -1232,22 +1138,25 @@ def run_parser():
         )
 
         print(
-            f"📂 Всего категорий: "
+            f"📂 Категорий: "
             f"{total_categories}",
             flush=True
         )
 
-        print("=" * 70)
+        print(
+            "=" * 70
+        )
 
     finally:
 
         set_lock(False)
 
 
-# =========================
+# ==========================================================
 # START
-# =========================
+# ==========================================================
 
 if __name__ == "__main__":
 
     run_parser()
+```
