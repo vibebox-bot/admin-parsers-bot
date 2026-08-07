@@ -9,6 +9,9 @@ from openpyxl import Workbook
 
 import sys
 
+sys.stdout.reconfigure(line_buffering=True)
+sys.stderr.reconfigure(line_buffering=True)
+
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Харьковская 4421-4422 Jmax")
@@ -122,7 +125,7 @@ def get_product_fast(product_id):
 
         r = session.get(
             url,
-            timeout=10,
+            timeout=5,
             allow_redirects=True
         )
 
@@ -411,37 +414,38 @@ def parse_product(url):
 
 def parse_all_products():
 
-    print("🔍 Поиск товаров по product_id...")
+    print("🔍 Поиск товаров по product_id...", flush=True)
 
     result = []
 
-    #max_product_id = 20000
     max_product_id = 14100
 
     for product_id in range(1, max_product_id + 1):
 
         item = get_product_fast(product_id)
 
-        if not item:
-            continue
+        if item:
 
-        sku, title, price, status, url = item
+            sku, title, price, status, url = item
 
-        result.append(item)
+            result.append(item)
 
-        print(
-            f"📦 ID {product_id} | SKU {sku} | {title}"
-        )
+            print(
+                f"📦 ID {product_id} | SKU {sku} | {title}",
+                flush=True
+            )
 
         if product_id % 100 == 0:
 
             print(
                 f"🔎 Проверено ID: {product_id} | "
-                f"Найдено: {len(result)}"
+                f"Найдено: {len(result)}",
+                flush=True
             )
 
     print(
-        f"✅ Всего найдено товаров: {len(result)}"
+        f"✅ Всего найдено товаров: {len(result)}",
+        flush=True
     )
 
     return result
