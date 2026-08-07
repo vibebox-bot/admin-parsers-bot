@@ -1,4 +1,3 @@
-```python
 import os
 import json
 import re
@@ -1159,4 +1158,3 @@ def run_parser():
 if __name__ == "__main__":
 
     run_parser()
-```
