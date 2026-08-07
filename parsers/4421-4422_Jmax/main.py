@@ -16,7 +16,7 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Харьковская 4421-4422 Jmax")
 
-BASE = "http://www.jmaxtvshop.com.ua"
+BASE = "https://www.jmaxtvshop.com.ua"
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
@@ -153,42 +153,170 @@ def get_product_fast(product_id):
 
 def login():
 
-    print("🔐 LOGIN...")
+    print("🔐 LOGIN...", flush=True)
 
     login_url = BASE + "/index.php?route=account/login"
 
-    soup = get_soup(login_url)
+    try:
 
-    form = soup.select_one("form")
+        r = session.get(
+            login_url,
+            timeout=30,
+            allow_redirects=True
+        )
 
-    if not form:
-        print("❌ LOGIN FORM NOT FOUND")
+        print(
+            f"🔐 LOGIN URL: {r.url}",
+            flush=True
+        )
+
+        print(
+            f"🔐 STATUS: {r.status_code}",
+            flush=True
+        )
+
+        print(
+            f"🔐 HTML LENGTH: {len(r.text)}",
+            flush=True
+        )
+
+        soup = BeautifulSoup(
+            r.text,
+            "html.parser"
+        )
+
+        # Ищем форму авторизации
+        form = soup.select_one(
+            "form[action*='account/login']"
+        )
+
+        # Если не нашли — пробуем любую форму
+        if not form:
+            form = soup.select_one("form")
+
+        if not form:
+
+            print(
+                "❌ LOGIN FORM NOT FOUND",
+                flush=True
+            )
+
+            return False
+
+        action = form.get("action")
+
+        if not action:
+            action = login_url
+
+        if not action.startswith("http"):
+            action = BASE + "/" + action.lstrip("/")
+
+        print(
+            f"🔐 LOGIN ACTION: {action}",
+            flush=True
+        )
+
+        # ======================================================
+        # Получаем реальные имена полей из формы
+        # ======================================================
+
+        email_input = form.select_one(
+            "input[type='email']"
+        )
+
+        password_input = form.select_one(
+            "input[type='password']"
+        )
+
+        if not email_input:
+            print(
+                "❌ EMAIL INPUT NOT FOUND",
+                flush=True
+            )
+            return False
+
+        if not password_input:
+            print(
+                "❌ PASSWORD INPUT NOT FOUND",
+                flush=True
+            )
+            return False
+
+        email_name = email_input.get("name")
+
+        password_name = password_input.get("name")
+
+        print(
+            f"🔐 EMAIL FIELD: {email_name}",
+            flush=True
+        )
+
+        print(
+            f"🔐 PASSWORD FIELD: {password_name}",
+            flush=True
+        )
+
+        payload = {
+            email_name: EMAIL,
+            password_name: PASSWORD
+        }
+
+        # ======================================================
+        # LOGIN
+        # ======================================================
+
+        r = session.post(
+            action,
+            data=payload,
+            allow_redirects=True,
+            timeout=30
+        )
+
+        print(
+            f"🔐 LOGIN RESULT URL: {r.url}",
+            flush=True
+        )
+
+        print(
+            f"🔐 LOGIN RESULT STATUS: {r.status_code}",
+            flush=True
+        )
+
+        # ======================================================
+        # ПРОВЕРКА
+        # ======================================================
+
+        text = r.text.lower()
+
+        if (
+            "account/logout" in text
+            or "route=account/logout" in text
+            or "выйти" in text
+            or "logout" in text
+        ):
+
+            print(
+                "✅ LOGIN OK",
+                flush=True
+            )
+
+            return True
+
+        print(
+            "❌ LOGIN FAILED",
+            flush=True
+        )
+
         return False
 
-    action = form.get("action") or login_url
+    except Exception as e:
 
-    payload = {
-        "email": EMAIL,
-        "password": PASSWORD
-    }
+        print(
+            f"❌ LOGIN ERROR: {e}",
+            flush=True
+        )
 
-    r = session.post(
-        action,
-        data=payload,
-        allow_redirects=True,
-        timeout=30
-    )
-
-    if (
-        "logout" in r.text.lower()
-        or "account/logout" in r.text.lower()
-        or "account/account" in r.url
-    ):
-        print("✅ LOGIN OK")
-        return True
-
-    print("❌ LOGIN FAILED")
-    return False
+        return False
 
 
 
