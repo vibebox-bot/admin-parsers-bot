@@ -25,7 +25,10 @@ CATEGORY_LIMIT = 1
 EMAIL = "Sawrun_05@icloud.com"
 PASSWORD = "18022021"
 
-OUTPUT_DIR = os.path.abspath("output/4425-4426_Gold_Top")
+OUTPUT_DIR = os.path.abspath(
+    "output/4425-4426_Gold_Top"
+)
+
 FILE_PATH = os.path.join(
     OUTPUT_DIR,
     "4425-4426_Gold_Top_LIVE.xlsx"
@@ -55,7 +58,7 @@ HEADERS = {
     "Accept-Language": (
         "uk-UA,uk;q=0.9,ru;q=0.8,en-US;q=0.7,en;q=0.6"
     ),
-    "Accept-Encoding": "gzip, deflate",
+    "Accept-Encoding": "gzip, deflate, br",
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1",
 }
@@ -78,7 +81,9 @@ def is_locked():
         age = time.time() - os.path.getmtime(LOCK_FILE)
 
         if age > 3600:
+
             os.remove(LOCK_FILE)
+
             return False
 
         return True
@@ -92,7 +97,10 @@ def set_lock(state):
 
     if state:
 
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        os.makedirs(
+            OUTPUT_DIR,
+            exist_ok=True
+        )
 
         with open(
             LOCK_FILE,
@@ -100,12 +108,82 @@ def set_lock(state):
             encoding="utf-8"
         ) as f:
 
-            f.write(str(time.time()))
+            f.write(
+                str(time.time())
+            )
 
     else:
 
         if os.path.exists(LOCK_FILE):
+
             os.remove(LOCK_FILE)
+
+
+# =========================
+# COOKIES
+# =========================
+
+def print_cookies():
+
+    print("🍪 COOKIES:")
+
+    try:
+
+        for cookie in session.cookies:
+
+            print(
+                f"   {cookie.name}="
+                f"{cookie.value[:20]}..."
+                f" domain={cookie.domain}"
+                f" path={cookie.path}"
+            )
+
+    except Exception as e:
+
+        print(
+            f"⚠️ COOKIE PRINT ERROR: {e}"
+        )
+
+
+def has_cookie(cookie_name):
+
+    try:
+
+        for cookie in session.cookies:
+
+            if cookie.name == cookie_name:
+
+                return True
+
+    except Exception:
+
+        pass
+
+    return False
+
+
+def get_cookie_values(cookie_name):
+
+    values = []
+
+    try:
+
+        for cookie in session.cookies:
+
+            if cookie.name == cookie_name:
+
+                values.append({
+                    "value": cookie.value,
+                    "domain": cookie.domain,
+                    "path": cookie.path
+                })
+
+    except Exception:
+
+        pass
+
+    return values
+
 
 # =========================
 # LOGIN
@@ -121,34 +199,24 @@ def login():
 
         time.sleep(2)
 
-        # =====================================================
+        # ==========================================
         # GET LOGIN PAGE
-        # ВАЖНО: НЕ ПРОСИМ br
-        # =====================================================
+        # ==========================================
 
         r = session.get(
             login_page,
             timeout=30,
-            allow_redirects=True,
-            headers={
-                "User-Agent": HEADERS["User-Agent"],
-                "Accept": (
-                    "text/html,application/xhtml+xml,"
-                    "application/xml;q=0.9,*/*;q=0.8"
-                ),
-                "Accept-Language": HEADERS["Accept-Language"],
-                "Accept-Encoding": "gzip, deflate",
-                "Connection": "keep-alive",
-                "Upgrade-Insecure-Requests": "1",
-            }
+            allow_redirects=True
         )
 
         print(
-            f"🌐 LOGIN PAGE: {r.status_code} {r.url}"
+            f"🌐 LOGIN PAGE: "
+            f"{r.status_code} {r.url}"
         )
 
         print(
-            f"📄 HTML LENGTH: {len(r.content)}"
+            f"📄 HTML LENGTH: "
+            f"{len(r.text)}"
         )
 
         print(
@@ -161,11 +229,6 @@ def login():
             f"{r.headers.get('Content-Encoding')}"
         )
 
-        print(
-            f"🍪 COOKIES: "
-            f"{dict(session.cookies)}"
-        )
-
         if r.status_code != 200:
 
             print(
@@ -175,68 +238,18 @@ def login():
 
             return False
 
-        # =====================================================
-        # HTML
-        # =====================================================
-
-        html = r.text
-
-        # Если по какой-то причине requests всё ещё
-        # получил бинарный мусор — пробуем определить это.
-        if (
-            "woocommerce-login-nonce" not in html
-            and "woocommerce-form-login" not in html
-            and "name=\"username\"" not in html
-        ):
-
-            print(
-                "⚠️ HTML НЕ ПОХОЖ НА СТРАНИЦУ ВХОДА"
-            )
-
-            print(
-                "📦 FIRST BYTES:",
-                repr(r.content[:80])
-            )
-
-            print(
-                "📄 TEXT PREVIEW:",
-                repr(html[:300])
-            )
-
-            # =================================================
-            # DEBUG RAW
-            # =================================================
-
-            debug_path = os.path.join(
-                OUTPUT_DIR,
-                "login_raw.html"
-            )
-
-            with open(
-                debug_path,
-                "wb"
-            ) as f:
-
-                f.write(r.content)
-
-            print(
-                f"📄 RAW DEBUG: {debug_path}"
-            )
-
-            return False
-
-        # =====================================================
+        # ==========================================
         # PARSE
-        # =====================================================
+        # ==========================================
 
         soup = BeautifulSoup(
-            html,
+            r.text,
             "html.parser"
         )
 
-        # =====================================================
-        # ИЩЕМ ФОРМУ
-        # =====================================================
+        # ==========================================
+        # FIND LOGIN FORM
+        # ==========================================
 
         form = soup.select_one(
             "form.woocommerce-form-login"
@@ -266,41 +279,20 @@ def login():
             forms = soup.find_all("form")
 
             print(
-                f"🔎 FORMS FOUND: {len(forms)}"
-            )
-
-            # Дополнительная диагностика
-            print(
-                "🔍 ПОИСК NONCE:",
-                "woocommerce-login-nonce" in html
-            )
-
-            print(
-                "🔍 ПОИСК USERNAME:",
-                'name="username"' in html
-            )
-
-            print(
-                "🔍 ПОИСК PASSWORD:",
-                'name="password"' in html
-            )
-
-            debug_path = os.path.join(
-                OUTPUT_DIR,
-                "login_debug.html"
+                f"🔎 FORMS FOUND: "
+                f"{len(forms)}"
             )
 
             with open(
-                debug_path,
+                os.path.join(
+                    OUTPUT_DIR,
+                    "login_debug.html"
+                ),
                 "w",
                 encoding="utf-8"
             ) as f:
 
-                f.write(html)
-
-            print(
-                f"📄 DEBUG HTML: {debug_path}"
-            )
+                f.write(r.text)
 
             return False
 
@@ -308,11 +300,11 @@ def login():
             "✅ LOGIN FORM FOUND"
         )
 
-        # =====================================================
+        # ==========================================
         # ACTION
-        # =====================================================
+        # ==========================================
 
-        action = form.get("action", "").strip()
+        action = form.get("action")
 
         if not action:
 
@@ -327,12 +319,13 @@ def login():
             )
 
         print(
-            f"🚀 POST URL: {action}"
+            "🚀 POST URL:",
+            action
         )
 
-        # =====================================================
+        # ==========================================
         # USERNAME
-        # =====================================================
+        # ==========================================
 
         username_input = form.select_one(
             "input[name='username']"
@@ -346,9 +339,9 @@ def login():
 
             return False
 
-        # =====================================================
+        # ==========================================
         # PASSWORD
-        # =====================================================
+        # ==========================================
 
         password_input = form.select_one(
             "input[name='password']"
@@ -362,9 +355,9 @@ def login():
 
             return False
 
-        # =====================================================
+        # ==========================================
         # NONCE
-        # =====================================================
+        # ==========================================
 
         nonce = form.select_one(
             "input[name='woocommerce-login-nonce']"
@@ -373,7 +366,8 @@ def login():
         if not nonce:
 
             print(
-                "❌ LOGIN NONCE NOT FOUND"
+                "❌ woocommerce-login-nonce "
+                "NOT FOUND"
             )
 
             return False
@@ -396,26 +390,28 @@ def login():
             nonce_value[:10] + "..."
         )
 
-        # =====================================================
+        # ==========================================
         # REFERER
-        # =====================================================
+        # ==========================================
 
         referer_input = form.select_one(
             "input[name='_wp_http_referer']"
         )
-
-        wp_referer = "/my-account/"
 
         if referer_input:
 
             wp_referer = referer_input.get(
                 "value",
                 "/my-account/"
-            ).strip()
+            )
 
-        # =====================================================
+        else:
+
+            wp_referer = "/my-account/"
+
+        # ==========================================
         # PAYLOAD
-        # =====================================================
+        # ==========================================
 
         payload = {
             "username": EMAIL,
@@ -426,32 +422,30 @@ def login():
             "rememberme": "forever"
         }
 
+        # ==========================================
+        # BEFORE POST
+        # ==========================================
+
         print(
             "📤 LOGIN POST..."
         )
 
+        print_cookies()
+
         time.sleep(1)
 
-        # =====================================================
-        # POST LOGIN
-        # =====================================================
+        # ==========================================
+        # LOGIN POST
+        # ==========================================
 
         r = session.post(
             action,
             data=payload,
             headers={
-                "User-Agent": HEADERS["User-Agent"],
-                "Accept": (
-                    "text/html,application/xhtml+xml,"
-                    "application/xml;q=0.9,*/*;q=0.8"
-                ),
-                "Accept-Language": HEADERS["Accept-Language"],
-                "Accept-Encoding": "gzip, deflate",
-                "Content-Type":
-                    "application/x-www-form-urlencoded",
                 "Referer": login_page,
                 "Origin": BASE,
-                "Upgrade-Insecure-Requests": "1"
+                "Content-Type":
+                    "application/x-www-form-urlencoded"
             },
             allow_redirects=True,
             timeout=30
@@ -464,7 +458,7 @@ def login():
 
         print(
             f"📄 POST HTML LENGTH: "
-            f"{len(r.content)}"
+            f"{len(r.text)}"
         )
 
         print(
@@ -480,88 +474,196 @@ def login():
 
             return False
 
-        # =====================================================
-        # ПРОВЕРЯЕМ ОТВЕТ POST
-        # =====================================================
+        if r.status_code >= 400:
 
-        post_html = r.text
-
-        # =====================================================
-        # ПРОВЕРКА COOKIE
-        # =====================================================
-
-        print(
-            "🍪 COOKIES AFTER LOGIN:",
-            dict(session.cookies)
-        )
-
-        # WooCommerce обычно после успешного входа
-        # устанавливает cookies сессии/авторизации.
-        has_auth_cookie = any(
-            (
-                "wordpress_logged_in" in cookie.name
-                or "wordpress_sec" in cookie.name
+            print(
+                f"❌ LOGIN POST ERROR: "
+                f"{r.status_code}"
             )
-            for cookie in session.cookies
+
+            return False
+
+        # ==========================================
+        # IMPORTANT:
+        # НЕ ИСПОЛЬЗУЕМ:
+        #
+        # session.cookies.get("wordpress_sec_...")
+        #
+        # потому что сайт может создать
+        # несколько cookies с одинаковым именем.
+        # ==========================================
+
+        print(
+            "🍪 COOKIES AFTER LOGIN:"
+        )
+
+        print_cookies()
+
+        # ==========================================
+        # CHECK LOGIN PAGE
+        # ==========================================
+
+        time.sleep(1)
+
+        check = session.get(
+            login_page,
+            headers={
+                "Referer": action
+            },
+            allow_redirects=True,
+            timeout=30
         )
 
         print(
-            "🔐 AUTH COOKIE:",
-            has_auth_cookie
+            f"🔎 LOGIN CHECK: "
+            f"{check.status_code} "
+            f"{check.url}"
         )
 
-        # =====================================================
-        # ПРОВЕРКА ПО HTML
-        # =====================================================
+        print(
+            f"📄 CHECK HTML LENGTH: "
+            f"{len(check.text)}"
+        )
 
-        post_text = BeautifulSoup(
-            post_html,
+        if check.status_code == 429:
+
+            print(
+                "❌ LOGIN CHECK: 429"
+            )
+
+            return False
+
+        if check.status_code >= 400:
+
+            print(
+                f"❌ LOGIN CHECK ERROR: "
+                f"{check.status_code}"
+            )
+
+            return False
+
+        # ==========================================
+        # CHECK HTML
+        # ==========================================
+
+        text = check.text.lower()
+
+        soup_check = BeautifulSoup(
+            check.text,
             "html.parser"
-        ).get_text(
-            " ",
-            strip=True
-        ).lower()
-
-        logged_in = (
-            "вийти" in post_text
-            or "вихід" in post_text
-            or "выйти" in post_text
-            or "logout" in post_text
-            or has_auth_cookie
         )
 
-        if logged_in:
+        # ==========================================
+        # SUCCESS CONDITIONS
+        # ==========================================
+
+        logout_found = False
+
+        success_words = [
+            "вийти",
+            "вихід",
+            "выйти",
+            "logout",
+            "log out"
+        ]
+
+        for word in success_words:
+
+            if word in text:
+
+                logout_found = True
+
+                break
+
+        # ==========================================
+        # CHECK MY ACCOUNT CONTENT
+        # ==========================================
+
+        account_found = False
+
+        if soup_check.select_one(
+            ".woocommerce-MyAccount-content"
+        ):
+
+            account_found = True
+
+        if soup_check.select_one(
+            ".woocommerce-MyAccount-navigation"
+        ):
+
+            account_found = True
+
+        # ==========================================
+        # CHECK LOGIN FORM
+        # ==========================================
+
+        login_form_after = soup_check.select_one(
+            "form.woocommerce-form-login"
+        )
+
+        # ==========================================
+        # RESULT
+        # ==========================================
+
+        if logout_found or account_found:
+
+            print(
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            )
 
             print(
                 "✅ LOGIN OK"
             )
 
-            return True
-
-        # =====================================================
-        # ЕСЛИ НЕ ВОШЛИ
-        # =====================================================
-
-        print(
-            "❌ LOGIN FAIL"
-        )
-
-        # Проверяем ошибки WooCommerce
-        if (
-            "incorrect" in post_text
-            or "неправиль" in post_text
-            or "помил" in post_text
-            or "ошиб" in post_text
-        ):
+            print(
+                "🔓 Авторизация подтверждена"
+            )
 
             print(
-                "⚠️ В ОТВЕТЕ НАЙДЕНА ВОЗМОЖНАЯ "
-                "ОШИБКА АВТОРИЗАЦИИ"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             )
+
+            return True
+
+        # ==========================================
+        # IF LOGIN FORM STILL EXISTS
+        # ==========================================
+
+        if login_form_after:
+
+            print(
+                "❌ LOGIN FAIL"
+            )
+
+            print(
+                "⚠️ Форма входа всё ещё "
+                "присутствует после POST"
+            )
+
+        else:
+
+            print(
+                "⚠️ LOGIN RESULT UNCLEAR"
+            )
+
+            print(
+                "Форма входа исчезла, "
+                "но признаки аккаунта "
+                "не найдены."
+            )
+
+        # ==========================================
+        # SAVE DEBUG
+        # ==========================================
 
         debug_path = os.path.join(
             OUTPUT_DIR,
-            "login_post_debug.html"
+            "account_debug.html"
+        )
+
+        os.makedirs(
+            OUTPUT_DIR,
+            exist_ok=True
         )
 
         with open(
@@ -570,10 +672,10 @@ def login():
             encoding="utf-8"
         ) as f:
 
-            f.write(post_html)
+            f.write(check.text)
 
         print(
-            f"📄 POST DEBUG: {debug_path}"
+            f"📄 DEBUG: {debug_path}"
         )
 
         return False
@@ -584,7 +686,79 @@ def login():
             f"❌ LOGIN ERROR: {e}"
         )
 
+        # ==========================================
+        # ВАЖНО:
+        # если ошибка была из-за duplicate cookie,
+        # не считаем это автоматически провалом,
+        # пока не проверим страницу.
+        # ==========================================
+
+        try:
+
+            print(
+                "🔎 Пытаемся проверить "
+                "сессию после ошибки..."
+            )
+
+            check = session.get(
+                login_page,
+                headers={
+                    "Referer": action
+                    if "action" in locals()
+                    else login_page
+                },
+                allow_redirects=True,
+                timeout=30
+            )
+
+            print(
+                f"🔎 RECOVERY CHECK: "
+                f"{check.status_code} "
+                f"{check.url}"
+            )
+
+            text = check.text.lower()
+
+            if (
+                "вийти" in text
+                or "вихід" in text
+                or "выйти" in text
+                or "logout" in text
+                or "log out" in text
+            ):
+
+                print(
+                    "✅ LOGIN OK "
+                    "(RECOVERY CHECK)"
+                )
+
+                return True
+
+            soup = BeautifulSoup(
+                check.text,
+                "html.parser"
+            )
+
+            if soup.select_one(
+                ".woocommerce-MyAccount-content"
+            ):
+
+                print(
+                    "✅ LOGIN OK "
+                    "(MY ACCOUNT FOUND)"
+                )
+
+                return True
+
+        except Exception as recovery_error:
+
+            print(
+                "❌ RECOVERY ERROR:",
+                recovery_error
+            )
+
         return False
+
 
 # =========================
 # STATUS
@@ -705,7 +879,8 @@ def get_categories():
     seen = set()
 
     for a in soup.select(
-        "#d_category_menu_list a.link-level-1"
+        "#d_category_menu_list "
+        "a.link-level-1"
     ):
 
         href = a.get(
@@ -733,7 +908,6 @@ def get_categories():
             a.get_text()
         )
 
-        # Убираем количество товаров
         name = re.sub(
             r"\d+\s*$",
             "",
@@ -1077,6 +1251,10 @@ def run_parser():
 
         set_lock(False)
 
+
+# =========================
+# START
+# =========================
 
 if __name__ == "__main__":
 
