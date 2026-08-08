@@ -1131,8 +1131,6 @@ def run_parser():
             product_urls
         )
 
-        seen_products = set()
-
         for i, product_url in enumerate(
             product_urls,
             1
@@ -1166,17 +1164,6 @@ def run_parser():
 
             if not title:
                 continue
-
-            if sku:
-                key = sku
-            else:
-                key = url
-            
-            if key in seen_products:
-                continue
-            
-            seen_products.add(key)
-
 
             ws.append([
                 sku,
