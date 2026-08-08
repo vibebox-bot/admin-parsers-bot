@@ -770,63 +770,88 @@ def get_search_product_links():
 
     return urls
 
-
 # =========================
-# TEST SEARCH 1817
+# SEARCH PRODUCTS BY SKU
 # =========================
 
-def test_search_1817():
-
-    print("🔎 ИЩЕМ 1817 ЧЕРЕЗ ПОИСК Jmax")
-
-    url = (
-        BASE +
-        "/index.php?route=product/search&search=1817"
-    )
-
-    soup = get_soup(
-        url
-    )
-
-    if not soup:
-
-        print(
-            "❌ Страница поиска не загрузилась"
-        )
-
-        return
-
-    products = get_product_links(
-        soup
-    )
+def search_products_by_sku(
+    start_sku=1,
+    end_sku=10000,
+    delay=0.3
+):
 
     print(
-        f"🔎 Найдено ссылок: {len(products)}"
+        f"🔎 ПОИСК ТОВАРОВ ПО АРТИКУЛАМ "
+        f"{start_sku}-{end_sku}"
     )
 
-    for product_url in products:
+    found_urls = []
+    found_seen = set()
 
-        print(
-            f"📦 НАЙДЕН 1817: {product_url}"
+    checked = 0
+
+    for sku in range(
+        start_sku,
+        end_sku + 1
+    ):
+
+        checked += 1
+
+        search_url = (
+            BASE +
+            "/index.php?route=product/search&search="
+            + str(sku)
         )
 
-        item = parse_product(
-            product_url
+        soup = get_soup(
+            search_url
         )
 
-        print(
-            f"SKU: {item[0]}"
+        if not soup:
+            time.sleep(delay)
+            continue
+
+        products = get_product_links(
+            soup
         )
 
-        print(
-            f"TITLE: {item[1]}"
-        )
+        for product_url in products:
 
-        return
+            if product_url in found_seen:
+                continue
+
+            found_seen.add(
+                product_url
+            )
+
+            found_urls.append(
+                product_url
+            )
+
+            print(
+                f"➕ Найден SKU {sku}: "
+                f"{product_url}"
+            )
+
+        if checked % 100 == 0:
+
+            print(
+                f"🔎 Проверено артикулов: "
+                f"{checked}/{end_sku - start_sku + 1} "
+                f"| Найдено товаров: "
+                f"{len(found_urls)}"
+            )
+
+        time.sleep(delay)
 
     print(
-        "❌ 1817 через поиск не найден"
+        f"✅ ПОИСК ЗАВЕРШЁН. "
+        f"Найдено дополнительных товаров: "
+        f"{len(found_urls)}"
     )
+
+    return found_urls
+
 
 # =========================
 # PRODUCT
@@ -1182,47 +1207,45 @@ def run_parser():
             f"📦 Всего ссылок на товары: "
             f"{len(product_urls)}"
         )
+
+        # =========================
+        # 3. ПОИСК ТОВАРОВ ПО АРТИКУЛАМ
+        # =========================
         
-        # =========================
-        # 3. ТЕСТОВЫЙ ТОВАР 1817
-        # =========================
-    
-        test_url = (
-            BASE +
-            "/index.php?route=product/product&product_id=14061&search=1817"
+        search_products = search_products_by_sku(
+            start_sku=1,
+            end_sku=3000,
+            delay=0.3
         )
-    
-        if test_url not in product_seen:
-    
-            product_seen.add(test_url)
-    
+        
+        additional_products = 0
+        
+        for url in search_products:
+        
+            if url in product_seen:
+                continue
+        
+            product_seen.add(
+                url
+            )
+        
             product_urls.append(
-                test_url
+                url
             )
-    
-            print(
-                f"✅ ТЕСТ 1817 ДОБАВЛЕН: {test_url}"
-            )
+        
+            additional_products += 1
+        
+        print(
+            f"➕ Дополнительных товаров: "
+            f"{additional_products}"
+        )
+        
+        print(
+            f"📦 ИТОГО ТОВАРОВ К ПАРСИНГУ: "
+            f"{len(product_urls)}"
+        )
 
         
-        print("🔎 ПРОВЕРКА ТОВАРА 1817")
-
-        for url in product_urls:
-        
-            if "product_id=14061" in url:
-        
-                print(
-                    f"✅ 1817 ЕСТЬ В product_urls: {url}"
-                )
-        
-                break
-        
-        else:
-        
-            print(
-                "❌ 1817 НЕТ В product_urls"
-            )
-
         # =========================
         # PARSE PRODUCTS
         # =========================
