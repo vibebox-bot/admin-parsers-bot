@@ -13,22 +13,33 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Харьковская 4425-4426 Gold Top")
 
-#BASE = "https://www.gold-tor.com.ua"
 BASE = "https://gold-tor.com.ua"
 
 # =========================
 # ⚙️ SWITCH
 # =========================
+
 CATEGORY_LIMIT = 1
-#CATEGORY_LIMIT = None
+# CATEGORY_LIMIT = None
 
 EMAIL = "Sawrun_05@icloud.com"
 PASSWORD = "18022021"
 
 OUTPUT_DIR = os.path.abspath("output/4425-4426_Gold_Top")
-FILE_PATH = os.path.join(OUTPUT_DIR, "4425-4426_Gold_Top_LIVE.xlsx")
-STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
-LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
+FILE_PATH = os.path.join(
+    OUTPUT_DIR,
+    "4425-4426_Gold_Top_LIVE.xlsx"
+)
+
+STATUS_PATH = os.path.join(
+    OUTPUT_DIR,
+    "status.json"
+)
+
+LOCK_FILE = os.path.join(
+    OUTPUT_DIR,
+    "lock.txt"
+)
 
 HEADERS = {
     "User-Agent": (
@@ -38,9 +49,12 @@ HEADERS = {
     ),
     "Accept": (
         "text/html,application/xhtml+xml,application/xml;"
-        "q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"
+        "q=0.9,image/avif,image/webp,image/apng,*/*;"
+        "q=0.8"
     ),
-    "Accept-Language": "uk-UA,uk;q=0.9,ru;q=0.8,en-US;q=0.7,en;q=0.6",
+    "Accept-Language": (
+        "uk-UA,uk;q=0.9,ru;q=0.8,en-US;q=0.7,en;q=0.6"
+    ),
     "Accept-Encoding": "gzip, deflate, br",
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1",
@@ -49,8 +63,10 @@ HEADERS = {
 session = requests.Session()
 session.headers.update(HEADERS)
 
-session = requests.Session()
-session.headers.update(HEADERS)
+
+# =========================
+# LOCK
+# =========================
 
 def is_locked():
 
@@ -58,6 +74,7 @@ def is_locked():
         return False
 
     try:
+
         age = time.time() - os.path.getmtime(LOCK_FILE)
 
         if age > 3600:
@@ -67,6 +84,7 @@ def is_locked():
         return True
 
     except:
+
         return False
 
 
@@ -74,13 +92,21 @@ def set_lock(state):
 
     if state:
 
-        with open(LOCK_FILE, "w", encoding="utf-8") as f:
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+        with open(
+            LOCK_FILE,
+            "w",
+            encoding="utf-8"
+        ) as f:
+
             f.write(str(time.time()))
 
     else:
 
         if os.path.exists(LOCK_FILE):
             os.remove(LOCK_FILE)
+
 
 # =========================
 # LOGIN
@@ -90,55 +116,34 @@ def login():
 
     print("🔐 LOGIN...")
 
-    login_page = BASE + "/?route=account%2Faccount"
+    login_page = BASE + "/my-account/"
 
     try:
 
-        # Небольшая пауза перед первым запросом
+        # Получаем страницу WooCommerce
         time.sleep(2)
 
-        for attempt in range(3):
+        r = session.get(
+            login_page,
+            timeout=30,
+            allow_redirects=True
+        )
 
-            r = session.get(
-                login_page,
-                timeout=30,
-                allow_redirects=True
+        print(
+            f"🌐 LOGIN PAGE: {r.status_code} {r.url}"
+        )
+
+        if r.status_code == 429:
+
+            print("⚠️ LOGIN PAGE: 429")
+
+            return False
+
+        if r.status_code != 200:
+
+            print(
+                f"❌ LOGIN PAGE ERROR: {r.status_code}"
             )
-
-            if r.status_code == 429:
-
-                print(
-                    f"⚠️ LOGIN 429, попытка {attempt + 1}/3"
-                )
-
-                retry_after = r.headers.get(
-                    "Retry-After"
-                )
-
-                if retry_after:
-                    try:
-                        wait = int(retry_after)
-                    except:
-                        wait = 10
-                else:
-                    wait = 10 * (attempt + 1)
-
-                time.sleep(wait)
-                continue
-
-            if r.status_code != 200:
-
-                print(
-                    f"❌ LOGIN PAGE ERROR: {r.status_code}"
-                )
-
-                return False
-
-            break
-
-        else:
-
-            print("❌ LOGIN: сайт продолжает отдавать 429")
 
             return False
 
@@ -146,6 +151,10 @@ def login():
             r.text,
             "html.parser"
         )
+
+        # =========================
+        # FIND WOOCOMMERCE FORM
+        # =========================
 
         form = soup.select_one(
             "form.woocommerce-form-login"
@@ -160,9 +169,16 @@ def login():
                 "w",
                 encoding="utf-8"
             ) as f:
+
                 f.write(r.text)
 
             return False
+
+        print("✅ LOGIN FORM FOUND")
+
+        # =========================
+        # NONCE
+        # =========================
 
         nonce = form.select_one(
             "input[name='woocommerce-login-nonce']"
@@ -171,6 +187,7 @@ def login():
         if not nonce:
 
             print("❌ LOGIN NONCE NOT FOUND")
+
             return False
 
         nonce_value = nonce.get(
@@ -181,29 +198,70 @@ def login():
         if not nonce_value:
 
             print("❌ LOGIN NONCE EMPTY")
+
             return False
+
+        print("✅ LOGIN NONCE FOUND")
+
+        # =========================
+        # ACTION
+        # =========================
 
         action = form.get("action")
 
         if not action:
+
             action = BASE + "/my-account/"
 
-        if not action.startswith("http"):
+        elif not action.startswith("http"):
+
             action = (
                 BASE.rstrip("/")
                 + "/"
                 + action.lstrip("/")
             )
 
+        print(
+            f"🔗 LOGIN ACTION: {action}"
+        )
+
+        # =========================
+        # PAYLOAD
+        # =========================
+
+        referer = form.select_one(
+            "input[name='_wp_http_referer']"
+        )
+
+        referer_value = (
+            referer.get("value", "").strip()
+            if referer
+            else "/my-account/"
+        )
+
+        redirect = form.select_one(
+            "input[name='redirect']"
+        )
+
+        redirect_value = (
+            redirect.get("value", "").strip()
+            if redirect
+            else BASE + "/"
+        )
+
         payload = {
             "username": EMAIL,
             "password": PASSWORD,
             "woocommerce-login-nonce": nonce_value,
-            "_wp_http_referer": "/?route=account%2Faccount",
+            "_wp_http_referer": referer_value,
             "login": "Увійти",
-            "redirect": BASE + "/",
+            "redirect": redirect_value,
             "rememberme": "forever"
         }
+
+        # =========================
+        # POST LOGIN
+        # =========================
 
         time.sleep(1)
 
@@ -218,39 +276,50 @@ def login():
             timeout=30
         )
 
+        print(
+            f"🌐 LOGIN POST: {r.status_code} {r.url}"
+        )
+
         if r.status_code == 429:
 
             print("❌ LOGIN POST: 429")
 
             return False
 
-        check = session.get(
-            BASE + "/?route=account%2Faccount",
-            headers={
-                "Referer": action
-            },
-            allow_redirects=True,
-            timeout=30
-        )
+        # =========================
+        # CHECK LOGIN
+        # =========================
 
-        if check.status_code == 429:
+        text = r.text.lower()
 
-            print("❌ LOGIN CHECK: 429")
-
-            return False
-
-        text = check.text.lower()
-
+        # Если WooCommerce оставил пользователя
+        # на странице аккаунта и показывает logout
         if (
-            "вийти" in text
+            "logout" in text
+            or "вийти" in text
             or "вихід" in text
             or "выйти" in text
-            or "logout" in text
+            or "my-account" in text
         ):
 
-            print("✅ LOGIN OK")
+            # Дополнительная проверка:
+            # форма входа не должна остаться
+            login_form = BeautifulSoup(
+                r.text,
+                "html.parser"
+            ).select_one(
+                "form.woocommerce-form-login"
+            )
 
-            return True
+            if not login_form:
+
+                print("✅ LOGIN OK")
+
+                return True
+
+        # =========================
+        # LOGIN ERROR
+        # =========================
 
         print("❌ LOGIN FAIL")
 
@@ -259,66 +328,131 @@ def login():
             "w",
             encoding="utf-8"
         ) as f:
-            f.write(check.text)
+
+            f.write(r.text)
 
         return False
 
     except Exception as e:
 
-        print(f"❌ LOGIN ERROR: {e}")
+        print(
+            f"❌ LOGIN ERROR: {e}"
+        )
 
         return False
+
 
 # =========================
 # STATUS
 # =========================
-def save_status(running=False, progress=0, user="", file_path=""):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+def save_status(
+    running=False,
+    progress=0,
+    user="",
+    file_path=""
+):
+
+    os.makedirs(
+        OUTPUT_DIR,
+        exist_ok=True
+    )
 
     data = {
         "running": running,
         "progress": progress,
         "user": user,
-        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "time": datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
         "file_path": file_path
     }
 
     tmp = STATUS_PATH + ".tmp"
 
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with open(
+        tmp,
+        "w",
+        encoding="utf-8"
+    ) as f:
 
-    os.replace(tmp, STATUS_PATH)
+        json.dump(
+            data,
+            f,
+            ensure_ascii=False,
+            indent=2
+        )
+
+    os.replace(
+        tmp,
+        STATUS_PATH
+    )
 
 
 # =========================
 # HTTP
 # =========================
+
 def get_soup(url):
 
-    for _ in range(3):
+    for attempt in range(3):
 
         try:
 
-            r = session.get(url, timeout=30)
-            
+            r = session.get(
+                url,
+                timeout=30,
+                allow_redirects=True
+            )
+
             if r.status_code == 200:
-                return BeautifulSoup(r.text, "html.parser")
 
-        except:
-            pass
+                return BeautifulSoup(
+                    r.text,
+                    "html.parser"
+                )
 
-        time.sleep(1)
+            if r.status_code == 429:
 
-    return BeautifulSoup("", "html.parser")
+                print(
+                    f"⚠️ 429: {url}"
+                )
+
+                time.sleep(
+                    5 * (attempt + 1)
+                )
+
+        except Exception as e:
+
+            print(
+                f"⚠️ GET ERROR: {e}"
+            )
+
+            time.sleep(2)
+
+    return BeautifulSoup(
+        "",
+        "html.parser"
+    )
+
 
 def clean(t):
-    return re.sub(r"\s+", " ", t).strip() if t else ""
+
+    return (
+        re.sub(
+            r"\s+",
+            " ",
+            t
+        ).strip()
+        if t
+        else ""
+    )
 
 
 # =========================
 # CATEGORIES
 # =========================
+
 def get_categories():
 
     soup = get_soup(BASE)
@@ -326,38 +460,54 @@ def get_categories():
     cats = []
     seen = set()
 
-    for a in soup.select("#d_category_menu_list a.link-level-1"):
+    for a in soup.select(
+        "#d_category_menu_list a.link-level-1"
+    ):
 
-        href = a.get("href", "").strip()
+        href = a.get(
+            "href",
+            ""
+        ).strip()
 
         if not href:
             continue
 
         if not href.startswith("http"):
-            href = BASE.rstrip("/") + "/" + href.lstrip("/")
+
+            href = (
+                BASE.rstrip("/")
+                + "/"
+                + href.lstrip("/")
+            )
 
         if href in seen:
             continue
 
         seen.add(href)
 
-        name = clean(a.get_text())
+        name = clean(
+            a.get_text()
+        )
 
-        # убираем количество товаров (131, 26 и т.д.)
-        name = re.sub(r"\d+\s*$", "", name).strip()
+        # Убираем количество товаров
+        name = re.sub(
+            r"\d+\s*$",
+            "",
+            name
+        ).strip()
 
         cats.append({
             "name": name,
             "url": href
         })
 
-    #print(f"📂 Найдено категорий: {len(cats)}")
-
     return cats
+
 
 # =========================
 # CATEGORY
 # =========================
+
 def parse_category(cat_url):
 
     result = []
@@ -368,16 +518,20 @@ def parse_category(cat_url):
     while True:
 
         if page == 1:
-            url = cat_url
-        else:
-            url = f"{cat_url}?page={page}"
 
-        #print(f"📄 {url}")
+            url = cat_url
+
+        else:
+
+            url = (
+                f"{cat_url}?page={page}"
+            )
 
         soup = get_soup(url)
 
-        #products = soup.select("div.product-item a[href]")
-        products = soup.select("div.product-name a")
+        products = soup.select(
+            "div.product-name a"
+        )
 
         if not products:
             break
@@ -386,24 +540,34 @@ def parse_category(cat_url):
 
         for a in products:
 
-            href = a.get("href", "").strip()
+            href = a.get(
+                "href",
+                ""
+            ).strip()
 
             if not href:
                 continue
 
-            # Берем только ссылку на страницу товара
             if "/image/" in href:
                 continue
 
             if not href.startswith("http"):
-                href = BASE.rstrip("/") + "/" + href.lstrip("/")
+
+                href = (
+                    BASE.rstrip("/")
+                    + "/"
+                    + href.lstrip("/")
+                )
 
             if href in seen:
                 continue
 
             seen.add(href)
 
-            result.append(parse_product(href))
+            result.append(
+                parse_product(href)
+            )
+
             added += 1
 
             time.sleep(0.05)
@@ -414,7 +578,11 @@ def parse_category(cat_url):
         page += 1
 
     return result
-    
+
+
+# =========================
+# PRODUCT
+# =========================
 
 def parse_product(url):
 
@@ -423,42 +591,67 @@ def parse_product(url):
     # =========================
     # TITLE
     # =========================
+
     title = ""
 
-    h1 = soup.select_one("h1[itemprop='name']")
+    h1 = soup.select_one(
+        "h1[itemprop='name']"
+    )
 
     if h1:
-        title = clean(h1.get_text())
+
+        title = clean(
+            h1.get_text()
+        )
 
     # =========================
     # SKU
     # =========================
+
     sku = ""
-    
-    span = soup.select_one("div.mr-4.p-1.text-secondary span.text-danger")
-    
+
+    span = soup.select_one(
+        "div.mr-4.p-1.text-secondary "
+        "span.text-danger"
+    )
+
     if span:
-        sku = clean(span.get_text())
-            
+
+        sku = clean(
+            span.get_text()
+        )
+
     # =========================
     # PRICE
     # =========================
+
     price = ""
 
-    p = soup.select_one(".h2.m-0.text-nowrap")
+    p = soup.select_one(
+        ".h2.m-0.text-nowrap"
+    )
 
     if p:
-        price = clean(p.get_text())
+
+        price = clean(
+            p.get_text()
+        )
 
     # =========================
     # STATUS
     # =========================
+
     status = ""
 
-    alert = soup.select_one(".alert")
+    alert = soup.select_one(
+        ".alert"
+    )
 
     if alert:
-        status = clean(alert.get_text())
+
+        status = clean(
+            alert.get_text()
+        )
 
     return [
         sku,
@@ -468,66 +661,130 @@ def parse_product(url):
         url
     ]
 
+
 # =========================
 # MAIN
 # =========================
+
 def run_parser():
 
     if is_locked():
+
         return
 
     set_lock(True)
 
     try:
 
-        save_status(True, 0, USER, FILE_PATH)
+        save_status(
+            True,
+            0,
+            USER,
+            FILE_PATH
+        )
 
-        login()
+        # =========================
+        # LOGIN
+        # =========================
 
-        wb = Workbook()
-        ws = wb.active
-        ws.append(["SKU", "TITLE", "PRICE", "STATUS", "URL"])
+        if not login():
 
-        seen = set()
-
-        cats = get_categories()
-
-        #cats = [cats[8]]
-        
-        #print("DEBUG CATS:", cats)
-        print(f"📂 Категорий: {len(cats)}")
-
-        if CATEGORY_LIMIT:
-            cats = cats[:CATEGORY_LIMIT]
-
-        total = len(cats)
-
-        if total == 0:
-            save_status(False, 100, USER, FILE_PATH)
-            return
-
-        for i, cat in enumerate(cats, 1):
+            print(
+                "❌ Авторизация не выполнена"
+            )
 
             save_status(
-                True,
-                int(i / total * 100),
+                False,
+                0,
                 USER,
                 FILE_PATH
             )
 
-            items = parse_category(cat["url"])
+            return
 
-            #print("TOTAL ITEMS:", len(items))
+        print(
+            "🔓 Авторизация подтверждена"
+        )
 
-            for sku, title, price, status, url in items:
+        # =========================
+        # EXCEL
+        # =========================
 
-                #key = sku if sku else url
-                #key = (title, price)
+        wb = Workbook()
 
-                #if key in seen:
-                    #continue
+        ws = wb.active
 
-                #seen.add(key)
+        ws.append([
+            "SKU",
+            "TITLE",
+            "PRICE",
+            "STATUS",
+            "URL"
+        ])
+
+        # =========================
+        # CATEGORIES
+        # =========================
+
+        cats = get_categories()
+
+        print(
+            f"📂 Категорий: {len(cats)}"
+        )
+
+        if CATEGORY_LIMIT:
+
+            cats = cats[
+                :CATEGORY_LIMIT
+            ]
+
+        total = len(cats)
+
+        if total == 0:
+
+            save_status(
+                False,
+                100,
+                USER,
+                FILE_PATH
+            )
+
+            return
+
+        # =========================
+        # PARSE
+        # =========================
+
+        for i, cat in enumerate(
+            cats,
+            1
+        ):
+
+            print(
+                f"📂 [{i}/{total}] "
+                f"{cat['name']}"
+            )
+
+            save_status(
+                True,
+                int(
+                    i / total * 100
+                ),
+                USER,
+                FILE_PATH
+            )
+
+            items = parse_category(
+                cat["url"]
+            )
+
+            for (
+                sku,
+                title,
+                price,
+                status,
+                url
+            ) in items:
 
                 if not title:
                     continue
@@ -542,17 +799,35 @@ def run_parser():
 
             time.sleep(0.2)
 
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        # =========================
+        # SAVE
+        # =========================
+
+        os.makedirs(
+            OUTPUT_DIR,
+            exist_ok=True
+        )
 
         tmp = FILE_PATH + ".tmp"
 
         wb.save(tmp)
 
-        os.replace(tmp, FILE_PATH)
+        os.replace(
+            tmp,
+            FILE_PATH
+        )
 
-        save_status(False, 100, USER, FILE_PATH)
+        save_status(
+            False,
+            100,
+            USER,
+            FILE_PATH
+        )
 
-        print("✅ Готово. Харьковская 4425-4426 Gold Top")
+        print(
+            "✅ Готово. "
+            "Харьковская 4425-4426 Gold Top"
+        )
 
     finally:
 
@@ -560,4 +835,5 @@ def run_parser():
 
 
 if __name__ == "__main__":
+
     run_parser()
