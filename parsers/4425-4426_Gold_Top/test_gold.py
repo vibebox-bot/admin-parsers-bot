@@ -33,9 +33,10 @@ try:
     print("RETRY-AFTER:", r.headers.get("Retry-After"))
     print("CONTENT-TYPE:", r.headers.get("Content-Type"))
     print("CONTENT-LENGTH:", r.headers.get("Content-Length"))
+    print("ALL HEADERS:", dict(r.headers))
     print("==============================")
-    print("TEXT:")
-    print(r.text[:2000])
+    print("FIRST 500 CHARACTERS:")
+    print(r.text[:500])
     print("==============================")
 
 except Exception as e:
