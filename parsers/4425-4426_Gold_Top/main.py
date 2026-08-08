@@ -69,49 +69,138 @@ def set_lock(state):
 # =========================
 # LOGIN
 # =========================
+
 def login():
 
-    login_url = BASE + "/index.php?route=account/login"
+    print("🔐 LOGIN...")
 
-    # Открываем страницу логина (получаем cookies)
-    session.get(login_url)
+    login_page = BASE + "/?route=account/account"
 
-    payload = {
-        "email": EMAIL,
-        "password": PASSWORD
-    }
+    try:
 
-    r = session.post(
-        login_url,
-        data=payload,
-        headers={
-            "Referer": login_url
-        },
-        allow_redirects=True
-    )
+        # Получаем страницу входа
+        r = session.get(
+            login_page,
+            timeout=30,
+            allow_redirects=True
+        )
 
-    #print("LOGIN:", r.status_code)
+        if r.status_code != 200:
+            print(f"❌ LOGIN PAGE ERROR: {r.status_code}")
+            return False
 
-    # Проверяем, что действительно вошли
-    check = session.get(
-        BASE + "/index.php?route=account/account"
-    )
-    #print(check.url)
-    #print(check.status_code)
-    
-    with open("account.html", "w", encoding="utf-8") as f:
-        f.write(check.text)
-        
-    if (
-        "Выход" in check.text
-        or "Мой аккаунт" in check.text
-        or "Личный кабинет" in check.text
-    ):
-        print("✅ LOGIN OK")
-        return True
+        soup = BeautifulSoup(r.text, "html.parser")
 
-    print("❌ LOGIN FAIL")
-    return False
+        # Ищем форму WooCommerce
+        form = soup.select_one(
+            "form.woocommerce-form-login"
+        )
+
+        if not form:
+            print("❌ LOGIN FORM NOT FOUND")
+            return False
+
+        # Динамический nonce
+        nonce = form.select_one(
+            "input[name='woocommerce-login-nonce']"
+        )
+
+        if not nonce:
+            print("❌ LOGIN NONCE NOT FOUND")
+            return False
+
+        nonce_value = nonce.get("value", "").strip()
+
+        if not nonce_value:
+            print("❌ LOGIN NONCE EMPTY")
+            return False
+
+        # URL отправки формы
+        action = form.get("action")
+
+        if not action:
+            action = BASE + "/my-account/"
+
+        # Если action относительный
+        if not action.startswith("http"):
+            action = BASE.rstrip("/") + "/" + action.lstrip("/")
+
+        payload = {
+            "username": EMAIL,
+            "password": PASSWORD,
+            "woocommerce-login-nonce": nonce_value,
+            "_wp_http_referer": "/?route=account%2Faccount",
+            "login": "Увійти",
+            "redirect": BASE + "/",
+            "rememberme": "forever"
+        }
+
+        r = session.post(
+            action,
+            data=payload,
+            headers={
+                "Referer": login_page,
+                "Origin": BASE
+            },
+            allow_redirects=True,
+            timeout=30
+        )
+
+        # Проверяем аккаунт после авторизации
+        check = session.get(
+            BASE + "/?route=account%2Faccount",
+            headers={
+                "Referer": action
+            },
+            allow_redirects=True,
+            timeout=30
+        )
+
+        check_soup = BeautifulSoup(
+            check.text,
+            "html.parser"
+        )
+
+        # Если появилась ссылка/кнопка выхода
+        logout = (
+            check_soup.select_one(
+                "a[href*='logout']"
+            )
+            or check_soup.select_one(
+                ".woocommerce-MyAccount-navigation-link--customer-logout"
+            )
+        )
+
+        # Также проверяем текст страницы
+        text = check.text.lower()
+
+        if (
+            logout
+            or "вийти" in text
+            or "вихід" in text
+            or "выйти" in text
+            or "logout" in text
+        ):
+            print("✅ LOGIN OK")
+            return True
+
+        print("❌ LOGIN FAIL")
+
+        # Для диагностики сохраняем ответ
+        with open(
+            "account.html",
+            "w",
+            encoding="utf-8"
+        ) as f:
+            f.write(check.text)
+
+        return False
+
+    except Exception as e:
+
+        print(f"❌ LOGIN ERROR: {e}")
+
+        return False
 
 # =========================
 # STATUS
