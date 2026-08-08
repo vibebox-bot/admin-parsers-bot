@@ -671,86 +671,191 @@ def get_categories():
 
     print("📂 ПОИСК КАТЕГОРИЙ...")
 
-    soup = get_soup(BASE)
+    try:
 
-    cats = []
-    seen = set()
-
-    # =====================================================
-    # ИЩЕМ ВСЕ ССЫЛКИ НА PRODUCT-CATEGORY
-    # =====================================================
-
-    for a in soup.find_all("a", href=True):
-
-        href = a.get("href", "").strip()
-
-        if not href:
-            continue
-
-        if "/product-category/" not in href:
-            continue
-
-        # Нормализуем URL
-        if not href.startswith("http"):
-
-            href = (
-                BASE.rstrip("/")
-                + "/"
-                + href.lstrip("/")
-            )
-
-        href = href.split("?")[0].rstrip("/")
-
-        # =================================================
-        # Исключаем дубли
-        # =================================================
-
-        if href in seen:
-            continue
-
-        # =================================================
-        # Получаем название
-        # =================================================
-
-        name = clean(
-            a.get_text(" ", strip=True)
+        r = session.get(
+            BASE + "/",
+            timeout=30,
+            allow_redirects=True
         )
-
-        if not name:
-            continue
-
-        # =================================================
-        # Иногда ссылка может быть картинкой/служебной
-        # =================================================
-
-        if name.lower() in (
-            "каталог",
-            "до каталогу"
-        ):
-            continue
-
-        seen.add(href)
-
-        cats.append({
-            "name": name,
-            "url": href + "/"
-        })
-
-    print(
-        f"🔎 ССЫЛОК КАТЕГОРИЙ НАЙДЕНО: {len(cats)}"
-    )
-
-    for cat in cats:
 
         print(
-            f"   📂 {cat['name']} → {cat['url']}"
+            f"🌐 CATEGORY PAGE: {r.status_code} {r.url}"
         )
 
-    print(
-        f"📂 Найдено категорий: {len(cats)}"
-    )
+        print(
+            f"📄 CATEGORY HTML LENGTH: {len(r.text)}"
+        )
 
-    return cats
+        print(
+            f"📦 CONTENT-TYPE: {r.headers.get('Content-Type')}"
+        )
+
+        print(
+            f"🍪 COOKIES COUNT: {len(session.cookies)}"
+        )
+
+        if r.status_code != 200:
+
+            print(
+                f"❌ CATEGORY PAGE ERROR: {r.status_code}"
+            )
+
+            return []
+
+        # =================================================
+        # DEBUG — ПРОВЕРЯЕМ ИМЕННО ТОТ БЛОК,
+        # КОТОРЫЙ ТЫ ДАЛА
+        # =================================================
+
+        marker = 'id="menu-category-menu-marketplace-2"'
+
+        if marker in r.text:
+
+            print(
+                "✅ БЛОК КАТЕГОРИЙ НАЙДЕН В HTML"
+            )
+
+        else:
+
+            print(
+                "❌ БЛОК КАТЕГОРИЙ НЕ НАЙДЕН В HTML"
+            )
+
+            print(
+                "🔎 ИЩЕМ product-category..."
+            )
+
+            if "/product-category/" in r.text:
+
+                print(
+                    "⚠️ product-category ЕСТЬ В HTML"
+                )
+
+            else:
+
+                print(
+                    "❌ product-category НЕТ В HTML"
+                )
+
+            # сохраняем именно тот HTML,
+            # который реально получил Railway
+
+            debug_path = os.path.join(
+                OUTPUT_DIR,
+                "category_debug.html"
+            )
+
+            os.makedirs(
+                OUTPUT_DIR,
+                exist_ok=True
+            )
+
+            with open(
+                debug_path,
+                "w",
+                encoding="utf-8"
+            ) as f:
+
+                f.write(r.text)
+
+            print(
+                f"📄 DEBUG HTML: {debug_path}"
+            )
+
+            return []
+
+        # =================================================
+        # PARSE
+        # =================================================
+
+        soup = BeautifulSoup(
+            r.text,
+            "html.parser"
+        )
+
+        menu = soup.select_one(
+            "#menu-category-menu-marketplace-2"
+        )
+
+        if not menu:
+
+            print(
+                "❌ MENU NOT FOUND"
+            )
+
+            return []
+
+        cats = []
+        seen = set()
+
+        # =================================================
+        # БЕРЕМ ТОЛЬКО ССЫЛКИ ИЗ ЭТОГО UL
+        # =================================================
+
+        for a in menu.select(
+            "a.woodmart-nav-link[href]"
+        ):
+
+            href = a.get(
+                "href",
+                ""
+            ).strip()
+
+            if not href:
+                continue
+
+            if "/product-category/" not in href:
+                continue
+
+            href = href.split("?")[0].rstrip("/")
+
+            if href in seen:
+                continue
+
+            name_el = a.select_one(
+                ".nav-link-text"
+            )
+
+            if name_el:
+
+                name = clean(
+                    name_el.get_text()
+                )
+
+            else:
+
+                name = clean(
+                    a.get_text()
+                )
+
+            if not name:
+                continue
+
+            seen.add(href)
+
+            cats.append({
+                "name": name,
+                "url": href + "/"
+            })
+
+            print(
+                f"📂 {name} → {href}/"
+            )
+
+        print(
+            f"📂 Найдено категорий: {len(cats)}"
+        )
+
+        return cats
+
+    except Exception as e:
+
+        print(
+            f"❌ CATEGORY ERROR: {e}"
+        )
+
+        return []
 
 # =========================
 # CATEGORY
