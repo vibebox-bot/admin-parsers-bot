@@ -1232,12 +1232,9 @@ def parse_category(cat_url):
 def run_parser():
 
     if is_locked():
-
         return
 
-    set_lock(
-        True
-    )
+    set_lock(True)
 
     try:
 
@@ -1286,6 +1283,14 @@ def run_parser():
             "STATUS",
             "URL"
         ])
+
+        # =========================
+        # ОБЩАЯ ДЕДУПЛИКАЦИЯ
+        # ДЛЯ ВСЕХ КАТЕГОРИЙ
+        # =========================
+
+        global_seen_skus = set()
+        global_seen_urls = set()
 
         # =========================
         # CATEGORIES
@@ -1355,8 +1360,57 @@ def run_parser():
             ) in items:
 
                 if not title:
-
                     continue
+
+                # =========================
+                # ДЕДУБЛИКАЦИЯ ПЕРЕД EXCEL
+                # =========================
+
+                sku_key = (
+                    clean(sku)
+                    .lower()
+                    if sku
+                    else ""
+                )
+
+                url_key = (
+                    url
+                    .split("?")[0]
+                    .split("#")[0]
+                    .rstrip("/")
+                    .lower()
+                    if url
+                    else ""
+                )
+
+                # Если SKU уже встречался —
+                # НЕ записываем товар в Excel
+
+                if sku_key:
+
+                    if sku_key in global_seen_skus:
+                        continue
+
+                    global_seen_skus.add(
+                        sku_key
+                    )
+
+                else:
+
+                    # Если SKU отсутствует —
+                    # проверяем URL
+
+                    if url_key in global_seen_urls:
+                        continue
+
+                if url_key:
+                    global_seen_urls.add(
+                        url_key
+                    )
+
+                # =========================
+                # EXCEL
+                # =========================
 
                 ws.append([
                     sku,
@@ -1407,9 +1461,7 @@ def run_parser():
 
     finally:
 
-        set_lock(
-            False
-        )
+        set_lock(False)
 
 
 # =========================
