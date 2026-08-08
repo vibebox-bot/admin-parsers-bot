@@ -662,7 +662,6 @@ def clean(t):
         else ""
     )
 
-
 # =========================
 # CATEGORIES
 # =========================
@@ -673,8 +672,25 @@ def get_categories():
 
     try:
 
+        category_headers = {
+            "User-Agent": HEADERS["User-Agent"],
+            "Accept": (
+                "text/html,application/xhtml+xml,"
+                "application/xml;q=0.9,image/avif,"
+                "image/webp,image/apng,*/*;q=0.8"
+            ),
+            "Accept-Language": HEADERS["Accept-Language"],
+            "Referer": BASE + "/my-account/",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+        }
+
         r = session.get(
             BASE + "/",
+            headers=category_headers,
+            params={
+                "_": str(int(time.time() * 1000))
+            },
             timeout=30,
             allow_redirects=True
         )
@@ -688,58 +704,54 @@ def get_categories():
         )
 
         print(
-            f"📦 CONTENT-TYPE: {r.headers.get('Content-Type')}"
+            f"📦 CONTENT-TYPE: "
+            f"{r.headers.get('Content-Type')}"
         )
 
         print(
-            f"🍪 COOKIES COUNT: {len(session.cookies)}"
+            f"🍪 COOKIES COUNT: "
+            f"{len(session.cookies)}"
         )
 
         if r.status_code != 200:
 
             print(
-                f"❌ CATEGORY PAGE ERROR: {r.status_code}"
+                f"❌ CATEGORY PAGE ERROR: "
+                f"{r.status_code}"
             )
 
             return []
 
+        html = r.text
+
         # =================================================
-        # DEBUG — ПРОВЕРЯЕМ ИМЕННО ТОТ БЛОК,
+        # ПРОВЕРКА ИМЕННО ТОГО БЛОКА,
         # КОТОРЫЙ ТЫ ДАЛА
         # =================================================
 
-        marker = 'id="menu-category-menu-marketplace-2"'
-
-        if marker in r.text:
+        if "menu-category-menu-marketplace-2" in html:
 
             print(
-                "✅ БЛОК КАТЕГОРИЙ НАЙДЕН В HTML"
+                "✅ БЛОК КАТЕГОРИЙ НАЙДЕН"
             )
 
         else:
 
             print(
-                "❌ БЛОК КАТЕГОРИЙ НЕ НАЙДЕН В HTML"
+                "❌ БЛОК КАТЕГОРИЙ НЕ НАЙДЕН"
             )
 
-            print(
-                "🔎 ИЩЕМ product-category..."
-            )
-
-            if "/product-category/" in r.text:
+            if "/product-category/" in html:
 
                 print(
-                    "⚠️ product-category ЕСТЬ В HTML"
+                    "⚠️ product-category ЕСТЬ"
                 )
 
             else:
 
                 print(
-                    "❌ product-category НЕТ В HTML"
+                    "❌ product-category НЕТ"
                 )
-
-            # сохраняем именно тот HTML,
-            # который реально получил Railway
 
             debug_path = os.path.join(
                 OUTPUT_DIR,
@@ -757,7 +769,7 @@ def get_categories():
                 encoding="utf-8"
             ) as f:
 
-                f.write(r.text)
+                f.write(html)
 
             print(
                 f"📄 DEBUG HTML: {debug_path}"
@@ -770,7 +782,7 @@ def get_categories():
         # =================================================
 
         soup = BeautifulSoup(
-            r.text,
+            html,
             "html.parser"
         )
 
@@ -781,7 +793,7 @@ def get_categories():
         if not menu:
 
             print(
-                "❌ MENU NOT FOUND"
+                "❌ MENU ELEMENT NOT FOUND"
             )
 
             return []
@@ -790,7 +802,7 @@ def get_categories():
         seen = set()
 
         # =================================================
-        # БЕРЕМ ТОЛЬКО ССЫЛКИ ИЗ ЭТОГО UL
+        # КАТЕГОРИИ
         # =================================================
 
         for a in menu.select(
@@ -807,6 +819,14 @@ def get_categories():
 
             if "/product-category/" not in href:
                 continue
+
+            if not href.startswith("http"):
+
+                href = (
+                    BASE.rstrip("/")
+                    + "/"
+                    + href.lstrip("/")
+                )
 
             href = href.split("?")[0].rstrip("/")
 
@@ -840,11 +860,12 @@ def get_categories():
             })
 
             print(
-                f"📂 {name} → {href}/"
+                f"📂 {name}"
             )
 
         print(
-            f"📂 Найдено категорий: {len(cats)}"
+            f"📂 Найдено категорий: "
+            f"{len(cats)}"
         )
 
         return cats
