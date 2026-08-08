@@ -1,3 +1,4 @@
+```python
 import os
 import json
 import re
@@ -26,6 +27,7 @@ EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
 
 OUTPUT_DIR = os.path.abspath("output/4421-4422_Jmax")
+
 FILE_PATH = os.path.join(
     OUTPUT_DIR,
     "4421-4422_Jmax_LIVE.xlsx"
@@ -142,10 +144,6 @@ def login():
                     time.sleep(300)
 
                     continue
-
-                print(
-                    "❌ Jmax всё ещё заблокирован"
-                )
 
                 return False
 
@@ -283,10 +281,6 @@ def login():
 
             if attempt < 3:
 
-                print(
-                    "⏳ Ждём 5 минут..."
-                )
-
                 time.sleep(300)
 
             else:
@@ -409,46 +403,53 @@ def clean(t):
         else ""
     )
 
-def test_product_1817():
 
-    print("🔎 ИЩЕМ АРТИКУЛ 1817")
+# =========================
+# URL NORMALIZATION
+# =========================
 
-    url = (
-        BASE +
-        "/index.php?route=product/search"
-        "&search=1817"
+def normalize_url(url):
+
+    if not url:
+        return ""
+
+    url = url.strip()
+
+    if not url:
+        return ""
+
+    if url.startswith("#"):
+        return ""
+
+    if url.startswith("javascript"):
+        return ""
+
+    if not url.startswith("http"):
+
+        url = (
+            BASE +
+            "/" +
+            url.lstrip("/")
+        )
+
+    return url.split("#")[0]
+
+
+# =========================
+# PRODUCT URL CHECK
+# =========================
+
+def is_product_url(url):
+
+    if not url:
+        return False
+
+    return (
+        "route=product/product"
+        in url
     )
 
-    soup = get_soup(url)
 
-    if not soup or not soup.find_all(True):
-
-        print("❌ Поиск не загрузился")
-        return
-
-    print("✅ Поиск загрузился")
-
-    for a in soup.find_all("a", href=True):
-
-        href = a.get("href", "").strip()
-
-        if "route=product/product" not in href:
-            continue
-
-        if not href.startswith("http"):
-
-            href = (
-                BASE +
-                "/" +
-                href.lstrip("/")
-            )
-
-        print("📦 НАЙДЕН ТОВАР:")
-        print(href)
-
-        item = parse_product(href)
-
-        print(item)
 # =========================
 # CATEGORIES
 # =========================
@@ -472,39 +473,15 @@ def get_categories():
 
     def add_category(url):
 
-        if not url:
-
-            return
-
-        url = url.strip()
+        url = normalize_url(url)
 
         if not url:
-
             return
-
-        if url.startswith("#"):
-
-            return
-
-        if url.startswith(
-            "javascript"
-        ):
-
-            return
-
-        if not url.startswith("http"):
-
-            url = (
-                BASE +
-                "/" +
-                url.lstrip("/")
-            )
 
         if (
             "route=product/category"
             not in url
         ):
-
             return
 
         url = re.sub(
@@ -514,18 +491,13 @@ def get_categories():
         )
 
         if url in seen:
-
             return
 
         seen.add(url)
 
         categories.append(url)
 
-    # Ищем категории во всей странице
-
-    for tag in soup.find_all(
-        True
-    ):
+    for tag in soup.find_all(True):
 
         add_category(
             tag.get("href")
@@ -574,12 +546,47 @@ def get_last_page(soup):
 
 
 # =========================
+# PRODUCT LINKS FROM PAGE
+# =========================
+
+def get_product_links(soup):
+
+    products = []
+    seen = set()
+
+    if not soup:
+        return products
+
+    for a in soup.find_all(
+        "a",
+        href=True
+    ):
+
+        href = normalize_url(
+            a.get("href")
+        )
+
+        if not is_product_url(href):
+            continue
+
+        if href in seen:
+            continue
+
+        seen.add(href)
+
+        products.append(href)
+
+    return products
+
+
+# =========================
 # PARSE CATEGORY
 # =========================
 
 def parse_category(cat_url):
 
-    all_items = []
+    all_products = []
+    seen = set()
 
     first_page = get_soup(
         cat_url
@@ -587,7 +594,7 @@ def parse_category(cat_url):
 
     if not first_page or not first_page.find_all(True):
 
-        return all_items
+        return all_products
 
     last_page = get_last_page(
         first_page
@@ -623,48 +630,9 @@ def parse_category(cat_url):
 
             break
 
-        products = []
-
-        for a in soup.find_all(
-            "a",
-            href=True
-        ):
-
-            href = a.get(
-                "href",
-                ""
-            ).strip()
-
-            if not href:
-
-                continue
-
-            if not href.startswith(
-                "http"
-            ):
-
-                href = (
-                    BASE +
-                    "/" +
-                    href.lstrip("/")
-                )
-
-            if (
-                "route=product/product"
-                not in href
-            ):
-
-                continue
-
-            href = href.split(
-                "#"
-            )[0]
-
-            if href not in products:
-
-                products.append(
-                    href
-                )
+        products = get_product_links(
+            soup
+        )
 
         if not products:
 
@@ -672,24 +640,137 @@ def parse_category(cat_url):
 
         for product_url in products:
 
-            item = parse_product(
+            if product_url in seen:
+                continue
+
+            seen.add(product_url)
+
+            all_products.append(
                 product_url
             )
 
-            if item and item[1]:
-
-                all_items.append(
-                    item
-                )
-
-            time.sleep(0.05)
-
-    return all_items
+    return all_products
 
 
 # =========================
-# PRODUCT
+# SITEMAP
 # =========================
+
+def get_sitemap_urls():
+
+    print("🗺 ПРОВЕРЯЕМ SITEMAP")
+
+    sitemap_candidates = [
+
+        BASE + "/sitemap.xml",
+
+        BASE + "/sitemap_index.xml",
+
+        BASE + "/index.php?route=feed/google_sitemap",
+
+        BASE + "/index.php?route=extension/feed/google_sitemap"
+    ]
+
+    urls = []
+    seen = set()
+
+    for sitemap_url in sitemap_candidates:
+
+        soup = get_soup(
+            sitemap_url
+        )
+
+        if not soup:
+            continue
+
+        links = soup.find_all(
+            "loc"
+        )
+
+        for loc in links:
+
+            url = clean(
+                loc.get_text()
+            )
+
+            url = normalize_url(
+                url
+            )
+
+            if not url:
+                continue
+
+            if not is_product_url(url):
+                continue
+
+            if url in seen:
+                continue
+
+            seen.add(url)
+
+            urls.append(url)
+
+    print(
+        f"🗺 Sitemap products: {len(urls)}"
+    )
+
+    return urls
+
+
+# =========================
+# SEARCH ENGINE
+# =========================
+
+def get_search_product_links():
+
+    print("🔎 ПРОВЕРЯЕМ ПОИСК")
+
+    urls = []
+
+    # Основной поиск OpenCart.
+    # Сам по себе он не знает все товары,
+    # поэтому используем его как дополнительный источник.
+
+    search_urls = [
+        BASE +
+        "/index.php?route=product/search&search=",
+
+        BASE +
+        "/index.php?route=product/search&filter_name="
+    ]
+
+    # Сюда попадут только ссылки,
+    # которые реально были найдены поиском.
+    #
+    # Пока не перебираем артикулы,
+    # потому что это может создать
+    # огромное количество запросов.
+
+    for search_base in search_urls:
+
+        soup = get_soup(
+            search_base
+        )
+
+        if not soup:
+            continue
+
+        products = get_product_links(
+            soup
+        )
+
+        for url in products:
+
+            if url not in urls:
+
+                urls.append(url)
+
+    print(
+        f"🔎 Search products: {len(urls)}"
+    )
+
+    return urls
+
 
 # =========================
 # PRODUCT
@@ -697,7 +778,9 @@ def parse_category(cat_url):
 
 def parse_product(url):
 
-    soup = get_soup(url)
+    soup = get_soup(
+        url
+    )
 
     if not soup:
 
@@ -709,7 +792,9 @@ def parse_product(url):
             url
         ]
 
-    h1 = soup.select_one("h1")
+    h1 = soup.select_one(
+        "h1"
+    )
 
     if not h1:
 
@@ -726,42 +811,52 @@ def parse_product(url):
     )
 
     # =========================
-    # SKU / АРТИКУЛ
+    # SKU
     # =========================
 
     sku = ""
 
-    # ---------------------------------------------------------
-    # 1. Основной вариант
-    # ---------------------------------------------------------
-
     selectors = [
+
         ".product-data__item.model",
+
         ".product-data__item",
+
         ".model",
+
         ".product-model",
+
         ".product-info .model",
+
         ".product-page__model",
+
         "[class*='model']",
+
         "[class*='sku']",
+
         "[class*='article']",
+
         "[class*='articul']"
     ]
 
     for selector in selectors:
 
-        tags = soup.select(selector)
+        tags = soup.select(
+            selector
+        )
 
         for tag in tags:
 
             text = clean(
-                tag.get_text(" ", strip=True)
+                tag.get_text(
+                    " ",
+                    strip=True
+                )
             )
 
             if not text:
                 continue
 
-            # Убираем возможные названия поля
             test = text
 
             test = re.sub(
@@ -771,7 +866,6 @@ def parse_product(url):
                 flags=re.I
             ).strip()
 
-            # Ищем номер
             m = re.search(
                 r"\b(\d{3,10})\b",
                 test
@@ -786,10 +880,9 @@ def parse_product(url):
         if sku:
             break
 
-    # ---------------------------------------------------------
-    # 2. Ищем "Код товара: 1817" / "Артикул: 1817"
-    # во всём тексте страницы
-    # ---------------------------------------------------------
+    # =========================
+    # PAGE TEXT
+    # =========================
 
     if not sku:
 
@@ -829,9 +922,9 @@ def parse_product(url):
 
                 break
 
-    # ---------------------------------------------------------
-    # 3. JSON-LD
-    # ---------------------------------------------------------
+    # =========================
+    # JSON-LD
+    # =========================
 
     if not sku:
 
@@ -892,17 +985,6 @@ def parse_product(url):
             btn.get_text()
         )
 
-    # =========================
-    # DEBUG 1817
-    # =========================
-
-    if sku == "1817":
-
-        print(
-            f"🎯 НАЙДЕН АРТИКУЛ 1817: {title}",
-            flush=True
-        )
-
     return [
         sku,
         title,
@@ -919,7 +1001,6 @@ def parse_product(url):
 def run_parser():
 
     if is_locked():
-
         return
 
     set_lock(True)
@@ -952,9 +1033,6 @@ def run_parser():
 
             return
 
-        test_product_1817()
-        return
-
         # =========================
         # EXCEL
         # =========================
@@ -977,7 +1055,14 @@ def run_parser():
         )
 
         # =========================
-        # CATEGORIES
+        # COLLECT PRODUCTS
+        # =========================
+
+        product_urls = []
+        product_seen = set()
+
+        # =========================
+        # 1. CATEGORIES
         # =========================
 
         cats = get_categories()
@@ -988,88 +1073,124 @@ def run_parser():
                 :CATEGORY_LIMIT
             ]
 
-        total = len(cats)
-
-        if total == 0:
-
-            print(
-                "❌ Категории не найдены"
-            )
-
-            save_status(
-                False,
-                100,
-                USER,
-                FILE_PATH
-            )
-
-            return
-
-        # =========================
-        # PARSING
-        # =========================
-
-        seen = set()
+        total_categories = len(cats)
 
         for i, cat in enumerate(
             cats,
             1
         ):
 
-            save_status(
-                True,
+            print(
+                f"📂 {i}/{total_categories}"
+            )
+
+            links = parse_category(
+                cat
+            )
+
+            for url in links:
+
+                if url in product_seen:
+                    continue
+
+                product_seen.add(url)
+
+                product_urls.append(
+                    url
+                )
+
+        print(
+            f"📦 Товаров из категорий: "
+            f"{len(product_urls)}"
+        )
+
+        # =========================
+        # 2. SITEMAP
+        # =========================
+
+        sitemap_products = (
+            get_sitemap_urls()
+        )
+
+        for url in sitemap_products:
+
+            if url in product_seen:
+                continue
+
+            product_seen.add(url)
+
+            product_urls.append(
+                url
+            )
+
+        print(
+            f"📦 Всего ссылок на товары: "
+            f"{len(product_urls)}"
+        )
+
+        # =========================
+        # PARSE PRODUCTS
+        # =========================
+
+        total_products = len(
+            product_urls
+        )
+
+        seen_products = set()
+
+        for i, product_url in enumerate(
+            product_urls,
+            1
+        ):
+
+            progress = (
                 int(
                     i /
-                    total *
+                    total_products *
                     100
-                ),
+                )
+                if total_products
+                else 100
+            )
+
+            save_status(
+                True,
+                progress,
                 USER,
                 FILE_PATH
             )
 
-            print(
-                f"📂 {i}/{total}"
+            item = parse_product(
+                product_url
             )
 
-            items = parse_category(
-                cat
+            if not item:
+                continue
+
+            sku, title, price, status, url = item
+
+            if not title:
+                continue
+
+            key = (
+                title,
+                price
             )
 
-            for (
+            if key in seen_products:
+                continue
+
+            seen_products.add(
+                key
+            )
+
+            ws.append([
                 sku,
                 title,
                 price,
                 status,
                 url
-            ) in items:
-
-                if not title:
-
-                    continue
-
-                # Дедупликация
-                # как в AND
-
-                key = (
-                    title,
-                    price
-                )
-
-                if key in seen:
-
-                    continue
-
-                seen.add(key)
-
-                ws.append([
-                    sku,
-                    title,
-                    price,
-                    status,
-                    url
-                ])
-
-            time.sleep(0.2)
+            ])
 
         # =========================
         # SAVE
@@ -1106,3 +1227,4 @@ def run_parser():
 if __name__ == "__main__":
 
     run_parser()
+```
