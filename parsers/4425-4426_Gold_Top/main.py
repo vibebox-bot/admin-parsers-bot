@@ -788,6 +788,136 @@ def get_categories():
 
 
 # =========================
+# PRODUCT
+# =========================
+
+def parse_product(url):
+
+    soup = get_soup(
+        url,
+        referer=BASE + "/"
+    )
+
+    # =========================
+    # TITLE
+    # =========================
+
+    title = ""
+
+    h1 = soup.select_one(
+        "h1[itemprop='name']"
+    )
+
+    if not h1:
+
+        h1 = soup.select_one(
+            "h1.product_title"
+        )
+
+    if not h1:
+
+        h1 = soup.select_one(
+            "h1"
+        )
+
+    if h1:
+
+        title = clean(
+            h1.get_text(
+                " ",
+                strip=True
+            )
+        )
+
+    # =========================
+    # SKU
+    # =========================
+
+    sku = ""
+
+    sku_el = soup.select_one(
+        ".wd-product-detail.wd-product-sku .wd-sku"
+    )
+
+    if not sku_el:
+
+        sku_el = soup.select_one(
+            ".sku"
+        )
+
+    if sku_el:
+
+        sku = clean(
+            sku_el.get_text(
+                " ",
+                strip=True
+            )
+        )
+
+    # =========================
+    # PRICE
+    # =========================
+
+    price = ""
+
+    price_el = soup.select_one(
+        ".price .woocommerce-Price-amount"
+    )
+
+    if not price_el:
+
+        price_el = soup.select_one(
+            ".price"
+        )
+
+    if price_el:
+
+        price = clean(
+            price_el.get_text(
+                " ",
+                strip=True
+            )
+        )
+
+    # =========================
+    # STATUS
+    # =========================
+
+    status = ""
+
+    cart_button = soup.select_one(
+        "a.add-to-cart-loop"
+    )
+
+    if cart_button:
+
+        status = clean(
+            cart_button.get_text(
+                " ",
+                strip=True
+            )
+        )
+
+    # =========================
+    # DEBUG
+    # =========================
+
+    print(
+        f"   📦 {title}"
+        f" | SKU: {sku}"
+        f" | PRICE: {price}"
+        f" | STATUS: {status}"
+    )
+
+    return [
+        sku,
+        title,
+        price,
+        status,
+        url
+    ]
+
+# =========================
 # CATEGORY
 # =========================
 
@@ -842,6 +972,13 @@ def parse_category(cat_url):
 
             if not a:
 
+                # запасной вариант
+                a = card.select_one(
+                    "a[href]"
+                )
+
+            if not a:
+
                 continue
 
             href = (
@@ -856,7 +993,13 @@ def parse_category(cat_url):
 
                 continue
 
-            if not href.startswith("http"):
+            # =========================
+            # ABSOLUTE URL
+            # =========================
+
+            if not href.startswith(
+                "http"
+            ):
 
                 href = (
                     BASE.rstrip("/")
@@ -864,6 +1007,7 @@ def parse_category(cat_url):
                     + href.lstrip("/")
                 )
 
+            # У товара query-параметры нам не нужны
             href = href.split("?")[0]
             href = href.split("#")[0]
 
@@ -875,7 +1019,9 @@ def parse_category(cat_url):
 
                 continue
 
-            seen.add(href)
+            seen.add(
+                href
+            )
 
             # =========================
             # PRODUCT
@@ -885,13 +1031,17 @@ def parse_category(cat_url):
                 href
             )
 
-            result.append(
-                product
+            if product:
+
+                result.append(
+                    product
+                )
+
+                added += 1
+
+            time.sleep(
+                0.05
             )
-
-            added += 1
-
-            time.sleep(0.05)
 
         print(
             f"📦 Страница {page}: "
@@ -899,7 +1049,20 @@ def parse_category(cat_url):
         )
 
         # =========================
-        # ИЩЕМ LOAD MORE
+        # ЕСЛИ НА СТРАНИЦЕ НИЧЕГО
+        # НЕ ДОБАВИЛОСЬ
+        # =========================
+
+        if added == 0:
+
+            print(
+                "🏁 Новых товаров нет"
+            )
+
+            break
+
+        # =========================
+        # LOAD MORE
         # =========================
 
         load_more = soup.select_one(
@@ -931,26 +1094,50 @@ def parse_category(cat_url):
             break
 
         # =========================
-        # НОРМАЛИЗУЕМ URL
+        # ABSOLUTE URL
         # =========================
 
-        if not next_href.startswith("http"):
+        if not next_href.startswith(
+            "http"
+        ):
 
-            next_href = (
-                BASE.rstrip("/")
-                + "/"
-                + next_href.lstrip("/")
+            if next_href.startswith("/"):
+
+                next_href = (
+                    BASE.rstrip("/")
+                    + next_href
+                )
+
+            else:
+
+                next_href = (
+                    BASE.rstrip("/")
+                    + "/"
+                    + next_href
+                )
+
+        # =========================
+        # ЗАЩИТА ОТ ПОВТОРА
+        # =========================
+
+        if next_href == next_url:
+
+            print(
+                "🏁 Load more ведёт "
+                "на ту же страницу"
             )
 
+            break
+
         # =========================
-        # ПЕРЕХОД НА СЛЕДУЮЩУЮ
+        # НОВАЯ СТРАНИЦА
         # =========================
 
         page += 1
         next_url = next_href
 
         # =========================
-        # ЗАЩИТА ОТ ЗАЦИКЛИВАНИЯ
+        # ЗАЩИТА
         # =========================
 
         if page > 100:
