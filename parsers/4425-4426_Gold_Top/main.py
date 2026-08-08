@@ -878,25 +878,39 @@ def parse_product(url):
                 strip=True
             )
         )
-
     # =========================
     # STATUS
     # =========================
-
+    
     status = ""
-
+    
     cart_button = soup.select_one(
         "a.add-to-cart-loop"
     )
-
+    
     if cart_button:
-
-        status = clean(
-            cart_button.get_text(
-                " ",
-                strip=True
-            )
+    
+        status_el = cart_button.select_one(
+            ".wd-action-text"
         )
+    
+        if status_el:
+    
+            status = clean(
+                status_el.get_text(
+                    " ",
+                    strip=True
+                )
+            )
+    
+        else:
+    
+            status = clean(
+                cart_button.get_text(
+                    " ",
+                    strip=True
+                )
+            )
 
     # =========================
     # DEBUG
