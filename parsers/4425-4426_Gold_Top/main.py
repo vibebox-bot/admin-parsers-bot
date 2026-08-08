@@ -977,26 +977,18 @@ def parse_category(cat_url):
         for card in product_cards:
 
             # =========================
-            # TITLE + URL
+            # ТОВАРНАЯ ССЫЛКА
             # =========================
 
-            a = card.select_one(
+            product_link = card.select_one(
                 "h3.wd-entities-title a[href]"
             )
 
-            if not a:
-
-                # запасной вариант
-                a = card.select_one(
-                    "a[href]"
-                )
-
-            if not a:
-
+            if not product_link:
                 continue
 
             href = (
-                a.get(
+                product_link.get(
                     "href",
                     ""
                 )
@@ -1004,16 +996,9 @@ def parse_category(cat_url):
             )
 
             if not href:
-
                 continue
 
-            # =========================
-            # ABSOLUTE URL
-            # =========================
-
-            if not href.startswith(
-                "http"
-            ):
+            if not href.startswith("http"):
 
                 href = (
                     BASE.rstrip("/")
@@ -1021,7 +1006,6 @@ def parse_category(cat_url):
                     + href.lstrip("/")
                 )
 
-            # У товара query-параметры нам не нужны
             href = href.split("?")[0]
             href = href.split("#")[0]
 
@@ -1030,32 +1014,123 @@ def parse_category(cat_url):
             # =========================
 
             if href in seen:
-
                 continue
 
-            seen.add(
-                href
-            )
+            seen.add(href)
 
             # =========================
-            # PRODUCT
+            # TITLE
             # =========================
 
-            product = parse_product(
-                href
+            title = clean(
+                product_link.get_text(
+                    " ",
+                    strip=True
+                )
             )
 
-            if product:
+            if not title:
+                continue
 
-                result.append(
-                    product
+            # =========================
+            # SKU
+            # =========================
+
+            sku = ""
+
+            sku_element = card.select_one(
+                "[data-product_sku]"
+            )
+
+            if sku_element:
+
+                sku = clean(
+                    sku_element.get(
+                        "data-product_sku",
+                        ""
+                    )
                 )
 
-                added += 1
+            # =========================
+            # PRICE
+            # =========================
 
-            time.sleep(
-                0.05
+            price = ""
+
+            price_element = card.select_one(
+                ".price .woocommerce-Price-amount"
             )
+
+            if price_element:
+
+                price = clean(
+                    price_element.get_text(
+                        " ",
+                        strip=True
+                    )
+                )
+
+            # =========================
+            # STATUS
+            # =========================
+            #
+            # БЕРЁМ РОВНО ТЕКСТ КНОПКИ
+            # ИМЕННО ИЗ КАРТОЧКИ КАТЕГОРИИ
+            #
+            # Додати в кошик
+            # Читати далі
+            #
+            # НИЧЕГО НЕ ПРИДУМЫВАЕМ
+            # =========================
+
+            status = ""
+
+            status_element = card.select_one(
+                ".wd-add-btn .wd-action-text"
+            )
+
+            if status_element:
+
+                status = clean(
+                    status_element.get_text(
+                        " ",
+                        strip=True
+                    )
+                )
+
+            # =========================
+            # ЕСЛИ WD-ACTION-TEXT
+            # НЕ НАЙДЕН
+            # =========================
+
+            if not status:
+
+                button = card.select_one(
+                    ".wd-add-btn a"
+                )
+
+                if button:
+
+                    status = clean(
+                        button.get_text(
+                            " ",
+                            strip=True
+                        )
+                    )
+
+            # =========================
+            # СОХРАНЯЕМ
+            # =========================
+
+            result.append([
+                sku,
+                title,
+                price,
+                status,
+                href
+            ])
+
+            added += 1
 
         print(
             f"📦 Страница {page}: "
@@ -1063,24 +1138,23 @@ def parse_category(cat_url):
         )
 
         # =========================
-        # ЕСЛИ НА СТРАНИЦЕ НИЧЕГО
-        # НЕ ДОБАВИЛОСЬ
+        # ПАГИНАЦИЯ
         # =========================
-
-        if added == 0:
-
-            print(
-                "🏁 Новых товаров нет"
-            )
-
-            break
-
-        # =========================
-        # LOAD MORE
+        #
+        # У GOLD-TOR:
+        #
+        # <a
+        #   class="btn wd-load-more
+        #          wd-products-load-more
+        #          load-on-scroll"
+        #   href=".../page/2/?_pjax=.wd-page-content"
+        # >
+        #
+        # Поэтому берём именно href.
         # =========================
 
         load_more = soup.select_one(
-            "a.wd-load-more[href]"
+            "a.wd-products-load-more[href]"
         )
 
         if not load_more:
@@ -1102,33 +1176,22 @@ def parse_category(cat_url):
         if not next_href:
 
             print(
-                "🏁 Ссылка Load more пустая"
+                "🏁 Ссылка следующей страницы пустая"
             )
 
             break
 
         # =========================
-        # ABSOLUTE URL
+        # URL
         # =========================
 
-        if not next_href.startswith(
-            "http"
-        ):
+        if not next_href.startswith("http"):
 
-            if next_href.startswith("/"):
-
-                next_href = (
-                    BASE.rstrip("/")
-                    + next_href
-                )
-
-            else:
-
-                next_href = (
-                    BASE.rstrip("/")
-                    + "/"
-                    + next_href
-                )
+            next_href = (
+                BASE.rstrip("/")
+                + "/"
+                + next_href.lstrip("/")
+            )
 
         # =========================
         # ЗАЩИТА ОТ ПОВТОРА
@@ -1137,22 +1200,14 @@ def parse_category(cat_url):
         if next_href == next_url:
 
             print(
-                "🏁 Load more ведёт "
-                "на ту же страницу"
+                "🏁 Следующая страница "
+                "совпадает с текущей"
             )
 
             break
 
-        # =========================
-        # НОВАЯ СТРАНИЦА
-        # =========================
-
         page += 1
         next_url = next_href
-
-        # =========================
-        # ЗАЩИТА
-        # =========================
 
         if page > 100:
 
