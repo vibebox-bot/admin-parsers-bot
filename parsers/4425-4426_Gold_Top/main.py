@@ -938,7 +938,9 @@ def parse_product(url):
 def parse_category(cat_url):
 
     result = []
-    seen = set()
+
+    seen_skus = set()
+    seen_urls = set()
 
     page = 1
     next_url = cat_url
@@ -977,7 +979,7 @@ def parse_category(cat_url):
         for card in product_cards:
 
             # =========================
-            # ТОВАРНАЯ ССЫЛКА
+            # TITLE + URL
             # =========================
 
             product_link = card.select_one(
@@ -1009,14 +1011,11 @@ def parse_category(cat_url):
             href = href.split("?")[0]
             href = href.split("#")[0]
 
-            # =========================
-            # ДУБЛИ
-            # =========================
-
-            if href in seen:
-                continue
-
-            seen.add(href)
+            href_key = (
+                href
+                .rstrip("/")
+                .lower()
+            )
 
             # =========================
             # TITLE
@@ -1051,6 +1050,37 @@ def parse_category(cat_url):
                     )
                 )
 
+            sku_key = sku.lower()
+
+            # =========================
+            # ДЕДУБЛИКАЦИЯ
+            # =========================
+
+            # Если есть SKU —
+            # считаем SKU главным идентификатором.
+
+            if sku_key:
+
+                if sku_key in seen_skus:
+                    continue
+
+            else:
+
+                # Если SKU нет —
+                # используем URL.
+
+                if href_key in seen_urls:
+                    continue
+
+            # =========================
+            # СОХРАНЯЕМ КЛЮЧИ
+            # =========================
+
+            if sku_key:
+                seen_skus.add(sku_key)
+
+            seen_urls.add(href_key)
+
             # =========================
             # PRICE
             # =========================
@@ -1073,15 +1103,6 @@ def parse_category(cat_url):
             # =========================
             # STATUS
             # =========================
-            #
-            # БЕРЁМ РОВНО ТЕКСТ КНОПКИ
-            # ИМЕННО ИЗ КАРТОЧКИ КАТЕГОРИИ
-            #
-            # Додати в кошик
-            # Читати далі
-            #
-            # НИЧЕГО НЕ ПРИДУМЫВАЕМ
-            # =========================
 
             status = ""
 
@@ -1097,11 +1118,6 @@ def parse_category(cat_url):
                         strip=True
                     )
                 )
-
-            # =========================
-            # ЕСЛИ WD-ACTION-TEXT
-            # НЕ НАЙДЕН
-            # =========================
 
             if not status:
 
@@ -1119,7 +1135,7 @@ def parse_category(cat_url):
                     )
 
             # =========================
-            # СОХРАНЯЕМ
+            # ДОБАВЛЯЕМ
             # =========================
 
             result.append([
@@ -1139,18 +1155,6 @@ def parse_category(cat_url):
 
         # =========================
         # ПАГИНАЦИЯ
-        # =========================
-        #
-        # У GOLD-TOR:
-        #
-        # <a
-        #   class="btn wd-load-more
-        #          wd-products-load-more
-        #          load-on-scroll"
-        #   href=".../page/2/?_pjax=.wd-page-content"
-        # >
-        #
-        # Поэтому берём именно href.
         # =========================
 
         load_more = soup.select_one(
@@ -1181,10 +1185,6 @@ def parse_category(cat_url):
 
             break
 
-        # =========================
-        # URL
-        # =========================
-
         if not next_href.startswith("http"):
 
             next_href = (
@@ -1194,7 +1194,7 @@ def parse_category(cat_url):
             )
 
         # =========================
-        # ЗАЩИТА ОТ ПОВТОРА
+        # ЗАЩИТА ОТ ЦИКЛА
         # =========================
 
         if next_href == next_url:
@@ -1219,7 +1219,7 @@ def parse_category(cat_url):
             break
 
     print(
-        f"📦 Всего товаров в категории: "
+        f"📦 Всего уникальных товаров: "
         f"{len(result)}"
     )
 
