@@ -768,11 +768,6 @@ def get_categories():
                 "url": href
             })
 
-        print(
-            f"📂 Найдено категорий: "
-            f"{len(cats)}"
-        )
-
         return cats
 
     except Exception as e:
@@ -1131,10 +1126,6 @@ def parse_category(cat_url):
 
             added += 1
 
-        print(
-            f"📦 Страница {page}: "
-            f"{added} товаров"
-        )
 
         # =========================
         # ПАГИНАЦИЯ
@@ -1146,9 +1137,6 @@ def parse_category(cat_url):
 
         if not load_more:
 
-            print(
-                "🏁 Следующей страницы нет"
-            )
 
             break
 
@@ -1201,10 +1189,6 @@ def parse_category(cat_url):
 
             break
 
-    print(
-        f"📦 Всего уникальных товаров: "
-        f"{len(result)}"
-    )
 
     return result
 
@@ -1313,11 +1297,6 @@ def run_parser():
             cats,
             1
         ):
-
-            print(
-                f"📂 [{i}/{total}] "
-                f"{cat['name']}"
-            )
 
             save_status(
                 True,
