@@ -1115,7 +1115,6 @@ def run_parser():
             )
 
             return
-        test_search_1817()
         
         # =========================
         # EXCEL
