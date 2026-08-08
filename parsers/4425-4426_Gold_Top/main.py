@@ -107,19 +107,20 @@ def set_lock(state):
         if os.path.exists(LOCK_FILE):
             os.remove(LOCK_FILE)
 
+# =========================
+# LOGIN
+# =========================
+
 def login():
 
     print("🔐 LOGIN...")
 
+    # Реальная страница WooCommerce авторизации
     login_page = BASE + "/my-account/"
 
     try:
 
-        time.sleep(2)
-
-        # ==========================================
-        # 1. Получаем страницу авторизации
-        # ==========================================
+        time.sleep(1)
 
         for attempt in range(3):
 
@@ -164,53 +165,21 @@ def login():
 
         else:
 
-            print(
-                "❌ LOGIN: сайт продолжает отдавать 429"
-            )
+            print("❌ LOGIN: сайт продолжает отдавать 429")
 
             return False
 
-        # ==========================================
-        # 2. Получаем HTML
-        # ==========================================
+        print(f"📄 HTML LENGTH: {len(r.text)}")
 
         soup = BeautifulSoup(
             r.text,
             "html.parser"
         )
 
-        print(
-            f"📄 HTML LENGTH: {len(r.text)}"
-        )
-
-        # ==========================================
-        # 3. Ищем WooCommerce login form
-        # ==========================================
-
+        # Ищем именно форму WooCommerce
         form = soup.select_one(
             "form.woocommerce-form-login"
         )
-
-        if not form:
-
-            print("⚠️ FORM NOT FOUND")
-
-            # Пробуем найти любую форму с username/password
-            for test_form in soup.find_all("form"):
-
-                username = test_form.select_one(
-                    "input[name='username']"
-                )
-
-                password = test_form.select_one(
-                    "input[name='password']"
-                )
-
-                if username and password:
-
-                    form = test_form
-                    print("✅ LOGIN FORM FOUND BY INPUTS")
-                    break
 
         if not form:
 
@@ -225,9 +194,38 @@ def login():
 
             return False
 
-        # ==========================================
-        # 4. ACTION
-        # ==========================================
+        print("✅ LOGIN FORM FOUND")
+
+        # =========================
+        # NONCE
+        # =========================
+
+        nonce = form.select_one(
+            "input[name='woocommerce-login-nonce']"
+        )
+
+        if not nonce:
+
+            print("❌ LOGIN NONCE NOT FOUND")
+
+            return False
+
+        nonce_value = nonce.get(
+            "value",
+            ""
+        ).strip()
+
+        if not nonce_value:
+
+            print("❌ LOGIN NONCE EMPTY")
+
+            return False
+
+        print(f"🔑 NONCE: {nonce_value[:6]}...")
+
+        # =========================
+        # ACTION
+        # =========================
 
         action = form.get("action", "").strip()
 
@@ -243,75 +241,26 @@ def login():
                 + action.lstrip("/")
             )
 
-        print(
-            f"🌐 LOGIN ACTION: {action}"
-        )
+        print(f"📤 LOGIN POST: {action}")
 
-        # ==========================================
-        # 5. NONCE
-        # ==========================================
-
-        nonce = form.select_one(
-            "input[name='woocommerce-login-nonce']"
-        )
-
-        nonce_value = ""
-
-        if nonce:
-
-            nonce_value = nonce.get(
-                "value",
-                ""
-            ).strip()
-
-        print(
-            f"🔑 NONCE: {'OK' if nonce_value else 'NOT FOUND'}"
-        )
-
-        # ==========================================
-        # 6. REFERER
-        # ==========================================
-
-        referer_input = form.select_one(
-            "input[name='_wp_http_referer']"
-        )
-
-        if referer_input:
-
-            wp_referer = referer_input.get(
-                "value",
-                "/my-account/"
-            )
-
-        else:
-
-            wp_referer = "/my-account/"
-
-        # ==========================================
-        # 7. LOGIN DATA
-        # ==========================================
+        # =========================
+        # PAYLOAD
+        # =========================
 
         payload = {
             "username": EMAIL,
             "password": PASSWORD,
+            "woocommerce-login-nonce": nonce_value,
+            "_wp_http_referer": "/my-account/",
             "login": "Увійти",
-            "rememberme": "forever",
-            "_wp_http_referer": wp_referer
+            "rememberme": "forever"
         }
 
-        if nonce_value:
-
-            payload[
-                "woocommerce-login-nonce"
-            ] = nonce_value
-
-        # ==========================================
-        # 8. POST LOGIN
-        # ==========================================
-
-        print("📤 SEND LOGIN...")
-
         time.sleep(1)
+
+        # =========================
+        # POST LOGIN
+        # =========================
 
         r = session.post(
             action,
@@ -319,9 +268,7 @@ def login():
             headers={
                 "Referer": login_page,
                 "Origin": BASE,
-                "Content-Type": (
-                    "application/x-www-form-urlencoded"
-                )
+                "Content-Type": "application/x-www-form-urlencoded"
             },
             allow_redirects=True,
             timeout=30
@@ -337,9 +284,17 @@ def login():
 
             return False
 
-        # ==========================================
-        # 9. ПРОВЕРКА АККАУНТА
-        # ==========================================
+        if r.status_code >= 400:
+
+            print(
+                f"❌ LOGIN POST ERROR: {r.status_code}"
+            )
+
+            return False
+
+        # =========================
+        # CHECK ACCOUNT
+        # =========================
 
         time.sleep(1)
 
@@ -364,16 +319,15 @@ def login():
 
         text = check.text.lower()
 
-        # ==========================================
-        # 10. ПРОВЕРЯЕМ УСПЕШНЫЙ ВХОД
-        # ==========================================
+        # =========================
+        # SUCCESS
+        # =========================
 
         if (
-            "logout" in text
-            or "log out" in text
-            or "вийти" in text
+            "вийти" in text
             or "вихід" in text
             or "выйти" in text
+            or "logout" in text
             or "my-account-logout" in text
         ):
 
@@ -381,25 +335,9 @@ def login():
 
             return True
 
-        # ==========================================
-        # 11. ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА
-        # ==========================================
-
-        if (
-            "dashboard" in text
-            or "мої замовлення" in text
-            or "мої замовлення" in text
-            or "my orders" in text
-            or "account-dashboard" in text
-        ):
-
-            print("✅ LOGIN OK")
-
-            return True
-
-        # ==========================================
-        # 12. СОХРАНЯЕМ ОТВЕТ
-        # ==========================================
+        # =========================
+        # DEBUG
+        # =========================
 
         print("❌ LOGIN FAIL")
 
@@ -414,12 +352,9 @@ def login():
 
     except Exception as e:
 
-        print(
-            f"❌ LOGIN ERROR: {e}"
-        )
+        print(f"❌ LOGIN ERROR: {e}")
 
         return False
-
 
 # =========================
 # STATUS
