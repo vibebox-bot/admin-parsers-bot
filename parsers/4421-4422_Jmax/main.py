@@ -772,6 +772,63 @@ def get_search_product_links():
 
 
 # =========================
+# TEST SEARCH 1817
+# =========================
+
+def test_search_1817():
+
+    print("🔎 ИЩЕМ 1817 ЧЕРЕЗ ПОИСК Jmax")
+
+    url = (
+        BASE +
+        "/index.php?route=product/search&search=1817"
+    )
+
+    soup = get_soup(
+        url
+    )
+
+    if not soup:
+
+        print(
+            "❌ Страница поиска не загрузилась"
+        )
+
+        return
+
+    products = get_product_links(
+        soup
+    )
+
+    print(
+        f"🔎 Найдено ссылок: {len(products)}"
+    )
+
+    for product_url in products:
+
+        print(
+            f"📦 НАЙДЕН 1817: {product_url}"
+        )
+
+        item = parse_product(
+            product_url
+        )
+
+        print(
+            f"SKU: {item[0]}"
+        )
+
+        print(
+            f"TITLE: {item[1]}"
+        )
+
+        return
+
+    print(
+        "❌ 1817 через поиск не найден"
+    )
+
+# =========================
 # PRODUCT
 # =========================
 
@@ -993,6 +1050,8 @@ def parse_product(url):
     ]
 
 
+
+
 # =========================
 # MAIN
 # =========================
@@ -1031,7 +1090,8 @@ def run_parser():
             )
 
             return
-
+        test_search_1817()
+        
         # =========================
         # EXCEL
         # =========================
