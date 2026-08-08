@@ -1079,10 +1079,6 @@ def run_parser():
             1
         ):
 
-            print(
-                f"📂 {i}/{total_categories}"
-            )
-
             links = parse_category(
                 cat
             )
@@ -1171,17 +1167,16 @@ def run_parser():
             if not title:
                 continue
 
-            key = (
-                title,
-                price
-            )
-
+            if sku:
+                key = sku
+            else:
+                key = url
+            
             if key in seen_products:
                 continue
+            
+            seen_products.add(key)
 
-            seen_products.add(
-                key
-            )
 
             ws.append([
                 sku,
