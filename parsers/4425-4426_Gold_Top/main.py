@@ -108,19 +108,14 @@ def set_lock(state):
             os.remove(LOCK_FILE)
 
 
-# =========================
-# LOGIN
-# =========================
-
 def login():
 
     print("🔐 LOGIN...")
 
-    login_page = BASE + "/my-account/"
+    login_page = BASE + "/?route=account%2Faccount"
 
     try:
 
-        # Получаем страницу WooCommerce
         time.sleep(2)
 
         r = session.get(
@@ -136,7 +131,6 @@ def login():
         if r.status_code == 429:
 
             print("⚠️ LOGIN PAGE: 429")
-
             return False
 
         if r.status_code != 200:
@@ -153,7 +147,7 @@ def login():
         )
 
         # =========================
-        # FIND WOOCOMMERCE FORM
+        # WOOCOMMERCE LOGIN FORM
         # =========================
 
         form = soup.select_one(
@@ -162,7 +156,28 @@ def login():
 
         if not form:
 
+            # Дополнительный поиск по имени username
+            username_input = soup.select_one(
+                "input[name='username']"
+            )
+
+            password_input = soup.select_one(
+                "input[name='password']"
+            )
+
+            if username_input and password_input:
+
+                form = username_input.find_parent(
+                    "form"
+                )
+
+        if not form:
+
             print("❌ LOGIN FORM NOT FOUND")
+
+            print(
+                f"📄 HTML LENGTH: {len(r.text)}"
+            )
 
             with open(
                 "login.html",
@@ -226,28 +241,48 @@ def login():
         )
 
         # =========================
-        # PAYLOAD
+        # REFERER
         # =========================
 
-        referer = form.select_one(
+        referer_input = form.select_one(
             "input[name='_wp_http_referer']"
         )
 
-        referer_value = (
-            referer.get("value", "").strip()
-            if referer
-            else "/my-account/"
-        )
+        if referer_input:
 
-        redirect = form.select_one(
+            referer_value = referer_input.get(
+                "value",
+                ""
+            ).strip()
+
+        else:
+
+            referer_value = (
+                "/?route=account%2Faccount"
+            )
+
+        # =========================
+        # REDIRECT
+        # =========================
+
+        redirect_input = form.select_one(
             "input[name='redirect']"
         )
 
-        redirect_value = (
-            redirect.get("value", "").strip()
-            if redirect
-            else BASE + "/"
-        )
+        if redirect_input:
+
+            redirect_value = redirect_input.get(
+                "value",
+                ""
+            ).strip()
+
+        else:
+
+            redirect_value = BASE + "/"
+
+        # =========================
+        # PAYLOAD
+        # =========================
 
         payload = {
             "username": EMAIL,
@@ -259,9 +294,7 @@ def login():
             "rememberme": "forever"
         }
 
-        # =========================
-        # POST LOGIN
-        # =========================
+        print("📤 LOGIN POST...")
 
         time.sleep(1)
 
@@ -286,40 +319,77 @@ def login():
 
             return False
 
-        # =========================
-        # CHECK LOGIN
-        # =========================
+        if r.status_code not in [200, 301, 302]:
 
-        text = r.text.lower()
-
-        # Если WooCommerce оставил пользователя
-        # на странице аккаунта и показывает logout
-        if (
-            "logout" in text
-            or "вийти" in text
-            or "вихід" in text
-            or "выйти" in text
-            or "my-account" in text
-        ):
-
-            # Дополнительная проверка:
-            # форма входа не должна остаться
-            login_form = BeautifulSoup(
-                r.text,
-                "html.parser"
-            ).select_one(
-                "form.woocommerce-form-login"
+            print(
+                f"❌ LOGIN POST ERROR: {r.status_code}"
             )
 
-            if not login_form:
-
-                print("✅ LOGIN OK")
-
-                return True
+            return False
 
         # =========================
-        # LOGIN ERROR
+        # CHECK ACCOUNT
         # =========================
+
+        check_url = (
+            BASE
+            + "/?route=account%2Faccount"
+        )
+
+        time.sleep(1)
+
+        check = session.get(
+            check_url,
+            headers={
+                "Referer": action
+            },
+            allow_redirects=True,
+            timeout=30
+        )
+
+        print(
+            f"🔎 LOGIN CHECK: "
+            f"{check.status_code} {check.url}"
+        )
+
+        if check.status_code == 429:
+
+            print("❌ LOGIN CHECK: 429")
+
+            return False
+
+        check_text = check.text.lower()
+
+        # =========================
+        # SUCCESS
+        # =========================
+
+        if (
+            "logout" in check_text
+            or "вийти" in check_text
+            or "вихід" in check_text
+            or "выйти" in check_text
+            or "виход" in check_text
+        ):
+
+            print("✅ LOGIN OK")
+
+            return True
+
+        # Иногда WooCommerce после успешного
+        # входа убирает форму login.
+        login_form = BeautifulSoup(
+            check.text,
+            "html.parser"
+        ).select_one(
+            "form.woocommerce-form-login"
+        )
+
+        if not login_form:
+
+            print("✅ LOGIN OK")
+
+            return True
 
         print("❌ LOGIN FAIL")
 
@@ -329,7 +399,7 @@ def login():
             encoding="utf-8"
         ) as f:
 
-            f.write(r.text)
+            f.write(check.text)
 
         return False
 
