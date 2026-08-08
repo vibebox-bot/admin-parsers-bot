@@ -676,33 +676,21 @@ def get_categories():
     cats = []
     seen = set()
 
-    # =========================
-    # ОСНОВНОЕ МЕНЮ КАТЕГОРИЙ
-    # =========================
+    # =====================================================
+    # ИЩЕМ ВСЕ ССЫЛКИ НА PRODUCT-CATEGORY
+    # =====================================================
 
-    links = soup.select(
-        "#menu-category-menu-marketplace-2 "
-        "a[href*='/product-category/']"
-    )
+    for a in soup.find_all("a", href=True):
 
-    print(
-        f"🔎 ССЫЛОК КАТЕГОРИЙ НАЙДЕНО: {len(links)}"
-    )
-
-    for a in links:
-
-        href = a.get(
-            "href",
-            ""
-        ).strip()
+        href = a.get("href", "").strip()
 
         if not href:
             continue
 
-        # Только реальные категории WooCommerce
         if "/product-category/" not in href:
             continue
 
+        # Нормализуем URL
         if not href.startswith("http"):
 
             href = (
@@ -711,12 +699,18 @@ def get_categories():
                 + href.lstrip("/")
             )
 
-        href = href.rstrip("/")
+        href = href.split("?")[0].rstrip("/")
+
+        # =================================================
+        # Исключаем дубли
+        # =================================================
 
         if href in seen:
             continue
 
-        seen.add(href)
+        # =================================================
+        # Получаем название
+        # =================================================
 
         name = clean(
             a.get_text(" ", strip=True)
@@ -725,13 +719,31 @@ def get_categories():
         if not name:
             continue
 
+        # =================================================
+        # Иногда ссылка может быть картинкой/служебной
+        # =================================================
+
+        if name.lower() in (
+            "каталог",
+            "до каталогу"
+        ):
+            continue
+
+        seen.add(href)
+
         cats.append({
             "name": name,
             "url": href + "/"
         })
 
+    print(
+        f"🔎 ССЫЛОК КАТЕГОРИЙ НАЙДЕНО: {len(cats)}"
+    )
+
+    for cat in cats:
+
         print(
-            f"   📂 {name} → {href}/"
+            f"   📂 {cat['name']} → {cat['url']}"
         )
 
     print(
