@@ -9,40 +9,50 @@ from openpyxl import Workbook
 
 import sys
 
+
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Харьковская 4425-4426 Gold Top")
 
+
 BASE = "https://gold-tor.com.ua"
+
 
 # =========================
 # ⚙️ SWITCH
 # =========================
 
 CATEGORY_LIMIT = 1
+
 # CATEGORY_LIMIT = None
+
 
 EMAIL = "Sawrun_05@icloud.com"
 PASSWORD = "18022021"
 
+
 OUTPUT_DIR = os.path.abspath(
     "output/4425-4426_Gold_Top"
 )
+
 
 FILE_PATH = os.path.join(
     OUTPUT_DIR,
     "4425-4426_Gold_Top_LIVE.xlsx"
 )
 
+
 STATUS_PATH = os.path.join(
     OUTPUT_DIR,
     "status.json"
 )
 
+
 LOCK_FILE = os.path.join(
     OUTPUT_DIR,
     "lock.txt"
 )
+
 
 HEADERS = {
     "User-Agent": (
@@ -63,8 +73,12 @@ HEADERS = {
     "Upgrade-Insecure-Requests": "1",
 }
 
+
 session = requests.Session()
-session.headers.update(HEADERS)
+
+session.headers.update(
+    HEADERS
+)
 
 
 # =========================
@@ -78,11 +92,16 @@ def is_locked():
 
     try:
 
-        age = time.time() - os.path.getmtime(LOCK_FILE)
+        age = (
+            time.time()
+            - os.path.getmtime(LOCK_FILE)
+        )
 
         if age > 3600:
 
-            os.remove(LOCK_FILE)
+            os.remove(
+                LOCK_FILE
+            )
 
             return False
 
@@ -114,9 +133,13 @@ def set_lock(state):
 
     else:
 
-        if os.path.exists(LOCK_FILE):
+        if os.path.exists(
+            LOCK_FILE
+        ):
 
-            os.remove(LOCK_FILE)
+            os.remove(
+                LOCK_FILE
+            )
 
 
 # =========================
@@ -125,7 +148,7 @@ def set_lock(state):
 
 def print_cookies():
 
-    print("🍪 COOKIES:")
+    # print("🍪 COOKIES:")
 
     try:
 
@@ -185,29 +208,31 @@ def get_cookie_values(cookie_name):
     return values
 
 
+# =========================
+# LOGIN
+# =========================
+
 def login():
 
     print("🔐 LOGIN...")
 
-    login_page = BASE + "/my-account/"
+    login_page = (
+        BASE
+        + "/my-account/"
+    )
 
     try:
-
-        # ==========================================
-        # LOGIN PAGE
-        # ==========================================
 
         time.sleep(2)
 
         login_headers = {
             "User-Agent": HEADERS["User-Agent"],
             "Accept": (
-                "text/html,application/xhtml+xml,application/xml;"
-                "q=0.9,image/avif,image/webp,image/apng,*/*;"
-                "q=0.8"
+                "text/html,application/xhtml+xml,"
+                "application/xml;q=0.9,image/avif,"
+                "image/webp,image/apng,*/*;q=0.8"
             ),
             "Accept-Language": HEADERS["Accept-Language"],
-            # ВАЖНО: НЕ используем br
             "Accept-Encoding": "gzip, deflate",
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
@@ -220,24 +245,6 @@ def login():
             allow_redirects=True
         )
 
-        print(
-            f"🌐 LOGIN PAGE: {r.status_code} {r.url}"
-        )
-
-        print(
-            f"📄 HTML LENGTH: {len(r.text)}"
-        )
-
-        print(
-            f"📦 CONTENT-TYPE: "
-            f"{r.headers.get('Content-Type')}"
-        )
-
-        print(
-            f"📦 CONTENT-ENCODING: "
-            f"{r.headers.get('Content-Encoding')}"
-        )
-
         if r.status_code != 200:
 
             print(
@@ -247,18 +254,14 @@ def login():
 
             return False
 
-        # ==========================================
-        # HTML
-        # ==========================================
-
         soup = BeautifulSoup(
             r.text,
             "html.parser"
         )
 
-        # ==========================================
+        # =========================
         # LOGIN FORM
-        # ==========================================
+        # =========================
 
         form = soup.select_one(
             "form.woocommerce-form-login"
@@ -267,28 +270,15 @@ def login():
         if not form:
 
             form = soup.select_one(
-                "form.woocommerce-form.woocommerce-form-login"
+                "form.woocommerce-form."
+                "woocommerce-form-login"
             )
 
         if not form:
 
-            print("❌ LOGIN FORM NOT FOUND")
-
             print(
-                f"🔎 FORMS FOUND: "
-                f"{len(soup.find_all('form'))}"
+                "❌ LOGIN FORM NOT FOUND"
             )
-
-            # Дополнительный поиск
-            forms = soup.find_all("form")
-
-            for i, f in enumerate(forms, 1):
-
-                print(
-                    f"FORM {i}: "
-                    f"class={f.get('class')} "
-                    f"action={f.get('action')}"
-                )
 
             with open(
                 os.path.join(
@@ -299,15 +289,15 @@ def login():
                 encoding="utf-8"
             ) as f:
 
-                f.write(r.text)
+                f.write(
+                    r.text
+                )
 
             return False
 
-        print("✅ LOGIN FORM FOUND")
-
-        # ==========================================
+        # =========================
         # NONCE
-        # ==========================================
+        # =========================
 
         nonce = form.select_one(
             "input[name='woocommerce-login-nonce']"
@@ -316,14 +306,16 @@ def login():
         if not nonce:
 
             print(
-                "❌ woocommerce-login-nonce "
-                "NOT FOUND"
+                "❌ LOGIN NONCE NOT FOUND"
             )
 
             return False
 
         nonce_value = (
-            nonce.get("value", "")
+            nonce.get(
+                "value",
+                ""
+            )
             .strip()
         )
 
@@ -335,16 +327,13 @@ def login():
 
             return False
 
-        print(
-            "🔑 NONCE:",
-            nonce_value[:10] + "..."
-        )
-
-        # ==========================================
+        # =========================
         # FORM ACTION
-        # ==========================================
+        # =========================
 
-        action = form.get("action")
+        action = form.get(
+            "action"
+        )
 
         if not action:
 
@@ -353,7 +342,9 @@ def login():
                 + "?action=login"
             )
 
-        if not action.startswith("http"):
+        if not action.startswith(
+            "http"
+        ):
 
             action = (
                 BASE.rstrip("/")
@@ -361,14 +352,9 @@ def login():
                 + action.lstrip("/")
             )
 
-        print(
-            "🚀 POST URL:",
-            action
-        )
-
-        # ==========================================
+        # =========================
         # PAYLOAD
-        # ==========================================
+        # =========================
 
         payload = {
             "username": EMAIL,
@@ -379,13 +365,7 @@ def login():
             "rememberme": "forever"
         }
 
-        # ==========================================
-        # LOGIN POST
-        # ==========================================
-
         time.sleep(1)
-
-        print("📤 LOGIN POST...")
 
         post_headers = {
             "User-Agent": HEADERS["User-Agent"],
@@ -394,7 +374,6 @@ def login():
                 "application/xml;q=0.9,*/*;q=0.8"
             ),
             "Accept-Language": HEADERS["Accept-Language"],
-            # ВАЖНО: опять без br
             "Accept-Encoding": "gzip, deflate",
             "Content-Type": (
                 "application/x-www-form-urlencoded"
@@ -411,26 +390,6 @@ def login():
             timeout=30
         )
 
-        print(
-            f"🌐 LOGIN POST: "
-            f"{r.status_code} {r.url}"
-        )
-
-        print(
-            f"📄 POST HTML LENGTH: "
-            f"{len(r.text)}"
-        )
-
-        print(
-            f"📦 POST CONTENT-TYPE: "
-            f"{r.headers.get('Content-Type')}"
-        )
-
-        print(
-            f"📦 POST CONTENT-ENCODING: "
-            f"{r.headers.get('Content-Encoding')}"
-        )
-
         if r.status_code == 429:
 
             print(
@@ -439,21 +398,9 @@ def login():
 
             return False
 
-        # ==========================================
-        # НЕ ИСПОЛЬЗУЕМ cookies.get_dict()
-        # ==========================================
-        # У сайта могут быть два cookie
-        # с одинаковым именем wordpress_sec_*.
-        # Поэтому просто смотрим количество cookies.
-
-        print(
-            f"🍪 COOKIES COUNT: "
-            f"{len(session.cookies)}"
-        )
-
-        # ==========================================
-        # ПРОВЕРКА ОТВЕТА ПОСЛЕ LOGIN
-        # ==========================================
+        # =========================
+        # ПРОВЕРКА LOGIN
+        # =========================
 
         response_soup = BeautifulSoup(
             r.text,
@@ -466,10 +413,6 @@ def login():
                 strip=True
             ).lower()
         )
-
-        # ==========================================
-        # УСПЕШНЫЙ LOGIN
-        # ==========================================
 
         success_markers = [
             "вийти",
@@ -492,37 +435,13 @@ def login():
 
                 return True
 
-        # ==========================================
-        # ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА
-        # ==========================================
+        # =========================
+        # LOGIN FAIL
+        # =========================
 
         print(
-            "🔎 LOGIN MARKER NOT FOUND"
+            "❌ LOGIN FAIL"
         )
-
-        # Если POST вернул обратно страницу
-        # входа — проверяем наличие формы.
-        login_form_after = response_soup.select_one(
-            "form.woocommerce-form-login"
-        )
-
-        if login_form_after:
-
-            print(
-                "❌ LOGIN FAIL: "
-                "LOGIN FORM STILL PRESENT"
-            )
-
-        else:
-
-            print(
-                "⚠️ LOGIN FORM NOT FOUND "
-                "AFTER POST"
-            )
-
-        # ==========================================
-        # СОХРАНЯЕМ ОТВЕТ ДЛЯ DEBUG
-        # ==========================================
 
         debug_path = os.path.join(
             OUTPUT_DIR,
@@ -540,12 +459,9 @@ def login():
             encoding="utf-8"
         ) as f:
 
-            f.write(r.text)
-
-        print(
-            f"📄 DEBUG POST HTML: "
-            f"{debug_path}"
-        )
+            f.write(
+                r.text
+            )
 
         return False
 
@@ -556,6 +472,8 @@ def login():
         )
 
         return False
+
+
 # =========================
 # STATUS
 # =========================
@@ -662,26 +580,27 @@ def clean(t):
         else ""
     )
 
+
 # =========================
 # CATEGORIES
 # =========================
 
 def get_categories():
 
-    print("📂 ПОИСК КАТЕГОРИЙ...")
+    print(
+        "📂 ПОИСК КАТЕГОРИЙ..."
+    )
 
     url = BASE + "/"
 
     try:
 
-        # ==========================================
-        # ГЛАВНАЯ СТРАНИЦА ПОСЛЕ АВТОРИЗАЦИИ
-        # Без gzip/br — чтобы получить нормальный HTML
-        # ==========================================
-
         category_headers = {
             "User-Agent": HEADERS["User-Agent"],
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept": (
+                "text/html,application/xhtml+xml,"
+                "application/xml;q=0.9,*/*;q=0.8"
+            ),
             "Accept-Language": HEADERS["Accept-Language"],
             "Referer": BASE + "/my-account/",
             "Connection": "keep-alive",
@@ -698,31 +617,6 @@ def get_categories():
             allow_redirects=True
         )
 
-        print(
-            f"🌐 CATEGORY PAGE: "
-            f"{r.status_code} {r.url}"
-        )
-
-        print(
-            f"📄 CATEGORY HTML LENGTH: "
-            f"{len(r.text)}"
-        )
-
-        print(
-            f"📦 CONTENT-TYPE: "
-            f"{r.headers.get('Content-Type')}"
-        )
-
-        print(
-            f"📦 CONTENT-ENCODING: "
-            f"{r.headers.get('Content-Encoding')}"
-        )
-
-        print(
-            f"🍪 COOKIES COUNT: "
-            f"{len(session.cookies)}"
-        )
-
         if r.status_code != 200:
 
             print(
@@ -734,32 +628,18 @@ def get_categories():
 
         html = r.text
 
-        # ==========================================
-        # ПРОВЕРКА ЧТО ПРИШЁЛ НОРМАЛЬНЫЙ HTML
-        # ==========================================
-
-        print(
-            "🔎 DOCTYPE:",
-            "<!doctype" in html.lower()
-        )
-
-        print(
-            "🔎 MENU ID:",
-            "menu-category-menu-marketplace-2" in html
-        )
-
-        print(
-            "🔎 PRODUCT CATEGORY:",
-            "/product-category/" in html
-        )
-
-        # ==========================================
+        # =========================
         # DEBUG
-        # ==========================================
+        # =========================
 
         debug_path = os.path.join(
             OUTPUT_DIR,
             "category_debug.html"
+        )
+
+        os.makedirs(
+            OUTPUT_DIR,
+            exist_ok=True
         )
 
         with open(
@@ -768,25 +648,22 @@ def get_categories():
             encoding="utf-8"
         ) as f:
 
-            f.write(html)
+            f.write(
+                html
+            )
 
-        print(
-            f"📄 DEBUG HTML: {debug_path}"
-        )
-
-        # ==========================================
+        # =========================
         # BEAUTIFULSOUP
-        # ==========================================
+        # =========================
 
         soup = BeautifulSoup(
             html,
             "html.parser"
         )
 
-        # ==========================================
-        # ИЩЕМ ИМЕННО ТОТ UL,
-        # КОТОРЫЙ ТЫ ДАЛ ИЗ ИНСПЕКТОРА
-        # ==========================================
+        # =========================
+        # ИЩЕМ МЕНЮ
+        # =========================
 
         menu = soup.select_one(
             "ul#menu-category-menu-marketplace-2"
@@ -794,55 +671,28 @@ def get_categories():
 
         if not menu:
 
-            print(
-                "❌ UL #menu-category-menu-marketplace-2 НЕ НАЙДЕН"
-            )
-
-            # Дополнительная проверка
-            all_links = soup.select(
+            links = soup.select(
                 "a[href*='/product-category/']"
             )
 
-            print(
-                f"🔎 ССЫЛОК product-category: "
-                f"{len(all_links)}"
-            )
-
-            # Если вдруг ID изменился,
-            # всё равно пробуем найти категории
-            if not all_links:
+            if not links:
 
                 print(
-                    "❌ КАТЕГОРИИ В HTML НЕ НАЙДЕНЫ"
+                    "❌ КАТЕГОРИИ НЕ НАЙДЕНЫ"
                 )
 
                 return []
 
-            links = all_links
-
         else:
-
-            print(
-                "✅ МЕНЮ КАТЕГОРИЙ НАЙДЕНО"
-            )
-
-            # ======================================
-            # БЕРЁМ ТОЛЬКО ССЫЛКИ ИЗ ЭТОГО МЕНЮ
-            # ======================================
 
             links = menu.select(
                 "li.item-level-0 "
                 "a[href*='/product-category/']"
             )
 
-            print(
-                f"🔎 ССЫЛОК КАТЕГОРИЙ НАЙДЕНО: "
-                f"{len(links)}"
-            )
-
-        # ==========================================
+        # =========================
         # ФОРМИРУЕМ КАТЕГОРИИ
-        # ==========================================
+        # =========================
 
         cats = []
         seen = set()
@@ -850,25 +700,22 @@ def get_categories():
         for a in links:
 
             href = (
-                a.get("href", "")
+                a.get(
+                    "href",
+                    ""
+                )
                 .strip()
             )
 
             if not href:
                 continue
 
-            # ======================================
-            # ТОЛЬКО PRODUCT-CATEGORY
-            # ======================================
-
             if "/product-category/" not in href:
                 continue
 
-            # ======================================
-            # НОРМАЛИЗУЕМ URL
-            # ======================================
-
-            if not href.startswith("http"):
+            if not href.startswith(
+                "http"
+            ):
 
                 href = (
                     BASE.rstrip("/")
@@ -876,25 +723,15 @@ def get_categories():
                     + href.lstrip("/")
                 )
 
-            # ======================================
-            # УБИРАЕМ QUERY / #
-            # ======================================
-
             href = href.split("?")[0]
             href = href.split("#")[0]
-
-            # ======================================
-            # УБИРАЕМ ДУБЛИ
-            # ======================================
 
             if href in seen:
                 continue
 
-            seen.add(href)
-
-            # ======================================
-            # НАЗВАНИЕ
-            # ======================================
+            seen.add(
+                href
+            )
 
             name = clean(
                 a.get_text(
@@ -911,13 +748,8 @@ def get_categories():
                 "url": href
             })
 
-            print(
-                f"📂 КАТЕГОРИЯ: "
-                f"{name} -> {href}"
-            )
-
         print(
-            f"✅ ИТОГО КАТЕГОРИЙ: "
+            f"📂 Найдено категорий: "
             f"{len(cats)}"
         )
 
@@ -931,6 +763,7 @@ def get_categories():
 
         return []
 
+
 # =========================
 # CATEGORY
 # =========================
@@ -938,40 +771,45 @@ def get_categories():
 def parse_category(cat_url):
 
     result = []
-    seen = set()
+
+    seen_products = set()
+    seen_pages = set()
 
     page = 1
+    current_url = cat_url
 
     while True:
 
-        if page == 1:
+        # =========================
+        # ЗАЩИТА ОТ ЗАЦИКЛИВАНИЯ
+        # =========================
 
-            url = cat_url
+        if current_url in seen_pages:
 
-        else:
+            break
 
-            url = (
-                f"{cat_url.rstrip('/')}"
-                f"/page/{page}/"
-            )
+        seen_pages.add(
+            current_url
+        )
 
         print(
-            f"📄 CATEGORY PAGE: "
-            f"{url}"
+            f"📄 Страница {page}: "
+            f"{current_url}"
         )
 
-        soup = get_soup(url)
-
-        # =========================
-        # КАРТОЧКИ ТОВАРОВ
-        # =========================
-
-        products = soup.select(
-            "h3.wd-entities-title "
-            "a[href]"
+        soup = get_soup(
+            current_url
         )
 
-        if not products:
+        # =========================
+        # ТОВАРЫ
+        # =========================
+
+        product_cards = soup.select(
+            "div.wd-product"
+        )
+
+        if not product_cards:
 
             print(
                 f"⚠️ Товары не найдены "
@@ -982,53 +820,251 @@ def parse_category(cat_url):
 
         added = 0
 
-        for a in products:
+        for card in product_cards:
 
-            href = a.get(
-                "href",
-                ""
-            ).strip()
+            # =========================
+            # PRODUCT ID
+            # =========================
 
-            if not href:
+            product_id = clean(
+                card.get(
+                    "data-id",
+                    ""
+                )
+            )
+
+            # =========================
+            # TITLE + URL
+            # =========================
+
+            title_link = card.select_one(
+                "h3.wd-entities-title a[href]"
+            )
+
+            if not title_link:
 
                 continue
 
-            if not href.startswith("http"):
+            title = clean(
+                title_link.get_text(
+                    " ",
+                    strip=True
+                )
+            )
 
-                href = (
+            product_url = (
+                title_link.get(
+                    "href",
+                    ""
+                )
+                .strip()
+            )
+
+            if not title:
+                continue
+
+            if not product_url:
+                continue
+
+            if not product_url.startswith(
+                "http"
+            ):
+
+                product_url = (
                     BASE.rstrip("/")
                     + "/"
-                    + href.lstrip("/")
+                    + product_url.lstrip("/")
                 )
 
-            if href in seen:
+            product_url = (
+                product_url
+                .split("?")[0]
+                .split("#")[0]
+            )
+
+            # =========================
+            # УНИКАЛЬНОСТЬ
+            # =========================
+
+            unique_key = (
+                product_id
+                or product_url
+            )
+
+            if unique_key in seen_products:
 
                 continue
 
-            seen.add(href)
-
-            product = parse_product(
-                href
+            seen_products.add(
+                unique_key
             )
 
-            result.append(
-                product
+            # =========================
+            # SKU
+            # =========================
+
+            sku = ""
+
+            sku_el = card.select_one(
+                ".wd-product-detail.wd-product-sku "
+                ".wd-sku"
             )
+
+            if sku_el:
+
+                sku = clean(
+                    sku_el.get_text(
+                        " ",
+                        strip=True
+                    )
+                )
+
+            # =========================
+            # PRICE
+            # =========================
+
+            price = ""
+
+            price_el = card.select_one(
+                ".price "
+                ".woocommerce-Price-amount"
+            )
+
+            if price_el:
+
+                price = clean(
+                    price_el.get_text(
+                        " ",
+                        strip=True
+                    )
+                )
+
+            # =========================
+            # STATUS
+            # =========================
+            #
+            # БЕРЁМ ТОЛЬКО ТЕКСТ КНОПКИ.
+            #
+            # Никаких собственных статусов.
+            #
+            # Например:
+            #
+            # Додати в кошик
+            #
+            # Читати далі
+            #
+            # Именно это и попадёт в Excel.
+            # =========================
+
+            status = ""
+
+            status_el = card.select_one(
+                ".wd-action-text"
+            )
+
+            if status_el:
+
+                status = clean(
+                    status_el.get_text(
+                        " ",
+                        strip=True
+                    )
+                )
+
+            # =========================
+            # ДОБАВЛЯЕМ
+            # =========================
+
+            result.append([
+                sku,
+                title,
+                price,
+                status,
+                product_url
+            ])
 
             added += 1
 
-            time.sleep(0.05)
-
         print(
-            f"📦 Страница {page}: "
-            f"{added} товаров"
+            f"📦 Товаров на странице: "
+            f"{added}"
         )
 
-        if added == 0:
+        # =========================
+        # ИЩЕМ LOAD MORE
+        # =========================
+        #
+        # На сайте:
+        #
+        # <a class="btn wd-load-more
+        # wd-products-load-more"
+        # href=".../page/2/?_pjax=...">
+        #
+        # Берём именно этот href.
+        # =========================
+
+        next_link = soup.select_one(
+            "div.wd-loop-footer "
+            "a.wd-products-load-more"
+        )
+
+        if not next_link:
 
             break
 
+        next_url = (
+            next_link.get(
+                "href",
+                ""
+            )
+            .strip()
+        )
+
+        if not next_url:
+
+            break
+
+        # =========================
+        # НОРМАЛИЗАЦИЯ URL
+        # =========================
+
+        if not next_url.startswith(
+            "http"
+        ):
+
+            next_url = (
+                BASE.rstrip("/")
+                + "/"
+                + next_url.lstrip("/")
+            )
+
+        # Убираем _pjax и остальные GET-параметры.
+        #
+        # Получаем:
+        #
+        # https://gold-tor.com.ua/
+        # product-category/termo-sumky/
+        # page/2/
+        #
+        next_url = (
+            next_url
+            .split("?")[0]
+            .split("#")[0]
+        )
+
+        # =========================
+        # ПРОВЕРКА ДУБЛЯ
+        # =========================
+
+        if next_url in seen_pages:
+
+            break
+
+        current_url = next_url
+
         page += 1
+
+        time.sleep(0.2)
 
     print(
         f"📦 Всего товаров в категории: "
@@ -1037,112 +1073,6 @@ def parse_category(cat_url):
 
     return result
 
-
-# =========================
-# PRODUCT
-# =========================
-
-def parse_product(url):
-
-    soup = get_soup(url)
-
-    # =========================
-    # TITLE
-    # =========================
-
-    title = ""
-
-    h1 = soup.select_one(
-        "h1[itemprop='name']"
-    )
-
-    if h1:
-
-        title = clean(
-            h1.get_text()
-        )
-
-    # =========================
-    # SKU
-    # =========================
-
-    sku = ""
-
-    sku_el = soup.select_one(
-        ".wd-product-detail.wd-product-sku "
-        ".wd-sku"
-    )
-
-    if sku_el:
-
-        sku = clean(
-            sku_el.get_text()
-        )
-
-    # =========================
-    # PRICE
-    # =========================
-
-    price = ""
-
-    price_el = soup.select_one(
-        ".price "
-        ".woocommerce-Price-amount"
-    )
-
-    if price_el:
-
-        price = clean(
-            price_el.get_text()
-        )
-
-    # =========================
-    # STATUS
-    # =========================
-    #
-    # НИЧЕГО НЕ ПРИДУМЫВАЕМ.
-    #
-    # Берём РОВНО текст кнопки.
-    #
-    # Например:
-    # "Додати в кошик"
-    #
-    # так и попадёт в Excel.
-    # =========================
-
-    status = ""
-
-    cart_button = soup.select_one(
-        "a.add-to-cart-loop"
-    )
-
-    if cart_button:
-
-        status = clean(
-            cart_button.get_text(
-                " ",
-                strip=True
-            )
-        )
-
-    # =========================
-    # DEBUG PRODUCT
-    # =========================
-
-    print(
-        f"   📦 {title}"
-        f" | SKU: {sku}"
-        f" | PRICE: {price}"
-        f" | STATUS: {status}"
-    )
-
-    return [
-        sku,
-        title,
-        price,
-        status,
-        url
-    ]
 
 # =========================
 # MAIN
@@ -1154,7 +1084,9 @@ def run_parser():
 
         return
 
-    set_lock(True)
+    set_lock(
+        True
+    )
 
     try:
 
@@ -1211,7 +1143,8 @@ def run_parser():
         cats = get_categories()
 
         print(
-            f"📂 Категорий: {len(cats)}"
+            f"📂 Категорий: "
+            f"{len(cats)}"
         )
 
         if CATEGORY_LIMIT:
@@ -1250,7 +1183,9 @@ def run_parser():
             save_status(
                 True,
                 int(
-                    i / total * 100
+                    i
+                    / total
+                    * 100
                 ),
                 USER,
                 FILE_PATH
@@ -1269,6 +1204,7 @@ def run_parser():
             ) in items:
 
                 if not title:
+
                     continue
 
                 ws.append([
@@ -1279,7 +1215,9 @@ def run_parser():
                     url
                 ])
 
-            time.sleep(0.2)
+            time.sleep(
+                0.2
+            )
 
         # =========================
         # SAVE
@@ -1290,9 +1228,14 @@ def run_parser():
             exist_ok=True
         )
 
-        tmp = FILE_PATH + ".tmp"
+        tmp = (
+            FILE_PATH
+            + ".tmp"
+        )
 
-        wb.save(tmp)
+        wb.save(
+            tmp
+        )
 
         os.replace(
             tmp,
@@ -1313,7 +1256,9 @@ def run_parser():
 
     finally:
 
-        set_lock(False)
+        set_lock(
+            False
+        )
 
 
 # =========================
@@ -1323,3 +1268,4 @@ def run_parser():
 if __name__ == "__main__":
 
     run_parser()
+
