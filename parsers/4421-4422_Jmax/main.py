@@ -1182,7 +1182,29 @@ def run_parser():
             f"📦 Всего ссылок на товары: "
             f"{len(product_urls)}"
         )
+        
+        # =========================
+        # 3. ТЕСТОВЫЙ ТОВАР 1817
+        # =========================
+    
+        test_url = (
+            BASE +
+            "/index.php?route=product/product&product_id=14061&search=1817"
+        )
+    
+        if test_url not in product_seen:
+    
+            product_seen.add(test_url)
+    
+            product_urls.append(
+                test_url
+            )
+    
+            print(
+                f"✅ ТЕСТ 1817 ДОБАВЛЕН: {test_url}"
+            )
 
+        
         print("🔎 ПРОВЕРКА ТОВАРА 1817")
 
         for url in product_urls:
