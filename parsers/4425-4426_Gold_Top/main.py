@@ -672,113 +672,77 @@ def get_categories():
 
     try:
 
-        category_headers = {
-            "User-Agent": HEADERS["User-Agent"],
-            "Accept": (
-                "text/html,application/xhtml+xml,"
-                "application/xml;q=0.9,image/avif,"
-                "image/webp,image/apng,*/*;q=0.8"
-            ),
-            "Accept-Language": HEADERS["Accept-Language"],
-            "Referer": BASE + "/my-account/",
-            "Cache-Control": "no-cache",
-            "Pragma": "no-cache",
-        }
-
         r = session.get(
             BASE + "/",
-            headers=category_headers,
-            params={
-                "_": str(int(time.time() * 1000))
+            headers={
+                "User-Agent": HEADERS["User-Agent"],
+                "Accept": HEADERS["Accept"],
+                "Accept-Language": HEADERS["Accept-Language"],
+                "Referer": BASE + "/my-account/",
+                "Connection": "keep-alive"
             },
             timeout=30,
             allow_redirects=True
         )
 
         print(
-            f"🌐 CATEGORY PAGE: {r.status_code} {r.url}"
+            f"🌐 CATEGORY PAGE: "
+            f"{r.status_code} {r.url}"
         )
 
         print(
-            f"📄 CATEGORY HTML LENGTH: {len(r.text)}"
+            f"📄 CATEGORY HTML LENGTH: "
+            f"{len(r.text)}"
         )
+
+        # =================================================
+        # СОХРАНЯЕМ РЕАЛЬНЫЙ ОТВЕТ
+        # =================================================
+
+        os.makedirs(
+            OUTPUT_DIR,
+            exist_ok=True
+        )
+
+        debug_path = os.path.join(
+            OUTPUT_DIR,
+            "category_debug.html"
+        )
+
+        with open(
+            debug_path,
+            "w",
+            encoding="utf-8"
+        ) as f:
+
+            f.write(r.text)
 
         print(
-            f"📦 CONTENT-TYPE: "
-            f"{r.headers.get('Content-Type')}"
+            f"📄 DEBUG HTML: {debug_path}"
         )
 
-        print(
-            f"🍪 COOKIES COUNT: "
-            f"{len(session.cookies)}"
-        )
-
-        if r.status_code != 200:
-
-            print(
-                f"❌ CATEGORY PAGE ERROR: "
-                f"{r.status_code}"
-            )
-
-            return []
+        # =================================================
+        # ПРЯМАЯ ПРОВЕРКА
+        # =================================================
 
         html = r.text
 
-        # =================================================
-        # ПРОВЕРКА ИМЕННО ТОГО БЛОКА,
-        # КОТОРЫЙ ТЫ ДАЛА
-        # =================================================
+        marker = (
+            'id="menu-category-menu-marketplace-2"'
+        )
 
-        if "menu-category-menu-marketplace-2" in html:
+        print(
+            "🔎 MENU MARKER:",
+            marker in html
+        )
 
-            print(
-                "✅ БЛОК КАТЕГОРИЙ НАЙДЕН"
-            )
-
-        else:
-
-            print(
-                "❌ БЛОК КАТЕГОРИЙ НЕ НАЙДЕН"
-            )
-
-            if "/product-category/" in html:
-
-                print(
-                    "⚠️ product-category ЕСТЬ"
-                )
-
-            else:
-
-                print(
-                    "❌ product-category НЕТ"
-                )
-
-            debug_path = os.path.join(
-                OUTPUT_DIR,
-                "category_debug.html"
-            )
-
-            os.makedirs(
-                OUTPUT_DIR,
-                exist_ok=True
-            )
-
-            with open(
-                debug_path,
-                "w",
-                encoding="utf-8"
-            ) as f:
-
-                f.write(html)
-
-            print(
-                f"📄 DEBUG HTML: {debug_path}"
-            )
-
-            return []
+        print(
+            "🔎 PRODUCT CATEGORY:",
+            "/product-category/" in html
+        )
 
         # =================================================
-        # PARSE
+        # ЕСЛИ БЛОК ЕСТЬ
         # =================================================
 
         soup = BeautifulSoup(
@@ -786,27 +750,60 @@ def get_categories():
             "html.parser"
         )
 
-        menu = soup.select_one(
-            "#menu-category-menu-marketplace-2"
+        menu = soup.find(
+            "ul",
+            id="menu-category-menu-marketplace-2"
         )
 
         if not menu:
 
             print(
-                "❌ MENU ELEMENT NOT FOUND"
+                "❌ MENU НЕ НАЙДЕН"
             )
 
+            # Ищем все UL, в которых есть
+            # product-category
+
+            possible = []
+
+            for ul in soup.find_all("ul"):
+
+                if "/product-category/" in str(ul):
+
+                    possible.append(ul)
+
+            print(
+                f"🔎 ВОЗМОЖНЫХ UL: "
+                f"{len(possible)}"
+            )
+
+            if possible:
+
+                print(
+                    "⚠️ КАТЕГОРИИ ЕСТЬ, "
+                    "НО ID ДРУГОЙ"
+                )
+
+                print(
+                    str(possible[0])[:3000]
+                )
+
             return []
+
+        print(
+            "✅ MENU КАТЕГОРИЙ НАЙДЕН"
+        )
 
         cats = []
         seen = set()
 
         # =================================================
-        # КАТЕГОРИИ
+        # БЕРЕМ КАТЕГОРИИ ИЗ ЭТОГО UL
         # =================================================
 
-        for a in menu.select(
-            "a.woodmart-nav-link[href]"
+        for a in menu.find_all(
+            "a",
+            href=True
         ):
 
             href = a.get(
@@ -820,6 +817,8 @@ def get_categories():
             if "/product-category/" not in href:
                 continue
 
+            href = href.split("?")[0]
+
             if not href.startswith("http"):
 
                 href = (
@@ -828,19 +827,24 @@ def get_categories():
                     + href.lstrip("/")
                 )
 
-            href = href.split("?")[0].rstrip("/")
+            href = href.rstrip("/")
 
             if href in seen:
                 continue
 
-            name_el = a.select_one(
-                ".nav-link-text"
+            # =================================================
+            # НАЗВАНИЕ ИМЕННО ИЗ nav-link-text
+            # =================================================
+
+            span = a.find(
+                "span",
+                class_="nav-link-text"
             )
 
-            if name_el:
+            if span:
 
                 name = clean(
-                    name_el.get_text()
+                    span.get_text()
                 )
 
             else:
