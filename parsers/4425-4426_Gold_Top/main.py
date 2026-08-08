@@ -22,9 +22,9 @@ BASE = "https://gold-tor.com.ua"
 # ⚙️ SWITCH
 # =========================
 
-CATEGORY_LIMIT = 2
+#CATEGORY_LIMIT = 2
 
-# CATEGORY_LIMIT = None
+CATEGORY_LIMIT = None
 
 
 EMAIL = "Sawrun_05@icloud.com"
@@ -1230,10 +1230,6 @@ def run_parser():
             )
 
             return
-
-        print(
-            "🔓 Авторизация подтверждена"
-        )
 
         # =========================
         # EXCEL
