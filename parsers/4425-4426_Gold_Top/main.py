@@ -107,6 +107,10 @@ def set_lock(state):
         if os.path.exists(LOCK_FILE):
             os.remove(LOCK_FILE)
 
+# =========================
+# LOGIN
+# =========================
+
 def login():
 
     print("🔐 LOGIN...")
@@ -117,74 +121,193 @@ def login():
 
         time.sleep(2)
 
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) "
+                "Gecko/20100101 Firefox/153.0"
+            ),
+            "Accept": (
+                "text/html,application/xhtml+xml,application/xml;"
+                "q=0.9,image/avif,image/webp,*/*;q=0.8"
+            ),
+            "Accept-Language": (
+                "uk-UA,uk;q=0.9,ru;q=0.8,en-US;q=0.7,en;q=0.6"
+            ),
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Referer": BASE + "/",
+        }
+
         r = session.get(
             login_page,
+            headers=headers,
             timeout=30,
             allow_redirects=True
         )
 
-        print(f"🌐 LOGIN PAGE: {r.status_code} {r.url}")
-        print(f"📄 HTML LENGTH: {len(r.text)}")
+        print(
+            f"🌐 LOGIN PAGE: {r.status_code} {r.url}"
+        )
+
+        print(
+            f"📄 HTML LENGTH: {len(r.text)}"
+        )
+
+        print(
+            f"🍪 COOKIES: {dict(session.cookies)}"
+        )
 
         if r.status_code != 200:
-            print(f"❌ LOGIN PAGE ERROR: {r.status_code}")
+
+            print(
+                f"❌ LOGIN PAGE ERROR: {r.status_code}"
+            )
+
             return False
 
-        soup = BeautifulSoup(r.text, "html.parser")
+        # ==========================================
+        # ПРОВЕРЯЕМ, ЕСТЬ ЛИ ФОРМА В ОТВЕТЕ
+        # ==========================================
+
+        if "woocommerce-login-nonce" in r.text:
+
+            print("✅ woocommerce-login-nonce FOUND")
+
+        else:
+
+            print("❌ woocommerce-login-nonce NOT FOUND")
+
+        if "woocommerce-form-login" in r.text:
+
+            print("✅ woocommerce-form-login FOUND")
+
+        else:
+
+            print("❌ woocommerce-form-login NOT FOUND")
+
+        if 'name="username"' in r.text:
+
+            print("✅ username INPUT FOUND")
+
+        else:
+
+            print("❌ username INPUT NOT FOUND")
+
+        if 'name="password"' in r.text:
+
+            print("✅ password INPUT FOUND")
+
+        else:
+
+            print("❌ password INPUT NOT FOUND")
 
         # ==========================================
-        # DEBUG: ВСЕ FORM НА СТРАНИЦЕ
+        # BEAUTIFULSOUP
         # ==========================================
+
+        soup = BeautifulSoup(
+            r.text,
+            "html.parser"
+        )
 
         forms = soup.find_all("form")
 
-        print(f"🔎 FORMS FOUND: {len(forms)}")
+        print(
+            f"🔎 FORMS FOUND: {len(forms)}"
+        )
 
-        for i, f in enumerate(forms, 1):
+        for i, form in enumerate(forms, 1):
 
             print(
                 f"FORM {i}: "
-                f"class={f.get('class')} "
-                f"action={f.get('action')}"
+                f"class={form.get('class')} "
+                f"action={form.get('action')}"
             )
 
         # ==========================================
-        # ИЩЕМ WOOCOMMERCE LOGIN
+        # ИЩЕМ ТОЧНО ТУ ФОРМУ,
+        # КОТОРУЮ ТЫ ПРИСЛАЛА
         # ==========================================
 
-        form = soup.find(
-            "form",
-            class_=lambda x: x and "woocommerce-form-login" in x
+        form = soup.select_one(
+            "form.login.woocommerce-form.woocommerce-form-login"
         )
 
         if not form:
 
-            print("❌ LOGIN FORM NOT FOUND")
+            print(
+                "❌ LOGIN FORM NOT FOUND"
+            )
 
-            # Дополнительный поиск
+            # Проверяем вообще наличие login form
             form = soup.select_one(
-                "form.login.woocommerce-form"
+                "form.woocommerce-form-login"
             )
 
         if not form:
 
-            print("❌ LOGIN FORM STILL NOT FOUND")
+            print(
+                "❌ LOGIN FORM STILL NOT FOUND"
+            )
+
+            print(
+                "🔍 ПОИСК ПО ТЕКСТУ: ",
+                "Увійти" in r.text
+            )
+
+            print(
+                "🔍 ПОИСК USERNAME: ",
+                'name="username"' in r.text
+            )
+
+            print(
+                "🔍 ПОИСК PASSWORD: ",
+                'name="password"' in r.text
+            )
+
+            # Сохраняем именно ответ Railway
+            debug_file = os.path.join(
+                OUTPUT_DIR,
+                "login_debug.html"
+            )
+
+            os.makedirs(
+                OUTPUT_DIR,
+                exist_ok=True
+            )
 
             with open(
-                "login_debug.html",
+                debug_file,
                 "w",
                 encoding="utf-8"
             ) as f:
+
                 f.write(r.text)
+
+            print(
+                f"📄 DEBUG HTML: {debug_file}"
+            )
 
             return False
 
-        print("✅ LOGIN FORM FOUND")
+        print(
+            "✅ LOGIN FORM FOUND"
+        )
+
+        # ==========================================
+        # ACTION
+        # ==========================================
+
+        action = form.get("action")
 
         print(
             "📌 FORM ACTION:",
-            form.get("action")
+            action
         )
+
+        if not action:
+
+            action = login_page
 
         # ==========================================
         # NONCE
@@ -196,130 +319,229 @@ def login():
 
         if not nonce:
 
-            print("❌ LOGIN NONCE NOT FOUND")
+            print(
+                "❌ LOGIN NONCE NOT FOUND"
+            )
+
             return False
 
-        nonce_value = nonce.get("value", "").strip()
+        nonce_value = nonce.get(
+            "value",
+            ""
+        ).strip()
 
         print(
             "🔑 NONCE:",
-            nonce_value[:10] + "..."
-            if nonce_value
-            else "EMPTY"
+            nonce_value
         )
 
         if not nonce_value:
-            print("❌ LOGIN NONCE EMPTY")
+
+            print(
+                "❌ LOGIN NONCE EMPTY"
+            )
+
             return False
 
         # ==========================================
-        # ACTION
+        # REFERER
         # ==========================================
 
-        action = form.get("action")
+        referer_input = form.select_one(
+            "input[name='_wp_http_referer']"
+        )
 
-        if not action:
-            action = login_page
+        wp_referer = "/my-account/"
 
-        if not action.startswith("http"):
+        if referer_input:
 
-            action = (
-                BASE.rstrip("/")
-                + "/"
-                + action.lstrip("/")
+            wp_referer = referer_input.get(
+                "value",
+                "/my-account/"
             )
 
-        print("🚀 POST URL:", action)
+        print(
+            "📌 WP REFERER:",
+            wp_referer
+        )
 
         # ==========================================
-        # PAYLOAD
+        # LOGIN POST
         # ==========================================
 
         payload = {
             "username": EMAIL,
             "password": PASSWORD,
             "woocommerce-login-nonce": nonce_value,
-            "_wp_http_referer": "/my-account/",
+            "_wp_http_referer": wp_referer,
             "login": "Увійти",
             "rememberme": "forever"
         }
 
+        print(
+            "🚀 LOGIN POST..."
+        )
+
         time.sleep(1)
+
+        post_headers = {
+            "User-Agent": headers["User-Agent"],
+            "Accept": (
+                "text/html,application/xhtml+xml,application/xml;"
+                "q=0.9,*/*;q=0.8"
+            ),
+            "Accept-Language": headers["Accept-Language"],
+            "Referer": login_page,
+            "Origin": BASE,
+        }
 
         r = session.post(
             action,
             data=payload,
-            headers={
-                "Referer": login_page,
-                "Origin": BASE,
-                "Content-Type": "application/x-www-form-urlencoded"
-            },
-            allow_redirects=True,
-            timeout=30
+            headers=post_headers,
+            timeout=30,
+            allow_redirects=True
         )
 
         print(
-            f"🌐 LOGIN POST: {r.status_code} {r.url}"
+            f"🌐 LOGIN POST: "
+            f"{r.status_code} {r.url}"
         )
 
         print(
-            f"📄 POST HTML LENGTH: {len(r.text)}"
+            f"📄 POST HTML LENGTH: "
+            f"{len(r.text)}"
+        )
+
+        print(
+            f"🍪 COOKIES AFTER LOGIN: "
+            f"{dict(session.cookies)}"
         )
 
         if r.status_code == 429:
 
-            print("❌ LOGIN POST: 429")
+            print(
+                "❌ LOGIN POST: 429"
+            )
+
             return False
 
         # ==========================================
-        # ПРОВЕРКА АВТОРИЗАЦИИ
+        # ПРОВЕРКА ПО КУКИ
         # ==========================================
+
+        print(
+            "🔎 CHECK LOGIN..."
+        )
 
         check = session.get(
             login_page,
             headers={
-                "Referer": action
+                "User-Agent": headers["User-Agent"],
+                "Accept": headers["Accept"],
+                "Accept-Language": headers["Accept-Language"],
+                "Referer": action,
+                "Cache-Control": "no-cache",
             },
-            allow_redirects=True,
-            timeout=30
+            timeout=30,
+            allow_redirects=True
         )
 
         print(
-            f"🔎 LOGIN CHECK: {check.status_code}"
+            f"🔎 LOGIN CHECK: "
+            f"{check.status_code} {check.url}"
         )
 
-        if check.status_code == 429:
+        print(
+            f"📄 CHECK HTML LENGTH: "
+            f"{len(check.text)}"
+        )
 
-            print("❌ LOGIN CHECK: 429")
+        check_soup = BeautifulSoup(
+            check.text,
+            "html.parser"
+        )
+
+        # Если форма входа всё ещё присутствует,
+        # значит авторизация не произошла.
+        login_form = check_soup.select_one(
+            "form.woocommerce-form-login"
+        )
+
+        if login_form:
+
+            print(
+                "❌ LOGIN FAIL: "
+                "LOGIN FORM STILL PRESENT"
+            )
+
             return False
+
+        # Ищем признаки выхода
+        logout = (
+            check_soup.select_one(
+                "a[href*='customer-logout']"
+            )
+            or
+            check_soup.select_one(
+                "a[href*='logout']"
+            )
+        )
+
+        if logout:
+
+            print(
+                "✅ LOGIN OK"
+            )
+
+            return True
 
         text = check.text.lower()
 
         if (
             "вийти" in text
-            or "вихід" in text
-            or "выйти" in text
-            or "logout" in text
+            or
+            "вихід" in text
+            or
+            "выйти" in text
+            or
+            "logout" in text
         ):
 
-            print("✅ LOGIN OK")
+            print(
+                "✅ LOGIN OK"
+            )
 
             return True
 
-        print("❌ LOGIN FAIL")
+        print(
+            "❌ LOGIN NOT CONFIRMED"
+        )
+
+        debug_file = os.path.join(
+            OUTPUT_DIR,
+            "account_debug.html"
+        )
 
         with open(
-            "account_debug.html",
+            debug_file,
             "w",
             encoding="utf-8"
         ) as f:
+
             f.write(check.text)
+
+        print(
+            f"📄 DEBUG HTML: {debug_file}"
+        )
 
         return False
 
     except Exception as e:
 
-        print(f"❌ LOGIN ERROR: {e}")
+        print(
+            f"❌ LOGIN ERROR: {e}"
+        )
 
         return False
 
