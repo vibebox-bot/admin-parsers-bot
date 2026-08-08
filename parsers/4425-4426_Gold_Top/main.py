@@ -610,9 +610,6 @@ def clean(t):
 
 def get_categories():
 
-    print(
-        "📂 ПОИСК КАТЕГОРИЙ..."
-    )
 
     url = BASE + "/"
 
@@ -916,12 +913,6 @@ def parse_product(url):
     # DEBUG
     # =========================
 
-    print(
-        f"   📦 {title}"
-        f" | SKU: {sku}"
-        f" | PRICE: {price}"
-        f" | STATUS: {status}"
-    )
 
     return [
         sku,
@@ -947,10 +938,6 @@ def parse_category(cat_url):
 
     while True:
 
-        print(
-            f"📄 Страница {page}: "
-            f"{next_url}"
-        )
 
         soup = get_soup(
             next_url,
@@ -967,10 +954,6 @@ def parse_category(cat_url):
 
         if not product_cards:
 
-            print(
-                f"⚠️ Товары не найдены "
-                f"на странице {page}"
-            )
 
             break
 
