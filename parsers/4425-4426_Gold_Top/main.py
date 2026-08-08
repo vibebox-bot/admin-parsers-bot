@@ -90,56 +90,110 @@ def login():
 
     print("🔐 LOGIN...")
 
-    login_page = BASE + "/?route=account/account"
+    login_page = BASE + "/?route=account%2Faccount"
 
     try:
 
-        # Получаем страницу входа
-        r = session.get(
-            login_page,
-            timeout=30,
-            allow_redirects=True
-        )
+        # Небольшая пауза перед первым запросом
+        time.sleep(2)
 
-        if r.status_code != 200:
-            print(f"❌ LOGIN PAGE ERROR: {r.status_code}")
+        for attempt in range(3):
+
+            r = session.get(
+                login_page,
+                timeout=30,
+                allow_redirects=True
+            )
+
+            if r.status_code == 429:
+
+                print(
+                    f"⚠️ LOGIN 429, попытка {attempt + 1}/3"
+                )
+
+                retry_after = r.headers.get(
+                    "Retry-After"
+                )
+
+                if retry_after:
+                    try:
+                        wait = int(retry_after)
+                    except:
+                        wait = 10
+                else:
+                    wait = 10 * (attempt + 1)
+
+                time.sleep(wait)
+                continue
+
+            if r.status_code != 200:
+
+                print(
+                    f"❌ LOGIN PAGE ERROR: {r.status_code}"
+                )
+
+                return False
+
+            break
+
+        else:
+
+            print("❌ LOGIN: сайт продолжает отдавать 429")
+
             return False
 
-        soup = BeautifulSoup(r.text, "html.parser")
+        soup = BeautifulSoup(
+            r.text,
+            "html.parser"
+        )
 
-        # Ищем форму WooCommerce
         form = soup.select_one(
             "form.woocommerce-form-login"
         )
 
         if not form:
+
             print("❌ LOGIN FORM NOT FOUND")
+
+            with open(
+                "login.html",
+                "w",
+                encoding="utf-8"
+            ) as f:
+                f.write(r.text)
+
             return False
 
-        # Динамический nonce
         nonce = form.select_one(
             "input[name='woocommerce-login-nonce']"
         )
 
         if not nonce:
+
             print("❌ LOGIN NONCE NOT FOUND")
             return False
 
-        nonce_value = nonce.get("value", "").strip()
+        nonce_value = nonce.get(
+            "value",
+            ""
+        ).strip()
 
         if not nonce_value:
+
             print("❌ LOGIN NONCE EMPTY")
             return False
 
-        # URL отправки формы
         action = form.get("action")
 
         if not action:
             action = BASE + "/my-account/"
 
-        # Если action относительный
         if not action.startswith("http"):
-            action = BASE.rstrip("/") + "/" + action.lstrip("/")
+            action = (
+                BASE.rstrip("/")
+                + "/"
+                + action.lstrip("/")
+            )
 
         payload = {
             "username": EMAIL,
@@ -150,6 +204,8 @@ def login():
             "redirect": BASE + "/",
             "rememberme": "forever"
         }
+
+        time.sleep(1)
 
         r = session.post(
             action,
@@ -162,7 +218,12 @@ def login():
             timeout=30
         )
 
-        # Проверяем аккаунт после авторизации
+        if r.status_code == 429:
+
+            print("❌ LOGIN POST: 429")
+
+            return False
+
         check = session.get(
             BASE + "/?route=account%2Faccount",
             headers={
@@ -172,37 +233,27 @@ def login():
             timeout=30
         )
 
-        check_soup = BeautifulSoup(
-            check.text,
-            "html.parser"
-        )
+        if check.status_code == 429:
 
-        # Если появилась ссылка/кнопка выхода
-        logout = (
-            check_soup.select_one(
-                "a[href*='logout']"
-            )
-            or check_soup.select_one(
-                ".woocommerce-MyAccount-navigation-link--customer-logout"
-            )
-        )
+            print("❌ LOGIN CHECK: 429")
 
-        # Также проверяем текст страницы
+            return False
+
         text = check.text.lower()
 
         if (
-            logout
-            or "вийти" in text
+            "вийти" in text
             or "вихід" in text
             or "выйти" in text
             or "logout" in text
         ):
+
             print("✅ LOGIN OK")
+
             return True
 
         print("❌ LOGIN FAIL")
 
-        # Для диагностики сохраняем ответ
         with open(
             "account.html",
             "w",
