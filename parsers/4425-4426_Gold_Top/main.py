@@ -670,17 +670,30 @@ def get_categories():
 
     print("📂 ПОИСК КАТЕГОРИЙ...")
 
+    url = BASE + "/"
+
     try:
 
+        # ==========================================
+        # ГЛАВНАЯ СТРАНИЦА ПОСЛЕ АВТОРИЗАЦИИ
+        # Без gzip/br — чтобы получить нормальный HTML
+        # ==========================================
+
+        category_headers = {
+            "User-Agent": HEADERS["User-Agent"],
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": HEADERS["Accept-Language"],
+            "Referer": BASE + "/my-account/",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Accept-Encoding": "identity",
+        }
+
+        time.sleep(1)
+
         r = session.get(
-            BASE + "/",
-            headers={
-                "User-Agent": HEADERS["User-Agent"],
-                "Accept": HEADERS["Accept"],
-                "Accept-Language": HEADERS["Accept-Language"],
-                "Referer": BASE + "/my-account/",
-                "Connection": "keep-alive"
-            },
+            url,
+            headers=category_headers,
             timeout=30,
             allow_redirects=True
         )
@@ -695,14 +708,54 @@ def get_categories():
             f"{len(r.text)}"
         )
 
-        # =================================================
-        # СОХРАНЯЕМ РЕАЛЬНЫЙ ОТВЕТ
-        # =================================================
-
-        os.makedirs(
-            OUTPUT_DIR,
-            exist_ok=True
+        print(
+            f"📦 CONTENT-TYPE: "
+            f"{r.headers.get('Content-Type')}"
         )
+
+        print(
+            f"📦 CONTENT-ENCODING: "
+            f"{r.headers.get('Content-Encoding')}"
+        )
+
+        print(
+            f"🍪 COOKIES COUNT: "
+            f"{len(session.cookies)}"
+        )
+
+        if r.status_code != 200:
+
+            print(
+                f"❌ CATEGORY PAGE ERROR: "
+                f"{r.status_code}"
+            )
+
+            return []
+
+        html = r.text
+
+        # ==========================================
+        # ПРОВЕРКА ЧТО ПРИШЁЛ НОРМАЛЬНЫЙ HTML
+        # ==========================================
+
+        print(
+            "🔎 DOCTYPE:",
+            "<!doctype" in html.lower()
+        )
+
+        print(
+            "🔎 MENU ID:",
+            "menu-category-menu-marketplace-2" in html
+        )
+
+        print(
+            "🔎 PRODUCT CATEGORY:",
+            "/product-category/" in html
+        )
+
+        # ==========================================
+        # DEBUG
+        # ==========================================
 
         debug_path = os.path.join(
             OUTPUT_DIR,
@@ -715,109 +768,105 @@ def get_categories():
             encoding="utf-8"
         ) as f:
 
-            f.write(r.text)
+            f.write(html)
 
         print(
             f"📄 DEBUG HTML: {debug_path}"
         )
 
-        # =================================================
-        # ПРЯМАЯ ПРОВЕРКА
-        # =================================================
-
-        html = r.text
-
-        marker = (
-            'id="menu-category-menu-marketplace-2"'
-        )
-
-        print(
-            "🔎 MENU MARKER:",
-            marker in html
-        )
-
-        print(
-            "🔎 PRODUCT CATEGORY:",
-            "/product-category/" in html
-        )
-
-        # =================================================
-        # ЕСЛИ БЛОК ЕСТЬ
-        # =================================================
+        # ==========================================
+        # BEAUTIFULSOUP
+        # ==========================================
 
         soup = BeautifulSoup(
             html,
             "html.parser"
         )
 
-        menu = soup.find(
-            "ul",
-            id="menu-category-menu-marketplace-2"
+        # ==========================================
+        # ИЩЕМ ИМЕННО ТОТ UL,
+        # КОТОРЫЙ ТЫ ДАЛ ИЗ ИНСПЕКТОРА
+        # ==========================================
+
+        menu = soup.select_one(
+            "ul#menu-category-menu-marketplace-2"
         )
 
         if not menu:
 
             print(
-                "❌ MENU НЕ НАЙДЕН"
+                "❌ UL #menu-category-menu-marketplace-2 НЕ НАЙДЕН"
             )
 
-            # Ищем все UL, в которых есть
-            # product-category
-
-            possible = []
-
-            for ul in soup.find_all("ul"):
-
-                if "/product-category/" in str(ul):
-
-                    possible.append(ul)
+            # Дополнительная проверка
+            all_links = soup.select(
+                "a[href*='/product-category/']"
+            )
 
             print(
-                f"🔎 ВОЗМОЖНЫХ UL: "
-                f"{len(possible)}"
+                f"🔎 ССЫЛОК product-category: "
+                f"{len(all_links)}"
             )
 
-            if possible:
+            # Если вдруг ID изменился,
+            # всё равно пробуем найти категории
+            if not all_links:
 
                 print(
-                    "⚠️ КАТЕГОРИИ ЕСТЬ, "
-                    "НО ID ДРУГОЙ"
+                    "❌ КАТЕГОРИИ В HTML НЕ НАЙДЕНЫ"
                 )
 
-                print(
-                    str(possible[0])[:3000]
-                )
+                return []
 
-            return []
+            links = all_links
 
-        print(
-            "✅ MENU КАТЕГОРИЙ НАЙДЕН"
-        )
+        else:
+
+            print(
+                "✅ МЕНЮ КАТЕГОРИЙ НАЙДЕНО"
+            )
+
+            # ======================================
+            # БЕРЁМ ТОЛЬКО ССЫЛКИ ИЗ ЭТОГО МЕНЮ
+            # ======================================
+
+            links = menu.select(
+                "li.item-level-0 "
+                "a[href*='/product-category/']"
+            )
+
+            print(
+                f"🔎 ССЫЛОК КАТЕГОРИЙ НАЙДЕНО: "
+                f"{len(links)}"
+            )
+
+        # ==========================================
+        # ФОРМИРУЕМ КАТЕГОРИИ
+        # ==========================================
 
         cats = []
         seen = set()
 
-        # =================================================
-        # БЕРЕМ КАТЕГОРИИ ИЗ ЭТОГО UL
-        # =================================================
+        for a in links:
 
-        for a in menu.find_all(
-            "a",
-            href=True
-        ):
-
-            href = a.get(
-                "href",
-                ""
-            ).strip()
+            href = (
+                a.get("href", "")
+                .strip()
+            )
 
             if not href:
                 continue
 
+            # ======================================
+            # ТОЛЬКО PRODUCT-CATEGORY
+            # ======================================
+
             if "/product-category/" not in href:
                 continue
 
-            href = href.split("?")[0]
+            # ======================================
+            # НОРМАЛИЗУЕМ URL
+            # ======================================
 
             if not href.startswith("http"):
 
@@ -827,48 +876,48 @@ def get_categories():
                     + href.lstrip("/")
                 )
 
-            href = href.rstrip("/")
+            # ======================================
+            # УБИРАЕМ QUERY / #
+            # ======================================
+
+            href = href.split("?")[0]
+            href = href.split("#")[0]
+
+            # ======================================
+            # УБИРАЕМ ДУБЛИ
+            # ======================================
 
             if href in seen:
                 continue
 
-            # =================================================
-            # НАЗВАНИЕ ИМЕННО ИЗ nav-link-text
-            # =================================================
+            seen.add(href)
 
-            span = a.find(
-                "span",
-                class_="nav-link-text"
+            # ======================================
+            # НАЗВАНИЕ
+            # ======================================
+
+            name = clean(
+                a.get_text(
+                    " ",
+                    strip=True
+                )
             )
-
-            if span:
-
-                name = clean(
-                    span.get_text()
-                )
-
-            else:
-
-                name = clean(
-                    a.get_text()
-                )
 
             if not name:
                 continue
 
-            seen.add(href)
-
             cats.append({
                 "name": name,
-                "url": href + "/"
+                "url": href
             })
 
             print(
-                f"📂 {name}"
+                f"📂 КАТЕГОРИЯ: "
+                f"{name} -> {href}"
             )
 
         print(
-            f"📂 Найдено категорий: "
+            f"✅ ИТОГО КАТЕГОРИЙ: "
             f"{len(cats)}"
         )
 
