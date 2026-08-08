@@ -669,20 +669,27 @@ def clean(t):
 
 def get_categories():
 
+    print("📂 ПОИСК КАТЕГОРИЙ...")
+
     soup = get_soup(BASE)
 
     cats = []
     seen = set()
 
     # =========================
-    # ТОЧНОЕ МЕНЮ С САЙТА
+    # ОСНОВНОЕ МЕНЮ КАТЕГОРИЙ
     # =========================
 
-    for a in soup.select(
+    links = soup.select(
         "#menu-category-menu-marketplace-2 "
-        "li.item-level-0 "
-        "a.woodmart-nav-link"
-    ):
+        "a[href*='/product-category/']"
+    )
+
+    print(
+        f"🔎 ССЫЛОК КАТЕГОРИЙ НАЙДЕНО: {len(links)}"
+    )
+
+    for a in links:
 
         href = a.get(
             "href",
@@ -690,7 +697,10 @@ def get_categories():
         ).strip()
 
         if not href:
+            continue
 
+        # Только реальные категории WooCommerce
+        if "/product-category/" not in href:
             continue
 
         if not href.startswith("http"):
@@ -701,55 +711,34 @@ def get_categories():
                 + href.lstrip("/")
             )
 
+        href = href.rstrip("/")
+
         if href in seen:
-
-            continue
-
-        name_el = a.select_one(
-            ".nav-link-text"
-        )
-
-        if name_el:
-
-            name = clean(
-                name_el.get_text()
-            )
-
-        else:
-
-            name = clean(
-                a.get_text()
-            )
-
-        if not name:
-
             continue
 
         seen.add(href)
 
-        cats.append({
-            "name": name,
-            "url": href
-        })
-
-    print(
-        f"📂 Найдено категорий: "
-        f"{len(cats)}"
-    )
-
-    for i, cat in enumerate(
-        cats,
-        1
-    ):
-
-        print(
-            f"   {i}. "
-            f"{cat['name']} — "
-            f"{cat['url']}"
+        name = clean(
+            a.get_text(" ", strip=True)
         )
 
-    return cats
+        if not name:
+            continue
 
+        cats.append({
+            "name": name,
+            "url": href + "/"
+        })
+
+        print(
+            f"   📂 {name} → {href}/"
+        )
+
+    print(
+        f"📂 Найдено категорий: {len(cats)}"
+    )
+
+    return cats
 
 # =========================
 # CATEGORY
