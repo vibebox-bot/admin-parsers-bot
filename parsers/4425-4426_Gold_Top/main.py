@@ -674,9 +674,14 @@ def get_categories():
     cats = []
     seen = set()
 
+    # =========================
+    # ТОЧНОЕ МЕНЮ С САЙТА
+    # =========================
+
     for a in soup.select(
-        "#d_category_menu_list "
-        "a.link-level-1"
+        "#menu-category-menu-marketplace-2 "
+        "li.item-level-0 "
+        "a.woodmart-nav-link"
     ):
 
         href = a.get(
@@ -685,6 +690,7 @@ def get_categories():
         ).strip()
 
         if not href:
+
             continue
 
         if not href.startswith("http"):
@@ -696,24 +702,51 @@ def get_categories():
             )
 
         if href in seen:
+
+            continue
+
+        name_el = a.select_one(
+            ".nav-link-text"
+        )
+
+        if name_el:
+
+            name = clean(
+                name_el.get_text()
+            )
+
+        else:
+
+            name = clean(
+                a.get_text()
+            )
+
+        if not name:
+
             continue
 
         seen.add(href)
-
-        name = clean(
-            a.get_text()
-        )
-
-        name = re.sub(
-            r"\d+\s*$",
-            "",
-            name
-        ).strip()
 
         cats.append({
             "name": name,
             "url": href
         })
+
+    print(
+        f"📂 Найдено категорий: "
+        f"{len(cats)}"
+    )
+
+    for i, cat in enumerate(
+        cats,
+        1
+    ):
+
+        print(
+            f"   {i}. "
+            f"{cat['name']} — "
+            f"{cat['url']}"
+        )
 
     return cats
 
@@ -738,16 +771,33 @@ def parse_category(cat_url):
         else:
 
             url = (
-                f"{cat_url}?page={page}"
+                f"{cat_url.rstrip('/')}"
+                f"/page/{page}/"
             )
+
+        print(
+            f"📄 CATEGORY PAGE: "
+            f"{url}"
+        )
 
         soup = get_soup(url)
 
+        # =========================
+        # КАРТОЧКИ ТОВАРОВ
+        # =========================
+
         products = soup.select(
-            "div.product-name a"
+            "h3.wd-entities-title "
+            "a[href]"
         )
 
         if not products:
+
+            print(
+                f"⚠️ Товары не найдены "
+                f"на странице {page}"
+            )
+
             break
 
         added = 0
@@ -760,9 +810,7 @@ def parse_category(cat_url):
             ).strip()
 
             if not href:
-                continue
 
-            if "/image/" in href:
                 continue
 
             if not href.startswith("http"):
@@ -774,22 +822,38 @@ def parse_category(cat_url):
                 )
 
             if href in seen:
+
                 continue
 
             seen.add(href)
 
+            product = parse_product(
+                href
+            )
+
             result.append(
-                parse_product(href)
+                product
             )
 
             added += 1
 
             time.sleep(0.05)
 
+        print(
+            f"📦 Страница {page}: "
+            f"{added} товаров"
+        )
+
         if added == 0:
+
             break
 
         page += 1
+
+    print(
+        f"📦 Всего товаров в категории: "
+        f"{len(result)}"
+    )
 
     return result
 
@@ -824,15 +888,15 @@ def parse_product(url):
 
     sku = ""
 
-    span = soup.select_one(
-        "div.mr-4.p-1.text-secondary "
-        "span.text-danger"
+    sku_el = soup.select_one(
+        ".wd-product-detail.wd-product-sku "
+        ".wd-sku"
     )
 
-    if span:
+    if sku_el:
 
         sku = clean(
-            span.get_text()
+            sku_el.get_text()
         )
 
     # =========================
@@ -841,31 +905,56 @@ def parse_product(url):
 
     price = ""
 
-    p = soup.select_one(
-        ".h2.m-0.text-nowrap"
+    price_el = soup.select_one(
+        ".price "
+        ".woocommerce-Price-amount"
     )
 
-    if p:
+    if price_el:
 
         price = clean(
-            p.get_text()
+            price_el.get_text()
         )
 
     # =========================
     # STATUS
     # =========================
+    #
+    # НИЧЕГО НЕ ПРИДУМЫВАЕМ.
+    #
+    # Берём РОВНО текст кнопки.
+    #
+    # Например:
+    # "Додати в кошик"
+    #
+    # так и попадёт в Excel.
+    # =========================
 
     status = ""
 
-    alert = soup.select_one(
-        ".alert"
+    cart_button = soup.select_one(
+        "a.add-to-cart-loop"
     )
 
-    if alert:
+    if cart_button:
 
         status = clean(
-            alert.get_text()
+            cart_button.get_text(
+                " ",
+                strip=True
+            )
         )
+
+    # =========================
+    # DEBUG PRODUCT
+    # =========================
+
+    print(
+        f"   📦 {title}"
+        f" | SKU: {sku}"
+        f" | PRICE: {price}"
+        f" | STATUS: {status}"
+    )
 
     return [
         sku,
@@ -874,7 +963,6 @@ def parse_product(url):
         status,
         url
     ]
-
 
 # =========================
 # MAIN
