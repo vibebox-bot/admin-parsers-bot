@@ -1123,6 +1123,24 @@ def run_parser():
             f"{len(product_urls)}"
         )
 
+        print("🔎 ПРОВЕРКА ТОВАРА 1817")
+
+        for url in product_urls:
+        
+            if "product_id=14061" in url:
+        
+                print(
+                    f"✅ 1817 ЕСТЬ В product_urls: {url}"
+                )
+        
+                break
+        
+        else:
+        
+            print(
+                "❌ 1817 НЕТ В product_urls"
+            )
+
         # =========================
         # PARSE PRODUCTS
         # =========================
