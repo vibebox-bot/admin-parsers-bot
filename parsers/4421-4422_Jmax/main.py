@@ -409,7 +409,46 @@ def clean(t):
         else ""
     )
 
+def test_product_1817():
 
+    print("🔎 ИЩЕМ АРТИКУЛ 1817")
+
+    url = (
+        BASE +
+        "/index.php?route=product/search"
+        "&search=1817"
+    )
+
+    soup = get_soup(url)
+
+    if not soup or not soup.find_all(True):
+
+        print("❌ Поиск не загрузился")
+        return
+
+    print("✅ Поиск загрузился")
+
+    for a in soup.find_all("a", href=True):
+
+        href = a.get("href", "").strip()
+
+        if "route=product/product" not in href:
+            continue
+
+        if not href.startswith("http"):
+
+            href = (
+                BASE +
+                "/" +
+                href.lstrip("/")
+            )
+
+        print("📦 НАЙДЕН ТОВАР:")
+        print(href)
+
+        item = parse_product(href)
+
+        print(item)
 # =========================
 # CATEGORIES
 # =========================
@@ -652,6 +691,10 @@ def parse_category(cat_url):
 # PRODUCT
 # =========================
 
+# =========================
+# PRODUCT
+# =========================
+
 def parse_product(url):
 
     soup = get_soup(url)
@@ -666,9 +709,7 @@ def parse_product(url):
             url
         ]
 
-    h1 = soup.select_one(
-        "h1"
-    )
+    h1 = soup.select_one("h1")
 
     if not h1:
 
@@ -685,24 +726,139 @@ def parse_product(url):
     )
 
     # =========================
-    # SKU
+    # SKU / АРТИКУЛ
     # =========================
 
     sku = ""
 
-    sku_tag = soup.select_one(
-        ".product-data__item.model"
-    )
+    # ---------------------------------------------------------
+    # 1. Основной вариант
+    # ---------------------------------------------------------
 
-    if sku_tag:
+    selectors = [
+        ".product-data__item.model",
+        ".product-data__item",
+        ".model",
+        ".product-model",
+        ".product-info .model",
+        ".product-page__model",
+        "[class*='model']",
+        "[class*='sku']",
+        "[class*='article']",
+        "[class*='articul']"
+    ]
 
-        sku = clean(
-            sku_tag.get_text()
-            .replace(
-                "Код товара:",
-                ""
+    for selector in selectors:
+
+        tags = soup.select(selector)
+
+        for tag in tags:
+
+            text = clean(
+                tag.get_text(" ", strip=True)
+            )
+
+            if not text:
+                continue
+
+            # Убираем возможные названия поля
+            test = text
+
+            test = re.sub(
+                r"^(Код товара|Артикул|Код|SKU|Модель|Model)\s*[:\-]?\s*",
+                "",
+                test,
+                flags=re.I
+            ).strip()
+
+            # Ищем номер
+            m = re.search(
+                r"\b(\d{3,10})\b",
+                test
+            )
+
+            if m:
+
+                sku = m.group(1)
+
+                break
+
+        if sku:
+            break
+
+    # ---------------------------------------------------------
+    # 2. Ищем "Код товара: 1817" / "Артикул: 1817"
+    # во всём тексте страницы
+    # ---------------------------------------------------------
+
+    if not sku:
+
+        page_text = clean(
+            soup.get_text(
+                " ",
+                strip=True
             )
         )
+
+        patterns = [
+
+            r"(?:Код\s*товара)\s*[:\-]?\s*(\d{3,10})",
+
+            r"(?:Артикул)\s*[:\-]?\s*(\d{3,10})",
+
+            r"(?:Код)\s*[:\-]?\s*(\d{3,10})",
+
+            r"(?:SKU)\s*[:\-]?\s*(\d{3,10})",
+
+            r"(?:Модель)\s*[:\-]?\s*(\d{3,10})",
+
+            r"(?:Model)\s*[:\-]?\s*(\d{3,10})"
+        ]
+
+        for pattern in patterns:
+
+            m = re.search(
+                pattern,
+                page_text,
+                flags=re.I
+            )
+
+            if m:
+
+                sku = m.group(1)
+
+                break
+
+    # ---------------------------------------------------------
+    # 3. JSON-LD
+    # ---------------------------------------------------------
+
+    if not sku:
+
+        for script in soup.select(
+            'script[type="application/ld+json"]'
+        ):
+
+            text = script.get_text(
+                strip=True
+            )
+
+            if not text:
+                continue
+
+            m = re.search(
+                r'"sku"\s*:\s*"([^"]+)"',
+                text,
+                flags=re.I
+            )
+
+            if m:
+
+                sku = clean(
+                    m.group(1)
+                )
+
+                break
 
     # =========================
     # PRICE
@@ -734,6 +890,17 @@ def parse_product(url):
 
         status = clean(
             btn.get_text()
+        )
+
+    # =========================
+    # DEBUG 1817
+    # =========================
+
+    if sku == "1817":
+
+        print(
+            f"🎯 НАЙДЕН АРТИКУЛ 1817: {title}",
+            flush=True
         )
 
     return [
@@ -784,6 +951,9 @@ def run_parser():
             )
 
             return
+
+        test_product_1817()
+        return
 
         # =========================
         # EXCEL
