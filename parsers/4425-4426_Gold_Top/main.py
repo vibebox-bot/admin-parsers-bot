@@ -13,13 +13,14 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Харьковская 4425-4426 Gold Top")
 
-BASE = "https://www.gold-tor.com.ua"
+#BASE = "https://www.gold-tor.com.ua"
+BASE = "https://gold-tor.com.ua"
 
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 1
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
 
 EMAIL = "Sawrun_05@icloud.com"
 PASSWORD = "18022021"
