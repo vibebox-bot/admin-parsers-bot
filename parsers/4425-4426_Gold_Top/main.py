@@ -22,7 +22,7 @@ BASE = "https://gold-tor.com.ua"
 # ⚙️ SWITCH
 # =========================
 
-CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = 2
 
 # CATEGORY_LIMIT = None
 
