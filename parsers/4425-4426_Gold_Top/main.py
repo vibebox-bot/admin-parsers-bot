@@ -55,7 +55,7 @@ HEADERS = {
     "Accept-Language": (
         "uk-UA,uk;q=0.9,ru;q=0.8,en-US;q=0.7,en;q=0.6"
     ),
-    "Accept-Encoding": "gzip, deflate, br",
+    "Accept-Encoding": "gzip, deflate",
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1",
 }
