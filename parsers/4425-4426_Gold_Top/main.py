@@ -525,14 +525,30 @@ def save_status(
 # HTTP
 # =========================
 
-def get_soup(url):
+def get_soup(url, referer=None):
 
     for attempt in range(3):
 
         try:
 
+            headers = {
+                "User-Agent": HEADERS["User-Agent"],
+                "Accept": (
+                    "text/html,application/xhtml+xml,"
+                    "application/xml;q=0.9,*/*;q=0.8"
+                ),
+                "Accept-Language": HEADERS["Accept-Language"],
+                "Accept-Encoding": "identity",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1",
+            }
+
+            if referer:
+                headers["Referer"] = referer
+
             r = session.get(
                 url,
+                headers=headers,
                 timeout=30,
                 allow_redirects=True
             )
@@ -554,6 +570,12 @@ def get_soup(url):
                     5 * (attempt + 1)
                 )
 
+                continue
+
+            print(
+                f"⚠️ HTTP {r.status_code}: {url}"
+            )
+
         except Exception as e:
 
             print(
@@ -566,6 +588,7 @@ def get_soup(url):
         "",
         "html.parser"
     )
+
 
 
 def clean(t):
@@ -771,38 +794,25 @@ def get_categories():
 def parse_category(cat_url):
 
     result = []
-
-    seen_products = set()
-    seen_pages = set()
+    seen = set()
 
     page = 1
-    current_url = cat_url
+    next_url = cat_url
 
     while True:
 
-        # =========================
-        # ЗАЩИТА ОТ ЗАЦИКЛИВАНИЯ
-        # =========================
-
-        if current_url in seen_pages:
-
-            break
-
-        seen_pages.add(
-            current_url
-        )
-
         print(
             f"📄 Страница {page}: "
-            f"{current_url}"
+            f"{next_url}"
         )
 
         soup = get_soup(
-            current_url
+            next_url,
+            referer=cat_url
         )
 
         # =========================
-        # ТОВАРЫ
+        # КАРТОЧКИ ТОВАРОВ
         # =========================
 
         product_cards = soup.select(
@@ -823,248 +833,134 @@ def parse_category(cat_url):
         for card in product_cards:
 
             # =========================
-            # PRODUCT ID
-            # =========================
-
-            product_id = clean(
-                card.get(
-                    "data-id",
-                    ""
-                )
-            )
-
-            # =========================
             # TITLE + URL
             # =========================
 
-            title_link = card.select_one(
+            a = card.select_one(
                 "h3.wd-entities-title a[href]"
             )
 
-            if not title_link:
+            if not a:
 
                 continue
 
-            title = clean(
-                title_link.get_text(
-                    " ",
-                    strip=True
-                )
-            )
-
-            product_url = (
-                title_link.get(
+            href = (
+                a.get(
                     "href",
                     ""
                 )
                 .strip()
             )
 
-            if not title:
+            if not href:
+
                 continue
 
-            if not product_url:
-                continue
+            if not href.startswith("http"):
 
-            if not product_url.startswith(
-                "http"
-            ):
-
-                product_url = (
+                href = (
                     BASE.rstrip("/")
                     + "/"
-                    + product_url.lstrip("/")
+                    + href.lstrip("/")
                 )
 
-            product_url = (
-                product_url
-                .split("?")[0]
-                .split("#")[0]
-            )
+            href = href.split("?")[0]
+            href = href.split("#")[0]
 
             # =========================
-            # УНИКАЛЬНОСТЬ
+            # ДУБЛИ
             # =========================
 
-            unique_key = (
-                product_id
-                or product_url
-            )
-
-            if unique_key in seen_products:
+            if href in seen:
 
                 continue
 
-            seen_products.add(
-                unique_key
+            seen.add(href)
+
+            # =========================
+            # PRODUCT
+            # =========================
+
+            product = parse_product(
+                href
             )
 
-            # =========================
-            # SKU
-            # =========================
-
-            sku = ""
-
-            sku_el = card.select_one(
-                ".wd-product-detail.wd-product-sku "
-                ".wd-sku"
+            result.append(
+                product
             )
-
-            if sku_el:
-
-                sku = clean(
-                    sku_el.get_text(
-                        " ",
-                        strip=True
-                    )
-                )
-
-            # =========================
-            # PRICE
-            # =========================
-
-            price = ""
-
-            price_el = card.select_one(
-                ".price "
-                ".woocommerce-Price-amount"
-            )
-
-            if price_el:
-
-                price = clean(
-                    price_el.get_text(
-                        " ",
-                        strip=True
-                    )
-                )
-
-            # =========================
-            # STATUS
-            # =========================
-            #
-            # БЕРЁМ ТОЛЬКО ТЕКСТ КНОПКИ.
-            #
-            # Никаких собственных статусов.
-            #
-            # Например:
-            #
-            # Додати в кошик
-            #
-            # Читати далі
-            #
-            # Именно это и попадёт в Excel.
-            # =========================
-
-            status = ""
-
-            status_el = card.select_one(
-                ".wd-action-text"
-            )
-
-            if status_el:
-
-                status = clean(
-                    status_el.get_text(
-                        " ",
-                        strip=True
-                    )
-                )
-
-            # =========================
-            # ДОБАВЛЯЕМ
-            # =========================
-
-            result.append([
-                sku,
-                title,
-                price,
-                status,
-                product_url
-            ])
 
             added += 1
 
+            time.sleep(0.05)
+
         print(
-            f"📦 Товаров на странице: "
-            f"{added}"
+            f"📦 Страница {page}: "
+            f"{added} товаров"
         )
 
         # =========================
         # ИЩЕМ LOAD MORE
         # =========================
-        #
-        # На сайте:
-        #
-        # <a class="btn wd-load-more
-        # wd-products-load-more"
-        # href=".../page/2/?_pjax=...">
-        #
-        # Берём именно этот href.
-        # =========================
 
-        next_link = soup.select_one(
-            "div.wd-loop-footer "
-            "a.wd-products-load-more"
+        load_more = soup.select_one(
+            "a.wd-load-more[href]"
         )
 
-        if not next_link:
+        if not load_more:
+
+            print(
+                "🏁 Следующей страницы нет"
+            )
 
             break
 
-        next_url = (
-            next_link.get(
+        next_href = (
+            load_more.get(
                 "href",
                 ""
             )
             .strip()
         )
 
-        if not next_url:
+        if not next_href:
 
-            break
-
-        # =========================
-        # НОРМАЛИЗАЦИЯ URL
-        # =========================
-
-        if not next_url.startswith(
-            "http"
-        ):
-
-            next_url = (
-                BASE.rstrip("/")
-                + "/"
-                + next_url.lstrip("/")
+            print(
+                "🏁 Ссылка Load more пустая"
             )
 
-        # Убираем _pjax и остальные GET-параметры.
-        #
-        # Получаем:
-        #
-        # https://gold-tor.com.ua/
-        # product-category/termo-sumky/
-        # page/2/
-        #
-        next_url = (
-            next_url
-            .split("?")[0]
-            .split("#")[0]
-        )
-
-        # =========================
-        # ПРОВЕРКА ДУБЛЯ
-        # =========================
-
-        if next_url in seen_pages:
-
             break
 
-        current_url = next_url
+        # =========================
+        # НОРМАЛИЗУЕМ URL
+        # =========================
+
+        if not next_href.startswith("http"):
+
+            next_href = (
+                BASE.rstrip("/")
+                + "/"
+                + next_href.lstrip("/")
+            )
+
+        # =========================
+        # ПЕРЕХОД НА СЛЕДУЮЩУЮ
+        # =========================
 
         page += 1
+        next_url = next_href
 
-        time.sleep(0.2)
+        # =========================
+        # ЗАЩИТА ОТ ЗАЦИКЛИВАНИЯ
+        # =========================
+
+        if page > 100:
+
+            print(
+                "⚠️ Остановлено: "
+                "слишком много страниц"
+            )
+
+            break
 
     print(
         f"📦 Всего товаров в категории: "
@@ -1072,7 +968,6 @@ def parse_category(cat_url):
     )
 
     return result
-
 
 # =========================
 # MAIN
