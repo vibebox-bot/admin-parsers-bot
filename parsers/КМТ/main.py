@@ -284,7 +284,7 @@ def parse_category(cat_url):
     url = cat_url
     page = 1
 
-    while True:
+    while url:
 
         print(f"PAGE {page}")
         print(f"URL: {url}")
@@ -293,8 +293,10 @@ def parse_category(cat_url):
 
         cards = soup.select("div.list-catalog_item")
 
+        print(f"CARDS: {len(cards)}")
+
         if not cards:
-            print("❌ Товаров на странице нет")
+            print("⚠ Товары не найдены — останавливаем категорию")
             break
 
         added = 0
@@ -337,29 +339,24 @@ def parse_category(cat_url):
         if added == 0:
             break
 
-        # ==========================================
-        # ИЩЕМ НАСТОЯЩУЮ ССЫЛКУ "ПОКАЗАТЬ ЕЩЁ"
-        # ==========================================
+        # =========================================
+        # БЕРЕМ НАСТОЯЩУЮ КНОПКУ "ПОКАЗАТЬ ЕЩЕ"
+        # =========================================
 
-        more = soup.select_one(".btn__more a[href]")
+        next_link = soup.select_one(".btn__more a")
 
-        if not more:
+        if not next_link:
             print("✅ Следующей страницы нет")
             break
 
-        next_url = more.get("href")
+        next_url = next_link.get("href")
 
         if not next_url:
-            print("✅ Следующей страницы нет")
+            print("⚠ Ссылка следующей страницы пустая")
             break
 
         if next_url.startswith("/"):
             next_url = BASE + next_url
-
-        # Защита от зацикливания
-        if next_url == url:
-            print("⚠ Следующая ссылка совпадает с текущей")
-            break
 
         url = next_url
 
@@ -367,12 +364,8 @@ def parse_category(cat_url):
 
         time.sleep(0.3)
 
-    print(f"TOTAL CATEGORY: {len(result)}")
-
     return result
-
-
-
+    
 # =========================
 # MAIN
 # =========================
