@@ -9,37 +9,30 @@ from openpyxl import Workbook
 
 import sys
 
-
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Харьковская КМТ")
 
-
 BASE = "https://kmt5.com.ua"
-
 
 # =========================
 # ⚙️ SWITCH
 # =========================
 
+# ТЕСТ — только 1 категория
 CATEGORY_LIMIT = 1
-# CATEGORY_LIMIT = None
-
 
 EMAIL = "finik257@gmail.com"
 PASSWORD = "18022021"
-
 
 OUTPUT_DIR = os.path.abspath("output/КМТ")
 FILE_PATH = os.path.join(OUTPUT_DIR, "КМТ_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
-
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
-
 
 session = requests.Session()
 session.headers.update(HEADERS)
@@ -73,8 +66,6 @@ def set_lock(state):
 
     if state:
 
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-
         with open(LOCK_FILE, "w", encoding="utf-8") as f:
             f.write(str(time.time()))
 
@@ -90,8 +81,6 @@ def set_lock(state):
 
 def login():
 
-    print("🔐 Авторизация...")
-
     session.get(BASE)
 
     login_url = BASE + "/login/?ajax=1"
@@ -101,46 +90,35 @@ def login():
         "password": PASSWORD
     }
 
+    r = session.post(
+        login_url,
+        data=payload,
+        headers={
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": BASE + "/access-denied"
+        }
+    )
+
+    print("LOGIN:", r.status_code)
+
     try:
-
-        r = session.post(
-            login_url,
-            data=payload,
-            headers={
-                "X-Requested-With": "XMLHttpRequest",
-                "Referer": BASE + "/access-denied"
-            },
-            timeout=30
-        )
-
-        print("LOGIN:", r.status_code)
-
-        try:
-            print(r.json())
-        except:
-            print(r.text[:500])
-
-    except Exception as e:
-
-        print("❌ Ошибка LOGIN:", e)
-        return False
-
+        print(r.json())
+    except:
+        print(r.text)
 
     check = session.get(BASE)
 
-    text = check.text.lower()
-
     if (
-        "logout" in text
-        or "выйти" in text
-        or "личный кабинет" in text
+        "logout" in check.text.lower()
+        or "выйти" in check.text.lower()
+        or "личный кабинет" in check.text.lower()
     ):
 
         print("✅ LOGIN OK")
-        return True
 
-    print("⚠ LOGIN CHECK")
-    return False
+    else:
+
+        print("⚠ LOGIN CHECK")
 
 
 # =========================
@@ -154,7 +132,10 @@ def save_status(
     file_path=""
 ):
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(
+        OUTPUT_DIR,
+        exist_ok=True
+    )
 
     data = {
         "running": running,
@@ -216,8 +197,7 @@ def get_soup(url):
         except Exception as e:
 
             print(
-                f"⚠ Ошибка запроса "
-                f"{attempt + 1}/3: {e}"
+                f"⚠ Ошибка запроса: {e}"
             )
 
         time.sleep(1)
@@ -231,31 +211,14 @@ def get_soup(url):
 def clean(t):
 
     return (
-        re.sub(r"\s+", " ", t).strip()
-        if t else ""
+        re.sub(
+            r"\s+",
+            " ",
+            t
+        ).strip()
+        if t
+        else ""
     )
-
-
-def absolute_url(url):
-
-    if not url:
-        return ""
-
-    url = url.strip()
-
-    if url.startswith("//"):
-        return "https:" + url
-
-    if url.startswith("/"):
-        return BASE + url
-
-    if url.startswith("http://"):
-        return url
-
-    if url.startswith("https://"):
-        return url
-
-    return BASE + "/" + url.lstrip("/")
 
 
 # =========================
@@ -264,14 +227,10 @@ def absolute_url(url):
 
 def get_categories():
 
-    print("")
-    print("=" * 70)
-    print("📂 СОБИРАЕМ ДЕРЕВО КАТЕГОРИЙ")
-    print("=" * 70)
-
     soup = get_soup(BASE)
 
     cats = []
+
     seen = set()
 
     menu = soup.select_one(
@@ -281,14 +240,12 @@ def get_categories():
     if not menu:
 
         print(
-            "❌ nav.menu-left > ul "
-            "не найдено"
+            "❌ Меню категорий не найдено"
         )
 
         return cats
 
-
-    def walk_menu(ul, level=0):
+    def walk_menu(ul):
 
         for li in ul.find_all(
             "li",
@@ -303,38 +260,24 @@ def get_categories():
 
             if a:
 
-                href = absolute_url(
-                    a.get("href")
-                )
+                href = a["href"].strip()
 
-                name = clean(
-                    a.get_text(
-                        " ",
-                        strip=True
-                    )
-                )
+                if href.startswith("/"):
 
-                if (
-                    href
-                    and href.startswith(BASE)
-                    and href not in seen
-                ):
+                    href = BASE + href
 
-                    seen.add(href)
+                if href.startswith(BASE):
 
-                    cats.append({
-                        "name": name,
-                        "url": href,
-                        "level": level
-                    })
+                    if href not in seen:
 
-                    print(
-                        "   "
-                        + "  " * level
-                        + f"📂 {name}"
-                        + f" → {href}"
-                    )
+                        seen.add(href)
 
+                        cats.append({
+                            "name": clean(
+                                a.get_text()
+                            ),
+                            "url": href
+                        })
 
             child_ul = li.find(
                 "ul",
@@ -343,123 +286,19 @@ def get_categories():
 
             if child_ul:
 
-                walk_menu(
-                    child_ul,
-                    level + 1
-                )
-
+                walk_menu(child_ul)
 
     walk_menu(menu)
 
-    print("")
     print(
-        f"📂 ВСЕГО КАТЕГОРИЙ: {len(cats)}"
+        f"📂 Найдено категорий: {len(cats)}"
     )
 
     return cats
 
 
 # =========================
-# FIND SUBCATEGORIES
-# =========================
-
-def get_subcategories(
-    soup,
-    current_url,
-    known_products
-):
-
-    result = []
-    seen = set()
-
-
-    # --------------------------------
-    # Варианты блоков категорий
-    # --------------------------------
-
-    selectors = [
-
-        ".catalog-group > li a",
-        ".catalog-group_item a",
-
-        ".catalog-category a",
-
-        ".category-list a",
-
-        ".sub-category a",
-
-        ".categories-list a",
-
-        ".box-category a",
-
-    ]
-
-
-    for selector in selectors:
-
-        for a in soup.select(selector):
-
-            href = absolute_url(
-                a.get("href")
-            )
-
-            if not href:
-                continue
-
-            if not href.startswith(BASE):
-                continue
-
-            if href == current_url:
-                continue
-
-            if href in known_products:
-                continue
-
-            if href in seen:
-                continue
-
-
-            # --------------------------------
-            # Не принимаем ссылки на товары
-            # --------------------------------
-
-            parent_product = a.closest(
-                ".list-catalog_item"
-            )
-
-            if parent_product:
-                continue
-
-
-            # --------------------------------
-            # Не берём очевидные служебные URL
-            # --------------------------------
-
-            bad_parts = [
-                "javascript:",
-                "#",
-                "/login",
-                "/checkout",
-                "/account",
-                "/cart"
-            ]
-
-            if any(
-                x in href.lower()
-                for x in bad_parts
-            ):
-                continue
-
-
-            seen.add(href)
-            result.append(href)
-
-
-    return result
-
-
-# =========================
-# PARSE PRODUCT
+# PRODUCT
 # =========================
 
 def parse_product(
@@ -485,13 +324,6 @@ def parse_product(
 
 
     # =========================
-    # SKU
-    # =========================
-
-    sku = ""
-
-
-    # =========================
     # CODE
     # =========================
 
@@ -508,17 +340,6 @@ def parse_product(
             strip=True
         )
 
-
-        m = re.search(
-            r"Код товара:\s*(Ц-\d+)",
-            text
-        )
-
-        if m:
-
-            sku = m.group(1)
-
-
         m = re.search(
             r"Код:\s*(\S+)",
             text
@@ -527,6 +348,22 @@ def parse_product(
         if m:
 
             code = m.group(1)
+
+
+        # Если сайт показывает
+        # "Код товара: Ц-000..."
+        # берём его тоже как CODE
+
+        if not code:
+
+            m = re.search(
+                r"Код товара:\s*(\S+)",
+                text
+            )
+
+            if m:
+
+                code = m.group(1)
 
 
     # =========================
@@ -557,9 +394,20 @@ def parse_product(
                 box_price.get_text()
             )
 
+        else:
+
+            box_price = soup.select_one(
+                ".box-price__hryvnia"
+            )
+
+            if box_price:
+
+                price = clean(
+                    box_price.get_text()
+                )
+
 
     return [
-        sku,
         code,
         title,
         price,
@@ -574,23 +422,13 @@ def parse_product(
 
 def parse_category(
     cat_url,
-    visited_categories=None,
-    global_products=None
+    visited_categories=None
 ):
 
     if visited_categories is None:
 
         visited_categories = set()
 
-
-    if global_products is None:
-
-        global_products = set()
-
-
-    # =========================
-    # CATEGORY DUPLICATE
-    # =========================
 
     if cat_url in visited_categories:
 
@@ -604,47 +442,32 @@ def parse_category(
 
     result = []
 
+    seen_products = set()
+
     seen_pages = set()
 
 
     print("")
     print("=" * 70)
-    print("📂 CATEGORY")
-    print(cat_url)
+    print(
+        "📂 CATEGORY:",
+        cat_url
+    )
     print("=" * 70)
 
 
     # ==========================================================
-    # 1. СТРАНИЦЫ КАТЕГОРИИ
+    # ПЕРВАЯ СТРАНИЦА
     # ==========================================================
+
+    current_url = cat_url
 
     page = 1
 
+
     while True:
 
-        # --------------------------------
-        # URL страницы
-        # --------------------------------
-
-        if page == 1:
-
-            url = cat_url
-
-        else:
-
-            sep = (
-                "&"
-                if "?" in cat_url
-                else "?"
-            )
-
-            url = (
-                f"{cat_url}"
-                f"{sep}page={page}&ajax=1"
-            )
-
-
-        if url in seen_pages:
+        if current_url in seen_pages:
 
             print(
                 "⛔ Страница уже была"
@@ -653,23 +476,24 @@ def parse_category(
             break
 
 
-        seen_pages.add(url)
+        seen_pages.add(
+            current_url
+        )
 
 
         print("")
         print(
-            f"📄 PAGE {page}"
+            f"📄 PAGE {page}:"
+        )
+        print(
+            current_url
         )
 
-        print(url)
 
+        soup = get_soup(
+            current_url
+        )
 
-        soup = get_soup(url)
-
-
-        # --------------------------------
-        # Карточки
-        # --------------------------------
 
         cards = soup.select(
             "div.list-catalog_item"
@@ -677,8 +501,7 @@ def parse_category(
 
 
         print(
-            f"   Карточек на странице: "
-            f"{len(cards)}"
+            f"   Найдено карточек: {len(cards)}"
         )
 
 
@@ -701,35 +524,43 @@ def parse_category(
             )
 
             if not a:
+
                 continue
 
 
-            href = absolute_url(
-                a.get("href")
-            )
-
+            href = a.get("href")
 
             if not href:
-                continue
-
-
-            # --------------------------------
-            # URL = уникальный товар
-            # --------------------------------
-
-            if href in global_products:
 
                 continue
 
 
-            global_products.add(
+            href = href.strip()
+
+
+            if href.startswith("/"):
+
+                href = BASE + href
+
+
+            if not href.startswith(BASE):
+
+                continue
+
+
+            if href in seen_products:
+
+                continue
+
+
+            seen_products.add(
                 href
             )
 
 
-            # --------------------------------
+            # =========================
             # STATUS
-            # --------------------------------
+            # =========================
 
             status = ""
 
@@ -744,9 +575,9 @@ def parse_category(
                 )
 
 
-            # --------------------------------
+            # =========================
             # PRODUCT
-            # --------------------------------
+            # =========================
 
             item = parse_product(
                 href,
@@ -754,24 +585,23 @@ def parse_category(
             )
 
 
-            if not item[2]:
+            if item[1]:
 
-                continue
+                result.append(
+                    item
+                )
 
-
-            result.append(item)
-
-            added += 1
+                added += 1
 
 
         print(
-            f"   ➕ Добавлено: {added}"
+            f"   ➕ Добавлено товаров: {added}"
         )
 
 
-        # --------------------------------
-        # Кнопка "Показать ещё"
-        # --------------------------------
+        # ==========================================================
+        # NEXT PAGE
+        # ==========================================================
 
         next_button = soup.select_one(
             ".btn__more a"
@@ -781,102 +611,59 @@ def parse_category(
         if not next_button:
 
             print(
-                "   ⛔ Кнопки следующей "
-                "страницы нет"
+                "   ⛔ Следующей страницы нет"
             )
 
             break
 
 
-        next_url = absolute_url(
-            next_button.get("href")
+        next_url = next_button.get(
+            "href"
         )
 
 
         if not next_url:
 
+            print(
+                "   ⛔ NEXT URL пустой"
+            )
+
             break
+
+
+        next_url = next_url.strip()
+
+
+        if next_url.startswith("/"):
+
+            next_url = BASE + next_url
 
 
         if next_url in seen_pages:
 
             print(
-                "   ⛔ Следующая страница "
-                "уже была"
+                "   ⛔ NEXT уже посещён"
             )
 
             break
 
+
+        print(
+            f"   ➡ NEXT: {next_url}"
+        )
+
+
+        current_url = next_url
 
         page += 1
 
         time.sleep(0.3)
 
 
-    # ==========================================================
-    # 2. ИЩЕМ ПОДКАТЕГОРИИ
-    # ==========================================================
-
     print("")
     print(
-        "🔎 Проверяем подкатегории..."
+        f"📦 Всего товаров в категории: {len(result)}"
     )
-
-
-    # Берём первую страницу категории
-    # ещё раз, чтобы искать дерево
-
-    category_soup = get_soup(
-        cat_url
-    )
-
-
-    subcategories = get_subcategories(
-        category_soup,
-        cat_url,
-        global_products
-    )
-
-
-    print(
-        f"   📂 Найдено возможных "
-        f"подкатегорий: "
-        f"{len(subcategories)}"
-    )
-
-
-    # ==========================================================
-    # 3. РЕКУРСИВНО ИДЁМ ВНИЗ
-    # ==========================================================
-
-    for sub_url in subcategories:
-
-        if sub_url in visited_categories:
-
-            continue
-
-
-        print("")
-        print(
-            "➡️ ПЕРЕХОД В ПОДКАТЕГОРИЮ:"
-        )
-
-        print(sub_url)
-
-
-        sub_items = parse_category(
-            sub_url,
-            visited_categories,
-            global_products
-        )
-
-
-        result.extend(
-            sub_items
-        )
-
-
-        time.sleep(0.3)
 
 
     return result
@@ -918,18 +705,6 @@ def run_parser():
 
 
         # =========================
-        # ВАЖНО:
-        #
-        # set_product_group()
-        #
-        # НЕ ВЫЗЫВАЕМ
-        #
-        # product_group=1
-        # больше НЕ включаем
-        # =========================
-
-
-        # =========================
         # EXCEL
         # =========================
 
@@ -937,11 +712,12 @@ def run_parser():
 
         ws = wb.active
 
-        ws.title = "Товары"
+        ws.title = "КМТ"
 
+
+        # SKU УБРАЛИ
 
         ws.append([
-            "SKU",
             "CODE",
             "TITLE",
             "PRICE",
@@ -957,10 +733,8 @@ def run_parser():
         cats = get_categories()
 
 
-        print("")
         print(
-            f"📂 Категорий найдено: "
-            f"{len(cats)}"
+            f"📂 Категорий для теста: {len(cats)}"
         )
 
 
@@ -970,20 +744,11 @@ def run_parser():
                 :CATEGORY_LIMIT
             ]
 
-            print(
-                f"🧪 ТЕСТОВЫЙ РЕЖИМ: "
-                f"{len(cats)} категория"
-            )
-
 
         total = len(cats)
 
 
         if total == 0:
-
-            print(
-                "❌ Категории не найдены"
-            )
 
             save_status(
                 False,
@@ -996,19 +761,10 @@ def run_parser():
 
 
         # =========================
-        # GLOBAL PRODUCT SET
-        # =========================
-
-        global_products = set()
-
-        visited_categories = set()
-
-
-        # =========================
         # PARSE
         # =========================
 
-        total_items = 0
+        all_seen_products = set()
 
 
         for i, cat in enumerate(
@@ -1016,65 +772,42 @@ def run_parser():
             1
         ):
 
-
-            progress = int(
-                (i / total) * 100
-            )
-
-
             save_status(
                 True,
-                progress,
+                int(
+                    i / total * 100
+                ),
                 USER,
                 FILE_PATH
             )
 
 
             print("")
-            print("")
             print(
-                "#" * 70
+                "############################################"
             )
-
             print(
-                f"📂 КАТЕГОРИЯ "
-                f"{i}/{total}"
+                f"📂 [{i}/{total}] {cat['name']}"
             )
-
             print(
-                f"📂 {cat['name']}"
+                cat["url"]
             )
-
             print(
-                f"🔗 {cat['url']}"
-            )
-
-            print(
-                "#" * 70
+                "############################################"
             )
 
 
             items = parse_category(
-                cat["url"],
-                visited_categories,
-                global_products
+                cat["url"]
             )
 
 
-            print("")
             print(
-                f"📦 Товаров найдено "
-                f"в этой ветке: "
-                f"{len(items)}"
+                f"📦 Получено товаров: {len(items)}"
             )
 
-
-            # =========================
-            # WRITE EXCEL
-            # =========================
 
             for (
-                sku,
                 code,
                 title,
                 price,
@@ -1082,30 +815,32 @@ def run_parser():
                 url
             ) in items:
 
-
                 if not title:
 
                     continue
 
 
+                # =========================
+                # GLOBAL DUPLICATE
+                # =========================
+
+                if url in all_seen_products:
+
+                    continue
+
+
+                all_seen_products.add(
+                    url
+                )
+
+
                 ws.append([
-                    sku,
                     code,
                     title,
                     price,
                     status,
                     url
                 ])
-
-
-                total_items += 1
-
-
-            print(
-                f"📦 ВСЕГО УНИКАЛЬНЫХ "
-                f"ТОВАРОВ: "
-                f"{len(global_products)}"
-            )
 
 
             time.sleep(0.2)
@@ -1133,10 +868,6 @@ def run_parser():
         )
 
 
-        # =========================
-        # DONE
-        # =========================
-
         save_status(
             False,
             100,
@@ -1146,38 +877,24 @@ def run_parser():
 
 
         print("")
-        print("=" * 70)
-
         print(
-            "✅ ГОТОВО"
+            "============================================"
         )
-
         print(
-            f"📦 Всего товаров: "
-            f"{total_items}"
+            f"📦 ВСЕГО СОБРАНО: {len(all_seen_products)}"
         )
-
         print(
-            f"📂 Категорий обработано: "
-            f"{len(visited_categories)}"
+            "============================================"
         )
-
         print(
-            f"📄 Файл: "
-            f"{FILE_PATH}"
+            "✅ Готово. Харьковская КМТ"
         )
-
-        print("=" * 70)
 
 
     finally:
 
         set_lock(False)
 
-
-# =========================
-# START
-# =========================
 
 if __name__ == "__main__":
 
