@@ -281,23 +281,20 @@ def parse_category(cat_url):
     result = []
     seen = set()
 
+    url = cat_url
     page = 1
 
     while True:
 
-        if page == 1:
-            url = cat_url
-        else:
-            sep = "&" if "?" in cat_url else "?"
-            url = f"{cat_url}{sep}page={page}&ajax=1"
-
         print(f"PAGE {page}")
+        print(f"URL: {url}")
 
         soup = get_soup(url)
 
         cards = soup.select("div.list-catalog_item")
 
         if not cards:
+            print("❌ Товаров на странице нет")
             break
 
         added = 0
@@ -311,22 +308,28 @@ def parse_category(cat_url):
 
             href = a.get("href")
 
+            if not href:
+                continue
+
+            if href.startswith("/"):
+                href = BASE + href
+
             status = ""
 
             label = card.select_one(".product__label")
-            
+
             if label:
                 status = clean(label.get_text())
-
-            if not href:
-                continue
 
             if href in seen:
                 continue
 
             seen.add(href)
 
-            result.append(parse_product(href, status))
+            result.append(
+                parse_product(href, status)
+            )
+
             added += 1
 
         print(f"FOUND: {added}")
@@ -334,8 +337,37 @@ def parse_category(cat_url):
         if added == 0:
             break
 
+        # ==========================================
+        # ИЩЕМ НАСТОЯЩУЮ ССЫЛКУ "ПОКАЗАТЬ ЕЩЁ"
+        # ==========================================
+
+        more = soup.select_one(".btn__more a[href]")
+
+        if not more:
+            print("✅ Следующей страницы нет")
+            break
+
+        next_url = more.get("href")
+
+        if not next_url:
+            print("✅ Следующей страницы нет")
+            break
+
+        if next_url.startswith("/"):
+            next_url = BASE + next_url
+
+        # Защита от зацикливания
+        if next_url == url:
+            print("⚠ Следующая ссылка совпадает с текущей")
+            break
+
+        url = next_url
+
         page += 1
+
         time.sleep(0.3)
+
+    print(f"TOTAL CATEGORY: {len(result)}")
 
     return result
 
