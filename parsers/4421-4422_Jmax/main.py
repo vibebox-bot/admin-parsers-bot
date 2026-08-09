@@ -455,8 +455,6 @@ def is_product_url(url):
 
 def get_categories():
 
-    print("🌳 ПОИСК КАТЕГОРИЙ")
-
     soup = get_soup(BASE)
 
     if not soup or not soup.find_all(True):
@@ -657,8 +655,6 @@ def parse_category(cat_url):
 
 def get_sitemap_urls():
 
-    print("🗺 ПРОВЕРЯЕМ SITEMAP")
-
     sitemap_candidates = [
 
         BASE + "/sitemap.xml",
@@ -708,10 +704,6 @@ def get_sitemap_urls():
             seen.add(url)
 
             urls.append(url)
-
-    print(
-        f"🗺 Sitemap products: {len(urls)}"
-    )
 
     return urls
 
@@ -1063,11 +1055,6 @@ def run_parser():
             product_urls.append(
                 url
             )
-
-        print(
-            f"📦 Всего ссылок на товары: "
-            f"{len(product_urls)}"
-        )
       
         # =========================
         # PARSE PRODUCTS
