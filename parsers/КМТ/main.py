@@ -18,9 +18,8 @@ BASE = "https://kmt5.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-
-# ТЕСТ — только 1 категория
-CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 1
 
 EMAIL = "finik257@gmail.com"
 PASSWORD = "18022021"
@@ -98,13 +97,6 @@ def login():
             "Referer": BASE + "/access-denied"
         }
     )
-
-    print("LOGIN:", r.status_code)
-
-    try:
-        print(r.json())
-    except:
-        print(r.text)
 
     check = session.get(BASE)
 
@@ -190,17 +182,9 @@ def get_soup(url):
                     "html.parser"
                 )
 
-            print(
-                f"⚠ HTTP {r.status_code}: {url}"
-            )
 
         except Exception as e:
-
-            print(
-                f"⚠ Ошибка запроса: {e}"
-            )
-
-        time.sleep(1)
+            time.sleep(1)
 
     return BeautifulSoup(
         "",
@@ -424,15 +408,6 @@ def parse_category(
     seen_pages = set()
 
 
-    print("")
-    print("=" * 70)
-    print(
-        "📂 CATEGORY:",
-        cat_url
-    )
-    print("=" * 70)
-
-
     # ==========================================================
     # ПЕРВАЯ СТРАНИЦА
     # ==========================================================
@@ -446,10 +421,6 @@ def parse_category(
 
         if current_url in seen_pages:
 
-            print(
-                "⛔ Страница уже была"
-            )
-
             break
 
 
@@ -457,14 +428,6 @@ def parse_category(
             current_url
         )
 
-
-        print("")
-        print(
-            f"📄 PAGE {page}:"
-        )
-        print(
-            current_url
-        )
 
 
         soup = get_soup(
@@ -477,16 +440,9 @@ def parse_category(
         )
 
 
-        print(
-            f"   Найдено карточек: {len(cards)}"
-        )
-
 
         if not cards:
 
-            print(
-                "   ⛔ Товаров больше нет"
-            )
 
             break
 
@@ -571,10 +527,6 @@ def parse_category(
                 added += 1
 
 
-        print(
-            f"   ➕ Добавлено товаров: {added}"
-        )
-
 
         # ==========================================================
         # NEXT PAGE
@@ -587,9 +539,6 @@ def parse_category(
 
         if not next_button:
 
-            print(
-                "   ⛔ Следующей страницы нет"
-            )
 
             break
 
@@ -601,9 +550,6 @@ def parse_category(
 
         if not next_url:
 
-            print(
-                "   ⛔ NEXT URL пустой"
-            )
 
             break
 
@@ -618,16 +564,8 @@ def parse_category(
 
         if next_url in seen_pages:
 
-            print(
-                "   ⛔ NEXT уже посещён"
-            )
 
             break
-
-
-        print(
-            f"   ➡ NEXT: {next_url}"
-        )
 
 
         current_url = next_url
@@ -635,12 +573,6 @@ def parse_category(
         page += 1
 
         time.sleep(0.3)
-
-
-    print("")
-    print(
-        f"📦 Всего товаров в категории: {len(result)}"
-    )
 
 
     return result
@@ -653,10 +585,6 @@ def parse_category(
 def run_parser():
 
     if is_locked():
-
-        print(
-            "⚠ Парсер уже запущен"
-        )
 
         return
 
@@ -710,11 +638,6 @@ def run_parser():
         cats = get_categories()
 
 
-        print(
-            f"📂 Категорий для теста: {len(cats)}"
-        )
-
-
         if CATEGORY_LIMIT:
 
             cats = cats[
@@ -759,29 +682,10 @@ def run_parser():
             )
 
 
-            print("")
-            print(
-                "############################################"
-            )
-            print(
-                f"📂 [{i}/{total}] {cat['name']}"
-            )
-            print(
-                cat["url"]
-            )
-            print(
-                "############################################"
-            )
-
-
             items = parse_category(
                 cat["url"]
             )
 
-
-            print(
-                f"📦 Получено товаров: {len(items)}"
-            )
 
 
             for (
@@ -853,16 +757,6 @@ def run_parser():
         )
 
 
-        print("")
-        print(
-            "============================================"
-        )
-        print(
-            f"📦 ВСЕГО СОБРАНО: {len(all_seen_products)}"
-        )
-        print(
-            "============================================"
-        )
         print(
             "✅ Готово. Харьковская КМТ"
         )
