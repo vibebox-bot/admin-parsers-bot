@@ -366,45 +366,22 @@ def parse_product(
                 code = m.group(1)
 
 
-    # =========================
-    # PRICE
-    # =========================
 
+    # =========================
+    # PRICE USD
+    # =========================
+    
     price = ""
-
-    new_price = soup.select_one(
-        ".price__new"
+    
+    box_price = soup.select_one(
+        ".box-card_hryvnia"
     )
-
-    if new_price:
-
+    
+    if box_price:
+    
         price = clean(
-            new_price.get_text()
+            box_price.get_text()
         )
-
-    else:
-
-        box_price = soup.select_one(
-            ".box-card_hryvnia"
-        )
-
-        if box_price:
-
-            price = clean(
-                box_price.get_text()
-            )
-
-        else:
-
-            box_price = soup.select_one(
-                ".box-price__hryvnia"
-            )
-
-            if box_price:
-
-                price = clean(
-                    box_price.get_text()
-                )
 
 
     return [
