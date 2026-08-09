@@ -103,7 +103,34 @@ def login():
         print("✅ LOGIN OK")
     else:
         print("⚠ LOGIN CHECK")
-        
+
+def set_product_group():
+    url = BASE + "/index.php?route=product/category/setGroup"
+
+    try:
+        r = session.get(
+            url,
+            params={"product_group": "1"},
+            headers={
+                "X-Requested-With": "XMLHttpRequest",
+                "Referer": BASE + "/"
+            },
+            timeout=30
+        )
+
+        print("GROUP SKU:", r.status_code, r.text.strip())
+
+        if r.status_code == 200 and "success" in r.text.lower():
+            print("✅ Включено: Сгруппировать по SKU")
+            return True
+
+        print("⚠ Не удалось подтвердить группировку по SKU")
+        return False
+
+    except Exception as e:
+        print("❌ Ошибка группировки:", e)
+        return False
+
 # =========================
 # STATUS
 # =========================
@@ -329,6 +356,8 @@ def run_parser():
         save_status(True, 0, USER, FILE_PATH)
 
         login()
+
+        set_product_group()
 
         wb = Workbook()
         ws = wb.active
