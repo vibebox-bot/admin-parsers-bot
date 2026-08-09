@@ -26,8 +26,8 @@ CATEGORY_LIMIT = 1
 # CATEGORY_LIMIT = None
 
 
-EMAIL = "YOUR_EMAIL"
-PASSWORD = "YOUR_PASSWORD"
+EMAIL = "finik257@gmail.com"
+PASSWORD = "18022021"
 
 
 OUTPUT_DIR = os.path.abspath("output/КМТ")
