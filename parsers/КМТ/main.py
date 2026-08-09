@@ -181,33 +181,52 @@ def clean(t):
 # =========================
 # CATEGORIES
 # =========================
+
 def get_categories():
 
     soup = get_soup(BASE)
 
     cats = []
+    seen = set()
 
     menu = soup.select_one("nav.menu-left > ul")
 
     if not menu:
+        print("❌ Меню категорий не найдено")
         return cats
 
-    for li in menu.find_all("li", recursive=False):
+    def walk_menu(ul):
 
-        a = li.find("a", href=True)
+        for li in ul.find_all("li", recursive=False):
 
-        if not a:
-            continue
+            a = li.find("a", href=True, recursive=False)
 
-        href = a["href"].strip()
+            if a:
 
-        if href.startswith("/"):
-            href = BASE + href
+                href = a["href"].strip()
 
-        cats.append({
-            "name": clean(a.get_text()),
-            "url": href
-        })
+                if href.startswith("/"):
+                    href = BASE + href
+
+                if href.startswith(BASE):
+
+                    if href not in seen:
+
+                        seen.add(href)
+
+                        cats.append({
+                            "name": clean(a.get_text()),
+                            "url": href
+                        })
+
+            child_ul = li.find("ul", recursive=False)
+
+            if child_ul:
+                walk_menu(child_ul)
+
+    walk_menu(menu)
+
+    print(f"📂 Найдено категорий со всеми уровнями: {len(cats)}")
 
     return cats
     
@@ -276,27 +295,57 @@ def parse_product(url, status):
     ]
 
 
-def parse_category(cat_url):
+# =========================
+# PARSE CATEGORY RECURSIVELY
+# =========================
+
+def parse_category(cat_url, visited_categories=None):
+
+    if visited_categories is None:
+        visited_categories = set()
+
+    if cat_url in visited_categories:
+        return []
+
+    visited_categories.add(cat_url)
 
     result = []
-    seen = set()
+    seen_products = set()
+    seen_pages = set()
 
-    url = cat_url
+    print("")
+    print("=" * 70)
+    print("📂 CATEGORY:", cat_url)
+    print("=" * 70)
+
+    # ==========================================================
+    # 1. ОБХОДИМ СТРАНИЦЫ КАТЕГОРИИ
+    # ==========================================================
+
     page = 1
 
-    while url:
+    while True:
 
-        print(f"PAGE {page}")
-        print(f"URL: {url}")
+        if page == 1:
+            url = cat_url
+        else:
+            sep = "&" if "?" in cat_url else "?"
+            url = f"{cat_url}{sep}page={page}&ajax=1"
+
+        if url in seen_pages:
+            break
+
+        seen_pages.add(url)
+
+        print(f"📄 PAGE {page}: {url}")
 
         soup = get_soup(url)
 
         cards = soup.select("div.list-catalog_item")
 
-        print(f"CARDS: {len(cards)}")
+        print(f"   Найдено карточек: {len(cards)}")
 
         if not cards:
-            print("⚠ Товары не найдены — останавливаем категорию")
             break
 
         added = 0
@@ -313,54 +362,128 @@ def parse_category(cat_url):
             if not href:
                 continue
 
+            href = href.strip()
+
             if href.startswith("/"):
                 href = BASE + href
 
-            status = ""
+            # ==================================================
+            # ТОВАР / SKU
+            # ==================================================
 
-            label = card.select_one(".product__label")
+            if href not in seen_products:
 
-            if label:
-                status = clean(label.get_text())
+                seen_products.add(href)
 
-            if href in seen:
-                continue
+                status = ""
 
-            seen.add(href)
+                label = card.select_one(".product__label")
 
-            result.append(
-                parse_product(href, status)
-            )
+                if label:
+                    status = clean(label.get_text())
 
-            added += 1
+                item = parse_product(href, status)
 
-        print(f"FOUND: {added}")
+                if item[2]:
+                    result.append(item)
+                    added += 1
 
-        if added == 0:
+        print(f"   ➕ Добавлено товаров: {added}")
+
+        # ==================================================
+        # NEXT PAGE
+        # ==================================================
+
+        next_button = soup.select_one(".btn__more a")
+
+        if not next_button:
+            print("   ⛔ Следующей страницы нет")
             break
 
-        # =========================================
-        # БЕРЕМ НАСТОЯЩУЮ КНОПКУ "ПОКАЗАТЬ ЕЩЕ"
-        # =========================================
-
-        next_link = soup.select_one(".btn__more a")
-
-        if not next_link:
-            print("✅ Следующей страницы нет")
-            break
-
-        next_url = next_link.get("href")
+        next_url = next_button.get("href")
 
         if not next_url:
-            print("⚠ Ссылка следующей страницы пустая")
             break
 
         if next_url.startswith("/"):
             next_url = BASE + next_url
 
-        url = next_url
+        # Если следующая страница уже была
+        if next_url in seen_pages:
+            break
 
         page += 1
+
+        time.sleep(0.3)
+
+    # ==========================================================
+    # 2. ИЩЕМ ВЛОЖЕННЫЕ КАТЕГОРИИ
+    # ==========================================================
+
+    print("🔎 Ищем подкатегории...")
+
+    soup = get_soup(cat_url)
+
+    subcategories = []
+
+    # Возможные блоки категорий
+    selectors = [
+        ".catalog-group a",
+        ".catalog-category a",
+        ".category-list a",
+        ".sub-category a",
+        ".categories a",
+        ".box-category a"
+    ]
+
+    for selector in selectors:
+
+        for a in soup.select(selector):
+
+            href = a.get("href")
+
+            if not href:
+                continue
+
+            href = href.strip()
+
+            if href.startswith("/"):
+                href = BASE + href
+
+            if not href.startswith(BASE):
+                continue
+
+            # Не считаем товар подкатегорией
+            if href in seen_products:
+                continue
+
+            if href == cat_url:
+                continue
+
+            if href not in subcategories:
+                subcategories.append(href)
+
+    print(f"   📂 Подкатегорий найдено: {len(subcategories)}")
+
+    # ==========================================================
+    # 3. РЕКУРСИЯ
+    # ==========================================================
+
+    for sub_url in subcategories:
+
+        if sub_url in visited_categories:
+            continue
+
+        print("")
+        print("➡️ Переходим в подкатегорию:")
+        print(sub_url)
+
+        sub_items = parse_category(
+            sub_url,
+            visited_categories
+        )
+
+        result.extend(sub_items)
 
         time.sleep(0.3)
 
@@ -388,8 +511,6 @@ def run_parser():
         ws = wb.active
         ws.append(["SKU", "CODE", "TITLE", "PRICE", "STATUS", "URL"])
 
-        seen = set()
-
         cats = get_categories()
 
         #cats = [cats[8]]
@@ -416,6 +537,8 @@ def run_parser():
             )
 
             items = parse_category(cat["url"])
+
+            print(f"📦 ИТОГО ПО КАТЕГОРИИ: {len(items)}")
 
             #print("TOTAL ITEMS:", len(items))
 
