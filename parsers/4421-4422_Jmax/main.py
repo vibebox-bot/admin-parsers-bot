@@ -19,8 +19,8 @@ BASE = "https://www.jmaxtvshop.com.ua"
 # ⚙️ SWITCH
 # =========================
 
-# CATEGORY_LIMIT = 2
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 2
+#CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "18022021"
@@ -929,7 +929,42 @@ def parse_product(url):
     ]
 
 
+# =========================
+# LOST PRODUCTS
+# =========================
 
+def find_lost_products(start_id, end_id, existing_urls):
+
+    found = []
+
+    for pid in range(start_id, end_id + 1):
+
+        url = f"{BASE}/index.php?route=product/product&product_id={pid}"
+
+        if url in existing_urls:
+            continue
+
+        soup = get_soup(url)
+
+        h1 = soup.select_one("h1")
+
+        if not h1:
+            continue
+
+        title = clean(h1.get_text())
+
+        if not title:
+            continue
+
+        item = parse_product(url)
+
+        if item[1]:
+            print(f"🟢 LOST {pid} - {item[1]}")
+            found.append(item)
+
+        time.sleep(0.15)
+
+    return found
 
 # =========================
 # MAIN
@@ -1037,6 +1072,36 @@ def run_parser():
             f"{len(product_urls)}"
         )
 
+        # =========================
+        # 3. LOST PRODUCTS
+        # =========================
+        
+        print("🔍 Ищем потеряшки...")
+        
+        lost_items = find_lost_products(
+            13900,
+            14150,
+            product_seen
+        )
+        
+        for sku, title, price, status, url in lost_items:
+        
+            if url in product_seen:
+                continue
+        
+            product_seen.add(url)
+        
+            ws.append([
+                sku,
+                title,
+                price,
+                status,
+                url
+            ])
+        
+        print(f"🟢 Потеряшек найдено: {len(lost_items)}")
+
+        
         # =========================
         # 2. SITEMAP
         # =========================
