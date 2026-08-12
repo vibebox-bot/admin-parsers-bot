@@ -18,8 +18,8 @@ BASE = "https://kmt5.com.ua"
 # =========================
 # ⚙️ SWITCH
 # =========================
-CATEGORY_LIMIT = None
-#CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 1
 
 EMAIL = "finik257@gmail.com"
 PASSWORD = "18022021"
@@ -350,22 +350,33 @@ def parse_product(
                 code = m.group(1)
 
 
-
     # =========================
     # PRICE USD
     # =========================
     
     price = ""
     
-    box_price = soup.select_one(
-        ".box-card_hryvnia"
+    new_price = soup.select_one(
+        ".price__new"
     )
     
-    if box_price:
+    if new_price:
     
         price = clean(
-            box_price.get_text()
+            new_price.get_text()
         )
+    
+    else:
+    
+        box_price = soup.select_one(
+            ".box-card_hryvnia"
+        )
+    
+        if box_price:
+    
+            price = clean(
+                box_price.get_text()
+            )
 
 
     return [
