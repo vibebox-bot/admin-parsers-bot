@@ -349,26 +349,49 @@ def parse_product(
 
                 code = m.group(1)
 
-
     # =========================
     # PRICE USD
     # =========================
     
     price = ""
     
-    new_price = soup.select_one(
-        ".price__new"
+    price_items = soup.select(
+        ".product__price_item"
     )
     
-    if new_price:
+    for item in price_items:
     
-        price = clean(
-            new_price.get_text()
+        name = item.select_one(
+            ".box-price__name"
         )
     
-    else:
+        if not name:
+            continue
     
-        box_price = soup.select_one(
+        if clean(name.get_text()).lower() != "ваша цена":
+            continue
+    
+        # -------------------------
+        # Вариант со скидкой
+        # -------------------------
+    
+        new_price = item.select_one(
+            ".price__new"
+        )
+    
+        if new_price:
+    
+            price = clean(
+                new_price.get_text()
+            )
+    
+            break
+    
+        # -------------------------
+        # Обычная цена
+        # -------------------------
+    
+        box_price = item.select_one(
             ".box-card_hryvnia"
         )
     
@@ -377,7 +400,24 @@ def parse_product(
             price = clean(
                 box_price.get_text()
             )
-
+    
+            break
+    
+        # -------------------------
+        # Запасной вариант
+        # -------------------------
+    
+        box_price = item.select_one(
+            ".box-price_dollar"
+        )
+    
+        if box_price:
+    
+            price = clean(
+                box_price.get_text()
+            )
+    
+            break
 
     return [
         code,
