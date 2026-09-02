@@ -207,6 +207,13 @@ SUPPLIERS = {
             "status": path("output/240_Tec-Star/status.json"),
             "lock": path("output/240_Tec-Star/lock.txt"),
         }, 
+            "Подгорная Makita": {
+            "name": "Подгорная Makita",
+            "script": "parsers/Makita/run.py",
+            "file": path("output/Makita/Makita_LIVE.xlsx"),
+            "status": path("output/Makita/status.json"),
+            "lock": path("output/Makita/lock.txt"),
+        }, 
 }
 
 
