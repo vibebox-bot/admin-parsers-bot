@@ -190,9 +190,9 @@ def get_categories():
         if href not in categories:
             categories.append(href)
 
-    print(
-        f"📂 Categories: {len(categories)}"
-    )
+    #print(
+        #f"📂 Categories: {len(categories)}"
+    #)
 
     for cat in categories:
         print(
@@ -362,9 +362,9 @@ def parse_products(soup):
 # =========================
 def parse_main():
 
-    print(
-        "🏠 Парсим главную..."
-    )
+    #print(
+        #"🏠 Парсим главную..."
+    #)
 
     soup = get_soup(BASE)
 
@@ -372,9 +372,9 @@ def parse_main():
         soup
     )
 
-    print(
-        f"   Товаров на главной: {len(items)}"
-    )
+    #print(
+        #f"   Товаров на главной: {len(items)}"
+    #)
 
     return items
 
@@ -395,13 +395,13 @@ def parse_category(cat_url):
         first_page
     )
 
-    print(
-        f"📂 {cat_url}"
-    )
+    #print(
+        #f"📂 {cat_url}"
+    #)
 
-    print(
-        f"   📄 Страниц: {last_page}"
-    )
+    #print(
+        #f"   📄 Страниц: {last_page}"
+    #)
 
     for page in range(
         1,
@@ -438,10 +438,10 @@ def parse_category(cat_url):
             items
         )
 
-        print(
-            f"      page {page}: "
-            f"{len(items)} товаров"
-        )
+        #print(
+            #f"      page {page}: "
+            #f"{len(items)} товаров"
+        #)
 
     return all_items
 
@@ -452,9 +452,9 @@ def parse_category(cat_url):
 def run_parser():
 
     if is_locked():
-        print(
-            "⚠ Парсер уже запущен"
-        )
+        #print(
+            #"⚠ Парсер уже запущен"
+        #)
         return
 
     set_lock(True)
