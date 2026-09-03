@@ -176,8 +176,6 @@ def get_categories():
 
     categories = []
 
-    # Берём все ссылки меню,
-    # которые ведут на ?cat=
     for a in soup.select("nav a[href*='?cat=']"):
 
         href = a.get("href", "").strip()
@@ -189,15 +187,6 @@ def get_categories():
 
         if href not in categories:
             categories.append(href)
-
-    #print(
-        #f"📂 Categories: {len(categories)}"
-    #)
-
-    for cat in categories:
-        #print(
-            #f"   {cat}"
-        #)
 
     return categories
 
