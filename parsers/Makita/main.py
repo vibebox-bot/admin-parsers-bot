@@ -195,9 +195,9 @@ def get_categories():
     #)
 
     for cat in categories:
-        print(
-            f"   {cat}"
-        )
+        #print(
+            #f"   {cat}"
+        #)
 
     return categories
 
