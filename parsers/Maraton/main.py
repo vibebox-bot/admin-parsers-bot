@@ -52,17 +52,6 @@ CATEGORY_LIMIT = 2
 
 
 # =========================================================
-# MARATON LOGIN
-# =========================================================
-
-# Вставь свои данные.
-# Я их здесь специально не дублирую.
-
-LOGIN = "+38 (093) 038-0302"
-PASSWORD = "Fizik1995"
-
-
-# =========================================================
 # HTTP
 # =========================================================
 
@@ -101,7 +90,6 @@ def get_session():
         ],
         allowed_methods=[
             "GET",
-            "POST",
         ],
     )
 
@@ -291,192 +279,6 @@ def parse_xml(xml_data):
 
 
 # =========================================================
-# LOGIN
-# =========================================================
-
-def login_maraton(session):
-    if not LOGIN or not PASSWORD:
-        print("⚠ MARATON LOGIN не задан")
-        return False
-
-    login_page_url = "https://maraton.ua/my/"
-
-    response = session.get(
-        login_page_url,
-        timeout=30,
-    )
-
-    response.raise_for_status()
-
-    soup = BeautifulSoup(
-        response.text,
-        "html.parser",
-    )
-
-    # Ищем форму входа.
-    form = None
-
-    for candidate in soup.find_all("form"):
-        text = candidate.get_text(
-            " ",
-            strip=True
-        ).lower()
-
-        if (
-            "пароль" in text
-            or "password" in text
-        ):
-            form = candidate
-            break
-
-    if form is None:
-        raise RuntimeError(
-            "Не найдена форма входа Maraton"
-        )
-
-    action = form.get("action") or "/my/"
-
-    action = normalize_url(
-        requests.compat.urljoin(
-            login_page_url,
-            action,
-        )
-    )
-
-    data = {}
-
-    # Сохраняем hidden-поля формы.
-    for inp in form.find_all("input"):
-        name = inp.get("name")
-
-        if not name:
-            continue
-
-        input_type = (
-            inp.get("type") or ""
-        ).lower()
-
-        if input_type in [
-            "hidden",
-            "submit",
-        ]:
-            value = inp.get("value", "")
-
-            if value:
-                data[name] = value
-
-    # Определяем поле логина/телефона.
-    login_input = None
-
-    for inp in form.find_all("input"):
-        name = (
-            inp.get("name") or ""
-        ).lower()
-
-        input_type = (
-            inp.get("type") or ""
-        ).lower()
-
-        if input_type in [
-            "hidden",
-            "submit",
-            "button",
-        ]:
-            continue
-
-        if any(
-            key in name
-            for key in [
-                "login",
-                "phone",
-                "email",
-                "user",
-            ]
-        ):
-            login_input = inp
-            break
-
-    # Определяем пароль.
-    password_input = form.find(
-        "input",
-        {
-            "type": "password"
-        }
-    )
-
-    if login_input is None:
-        raise RuntimeError(
-            "Не найдено поле логина Maraton"
-        )
-
-    if password_input is None:
-        raise RuntimeError(
-            "Не найдено поле пароля Maraton"
-        )
-
-    login_name = login_input.get("name")
-    password_name = password_input.get("name")
-
-    data[login_name] = LOGIN
-    data[password_name] = PASSWORD
-
-    response = session.post(
-        action,
-        data=data,
-        timeout=30,
-        allow_redirects=True,
-    )
-
-    response.raise_for_status()
-
-    # Проверяем, что после входа сайт не вернул
-    # снова обычную страницу авторизации.
-    soup_after = BeautifulSoup(
-        response.text,
-        "html.parser",
-    )
-
-    page_text = soup_after.get_text(
-        " ",
-        strip=True,
-    ).lower()
-
-    login_markers = [
-        "вход",
-        "войти",
-        "зарегистрироваться",
-        "пароль",
-    ]
-
-    # Если форма логина всё ещё присутствует,
-    # авторизация, скорее всего, не прошла.
-    still_login_form = False
-
-    for candidate in soup_after.find_all("form"):
-        text = candidate.get_text(
-            " ",
-            strip=True
-        ).lower()
-
-        if (
-            "пароль" in text
-            and (
-                "войти" in text
-                or "вход" in text
-            )
-        ):
-            still_login_form = True
-            break
-
-    if still_login_form:
-        raise RuntimeError(
-            "Maraton: не удалось выполнить вход"
-        )
-
-    return True
-
-
-# =========================================================
 # PRODUCT PAGE
 # =========================================================
 
@@ -498,65 +300,32 @@ def parse_product_page(
     )
 
     # -----------------------------------------------------
-    # ПРОВЕРЯЕМ, ЧТО ЭТО НЕ СТРАНИЦА ВХОДА
-    # -----------------------------------------------------
-
-    page_text = soup.get_text(
-        " ",
-        strip=True,
-    ).lower()
-
-    # -----------------------------------------------------
-    # ОПТОВАЯ ЦЕНА
+    # PRICE
     # -----------------------------------------------------
 
     price = ""
 
-    wholesale_block = soup.select_one(
-        ".item-sidebar__price"
+    # Основной селектор из карточки товара.
+    price_el = soup.select_one(
+        ".item-sidebar__price "
+        ".price-number.s-product-price"
     )
 
-    if wholesale_block:
+    if price_el:
 
-        wholesale_label = wholesale_block.select_one(
-            ".price-text.prc__i_reg"
+        price = clean_text(
+            price_el.get("data-price")
         )
 
-        if wholesale_label:
-            label_text = clean_text(
-                wholesale_label.get_text(
+        if not price:
+            price = clean_text(
+                price_el.get_text(
                     " ",
                     strip=True,
                 )
-            ).lower()
+            )
 
-            if (
-                "опт" in label_text
-                or "оптов" in label_text
-            ):
-                price_el = wholesale_block.select_one(
-                    ".price-number.s-product-price"
-                )
-
-                if price_el:
-                    price = clean_text(
-                        price_el.get(
-                            "data-price"
-                        )
-                    )
-
-                    if not price:
-                        price = clean_text(
-                            price_el.get_text(
-                                " ",
-                                strip=True,
-                            )
-                        )
-
-    # -----------------------------------------------------
-    # РЕЗЕРВНЫЙ ВАРИАНТ ЦЕНЫ
-    # -----------------------------------------------------
-
+    # Если основной селектор не найден.
     if not price:
 
         price_el = soup.select_one(
@@ -566,9 +335,7 @@ def parse_product_page(
         if price_el:
 
             price = clean_text(
-                price_el.get(
-                    "data-price"
-                )
+                price_el.get("data-price")
             )
 
             if not price:
@@ -580,10 +347,10 @@ def parse_product_page(
                 )
 
     # -----------------------------------------------------
-    # ВАЛЮТА
+    # CURRENCY
     # -----------------------------------------------------
 
-    currency = "USD"
+    currency = ""
 
     currency_el = soup.select_one(
         'meta[itemprop="priceCurrency"]'
@@ -592,10 +359,13 @@ def parse_product_page(
     if currency_el:
         currency = clean_text(
             currency_el.get("content")
-        ) or "USD"
+        )
+
+    if not currency:
+        currency = "USD"
 
     # -----------------------------------------------------
-    # НАЛИЧИЕ
+    # STOCK
     # -----------------------------------------------------
 
     stock = ""
@@ -605,6 +375,7 @@ def parse_product_page(
     )
 
     if stock_el:
+
         stock = clean_text(
             stock_el.get_text(
                 " ",
@@ -612,8 +383,7 @@ def parse_product_page(
             )
         )
 
-    # Schema.org — только если текстового
-    # статуса нет.
+    # Schema.org как запасной вариант.
     if not stock:
 
         availability_el = soup.select_one(
@@ -679,7 +449,6 @@ def save_excel(rows):
             ]
         )
 
-    # Ширина колонок
     ws.column_dimensions["A"].width = 60
     ws.column_dimensions["B"].width = 14
     ws.column_dimensions["C"].width = 12
@@ -688,7 +457,9 @@ def save_excel(rows):
 
     # Цена числом
     for cell in ws["B"][1:]:
+
         if cell.value:
+
             try:
                 cell.value = float(
                     str(cell.value)
@@ -696,6 +467,7 @@ def save_excel(rows):
                     .replace("$", "")
                     .strip()
                 )
+
             except Exception:
                 pass
 
@@ -756,14 +528,6 @@ def run_parser():
             )
 
         # -------------------------------------------------
-        # LOGIN
-        # -------------------------------------------------
-
-        login_maraton(
-            session
-        )
-
-        # -------------------------------------------------
         # PRODUCTS
         # -------------------------------------------------
 
@@ -795,6 +559,7 @@ def run_parser():
                 stock = result["stock"]
 
             except Exception:
+
                 price_errors += 1
 
             if price:
@@ -843,9 +608,7 @@ def run_parser():
         # SAVE
         # -------------------------------------------------
 
-        save_excel(
-            rows
-        )
+        save_excel(rows)
 
         print(
             f"📦 Products: {len(rows)}"
