@@ -237,6 +237,9 @@ RUNNING_PROCESSES = {}
 DASHBOARD_MESSAGES = {}
 DASHBOARD_OPENED = set()
 
+# Ожидаем XML-ссылку для Maraton
+WAITING_XML = {}
+
 def is_running(key, st):
     return st.get("running") or key in RUNNING_PROCESSES
 
@@ -674,22 +677,158 @@ async def start(message: types.Message):
     )
 
     DASHBOARD_MESSAGES[message.chat.id] = msg.message_id
+
+# =========================
+# XML ДЛЯ MARATON
+# =========================
+
+@dp.message()
+async def receive_xml(message: types.Message):
+
+    chat_id = message.chat.id
+
+    # Ждём XML только если пользователь нажал Maraton
+    if chat_id not in WAITING_XML:
+        return
+
+    key = WAITING_XML.pop(chat_id)
+
+    if key != "Maraton":
+        return
+
+    xml_url = (message.text or "").strip()
+
+    if not xml_url.startswith(("http://", "https://")):
+
+        WAITING_XML[chat_id] = "Maraton"
+
+        await message.answer(
+            "❌ Это не похоже на ссылку.\n\n"
+            "🔗 Вставьте ссылку на XML-файл:"
+        )
+
+        return
+
+    # Проверяем, не запущен ли Maraton
+    if key in RUNNING_PROCESSES:
+
+        await message.answer(
+            "⚠️ Maraton уже работает"
+        )
+
+        return
+
+    s = SUPPLIERS[key]
+
+    st = load_json(s["status"])
+
+    if st.get("running"):
+
+        await message.answer(
+            "⚠️ Maraton уже запущен"
+        )
+
+        return
+
+    st["running"] = True
+    st["success"] = False
+    st["canceled"] = False
+    st["progress"] = 0
+
+    with open(
+        s["status"],
+        "w",
+        encoding="utf-8"
+    ) as f:
+
+        json.dump(
+            st,
+            f,
+            ensure_ascii=False,
+            indent=2
+        )
+
+    async def parser_job():
+
+        code = await run_parser(
+            key,
+            message.from_user.full_name,
+            xml_url
+        )
+
+        st = load_json(s["status"]) or {}
+
+        st["running"] = False
+
+        if code == "canceled":
+
+            st["canceled"] = True
+            st["success"] = False
+
+        elif code == 0:
+
+            st["canceled"] = False
+            st["progress"] = 100
+            st["success"] = True
+
+        else:
+
+            st["canceled"] = False
+            st["progress"] = 0
+            st["success"] = False
+
+        with open(
+            s["status"],
+            "w",
+            encoding="utf-8"
+        ) as f:
+
+            json.dump(
+                st,
+                f,
+                ensure_ascii=False,
+                indent=2
+            )
+
+        if os.path.exists(s["lock"]):
+
+            try:
+                os.remove(s["lock"])
+            except:
+                pass
+
+    asyncio.create_task(parser_job())
+
+    await message.answer(
+        "🚀 <b>Maraton</b>\n\n"
+        "📦 XML получен\n"
+        "🔎 Запускаю парсер...",
+        parse_mode="HTML"
+    )
     
 # =========================
 # RUN PARSER
 # =========================
-async def run_parser(key, user):
+async def run_parser(key, user, xml_url=None):    
     s = SUPPLIERS[key]
 
     import sys
 
-    proc = await asyncio.create_subprocess_exec(
+    args = [
         sys.executable,
         s["script"],
-        user,
+        user
+    ]
+    
+    if key == "Maraton" and xml_url:
+        args.append(xml_url)
+    
+    proc = await asyncio.create_subprocess_exec(
+        *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE
     )
+    
 
     RUNNING_PROCESSES[key] = proc
 
@@ -938,7 +1077,8 @@ async def cb(call: types.CallbackQuery):
                 show_alert=True
             )
             return
-    
+
+        
         st = load_json(s["status"])
     
         if st.get("running"):
@@ -947,6 +1087,45 @@ async def cb(call: types.CallbackQuery):
                 show_alert=True
             )
             return
+
+        # =========================
+        # MARATON — ЗАПРОС XML
+        # =========================
+    
+        if key == "Maraton":
+    
+            WAITING_XML[call.message.chat.id] = "Maraton"
+    
+            await call.message.edit_text(
+                "🔗 <b>Где взять XML для Maraton?</b>\n\n"
+    
+                "1️⃣ Войдите в свой аккаунт на сайте Maraton.\n\n"
+
+                "2️⃣ Откройте раздел "
+                "<b>«Опт»</b>:\n"
+                '<a href="https://maraton.ua/opt/">https://maraton.ua/opt/</a>\n\n'
+    
+                "3️⃣ Найдите блок:\n"
+                "<b>«Завантажте наш каталог собі на сайт "
+                "за допомогою YML/XML-прайсу»</b>\n\n"
+    
+                "4️⃣ Выберите:\n"
+                "<b>«Класичний XML варіант з артикулами»</b>\n\n"
+    
+                "5️⃣ Скопируйте ссылку на XML и отправьте её сюда.\n\n"
+    
+                "📎 <b>Пример:</b>\n"
+                "https://maraton.ua/yandexmarket/"
+                "97211e2f-3247-455b-9cd3-59c441963309.xml\n\n"
+    
+                "👇 <b>Вставьте ссылку на XML:</b>",
+    
+                parse_mode="HTML"
+            )
+    
+            return
+
+        
     
         st["running"] = True
         st["success"] = False
