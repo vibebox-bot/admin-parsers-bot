@@ -25,12 +25,12 @@ GOOGLE_SHEET_ID = "1ROCGu-3W8PotpQSIgzHRDkXCiDeHU0_dzEjuRnkNHv0"
 # =========================
 
 # Для теста
-CATEGORY_LIMIT = 2
-PRODUCT_LIMIT = 50
+#CATEGORY_LIMIT = 2
+#PRODUCT_LIMIT = 50
 
 # Для полного парсинга
-#CATEGORY_LIMIT = None
-#PRODUCT_LIMIT = None
+CATEGORY_LIMIT = None
+PRODUCT_LIMIT = None
 
 OUTPUT_DIR = os.path.abspath("output/ARIZONE_Sports")
 FILE_PATH = os.path.join(OUTPUT_DIR, "ARIZONE_Sports_LIVE.xlsx")
