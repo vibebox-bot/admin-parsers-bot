@@ -282,128 +282,99 @@ def parse_xml(xml_data):
 # PRODUCT PAGE
 # =========================================================
 
-def parse_product_page(
-    session,
-    url,
-):
-    response = session.get(
-        url,
-        timeout=30,
-        allow_redirects=True,
-    )
+from urllib.parse import urlparse, parse_qs
 
+
+def parse_product_page(session, url):
+    response = session.get(url, timeout=30)
     response.raise_for_status()
 
-    soup = BeautifulSoup(
-        response.text,
-        "html.parser",
-    )
+    soup = BeautifulSoup(response.text, "html.parser")
 
-    # -----------------------------------------------------
-    # PRICE
-    # -----------------------------------------------------
+    # SKU из URL: ?sku=4562
+    parsed_url = urlparse(url)
+    query = parse_qs(parsed_url.query)
+    sku = query.get("sku", [""])[0].strip()
 
     price = ""
+    currency = "USD"
+    stock = ""
 
-    # Основной селектор из карточки товара.
-    price_el = soup.select_one(
-        ".item-sidebar__price "
-        ".price-number.s-product-price"
-    )
+    # Ищем именно выбранный SKU
+    sku_input = None
 
-    if price_el:
+    if sku:
+        for inp in soup.select('input[name="sku_id"]'):
+            if clean_text(inp.get("value")) == sku:
+                sku_input = inp
+                break
 
-        price = clean_text(
-            price_el.get("data-price")
-        )
+    # Если SKU в URL нет — берем выбранный вариант
+    if not sku_input:
+        sku_input = soup.select_one('input[name="sku_id"][checked]')
 
-        if not price:
-            price = clean_text(
-                price_el.get_text(
-                    " ",
-                    strip=True,
-                )
+    if sku_input:
+        # ВАЖНО: цена именно выбранного SKU
+        price = clean_text(sku_input.get("data-price"))
+
+        # Валюта
+        label = sku_input.find_parent("label")
+
+        if label:
+            currency_meta = label.select_one(
+                'meta[itemprop="priceCurrency"]'
             )
 
-    # Если основной селектор не найден.
-    if not price:
+            if currency_meta:
+                currency = clean_text(
+                    currency_meta.get("content")
+                ) or "USD"
 
+        # Наличие именно выбранного SKU
+        if sku:
+            stock_el = soup.select_one(
+                f".sku-{sku}-stock .stock-text"
+            )
+
+            if stock_el:
+                stock = clean_text(
+                    stock_el.get_text(" ", strip=True)
+                )
+
+        # Запасной вариант определения наличия
+        if not stock and label:
+            availability = label.select_one(
+                'link[itemprop="availability"]'
+            )
+
+            if availability:
+                href = clean_text(
+                    availability.get("href")
+                ).lower()
+
+                if "instock" in href:
+                    stock = "В наличии"
+                elif "outofstock" in href:
+                    stock = "Нет в наличии"
+
+    # Последний fallback — видимая цена на странице
+    # НЕ берем data-price отсюда
+    if not price:
         price_el = soup.select_one(
-            ".price-number.s-product-price"
+            ".item-sidebar__price .price-number.s-product-price"
         )
 
         if price_el:
-
-            price = clean_text(
-                price_el.get("data-price")
+            price_text = clean_text(
+                price_el.get_text(" ", strip=True)
             )
 
-            if not price:
-                price = clean_text(
-                    price_el.get_text(
-                        " ",
-                        strip=True,
-                    )
-                )
-
-    # -----------------------------------------------------
-    # CURRENCY
-    # -----------------------------------------------------
-
-    currency = ""
-
-    currency_el = soup.select_one(
-        'meta[itemprop="priceCurrency"]'
-    )
-
-    if currency_el:
-        currency = clean_text(
-            currency_el.get("content")
-        )
-
-    if not currency:
-        currency = "USD"
-
-    # -----------------------------------------------------
-    # STOCK
-    # -----------------------------------------------------
-
-    stock = ""
-
-    stock_el = soup.select_one(
-        ".stock-text"
-    )
-
-    if stock_el:
-
-        stock = clean_text(
-            stock_el.get_text(
-                " ",
-                strip=True,
+            price = (
+                price_text
+                .replace("$", "")
+                .replace(",", ".")
+                .strip()
             )
-        )
-
-    # Schema.org как запасной вариант.
-    if not stock:
-
-        availability_el = soup.select_one(
-            'link[itemprop="availability"]'
-        )
-
-        if availability_el:
-
-            href = clean_text(
-                availability_el.get("href")
-            ).lower()
-
-            if "instock" in href:
-                stock = "В наличии"
-
-            elif "outofstock" in href:
-                stock = "Нет в наличии"
-
-            elif "preorder" in href:
-                stock = "Под заказ"
 
     return {
         "price": price,
