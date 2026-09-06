@@ -3,6 +3,8 @@ import sys
 import json
 import time
 import re
+import xml.etree.ElementTree as ET
+
 
 import requests
 from bs4 import BeautifulSoup
@@ -161,27 +163,24 @@ def parse_xml(session):
 
     response.raise_for_status()
 
-    soup = BeautifulSoup(
-        response.content,
-        "xml"
-    )
+    root = ET.fromstring(response.content)
 
     offers = []
 
-    for offer in soup.find_all("offer"):
+    for offer in root.iter("offer"):
 
         url_el = offer.find("url")
         name_el = offer.find("name")
 
-        if not url_el or not name_el:
+        if url_el is None or name_el is None:
             continue
 
         url = clean_text(
-            url_el.get_text(" ", strip=True)
+            url_el.text
         )
 
         name = clean_text(
-            name_el.get_text(" ", strip=True)
+            name_el.text
         )
 
         if not url:
