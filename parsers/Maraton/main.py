@@ -13,32 +13,50 @@ from urllib3.util.retry import Retry
 
 
 # =========================================================
-# НАСТРОЙКИ
+# SETTINGS
 # =========================================================
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-XML_URL = "https://maraton.ua/yandexmarket/97211e2f-3247-455b-9cd3-59c441963309.xml"
+XML_URL = (
+    "https://maraton.ua/yandexmarket/"
+    "97211e2f-3247-455b-9cd3-59c441963309.xml"
+)
 
 OUTPUT_DIR = os.path.abspath("output/Maraton")
-FILE_PATH = os.path.join(OUTPUT_DIR, "Maraton_LIVE.xlsx")
-STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
-LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
-# ТЕСТ
-CATEGORY_LIMIT = 20
+FILE_PATH = os.path.join(
+    OUTPUT_DIR,
+    "Maraton_LIVE.xlsx"
+)
 
-# После проверки:
+STATUS_PATH = os.path.join(
+    OUTPUT_DIR,
+    "status.json"
+)
+
+LOCK_FILE = os.path.join(
+    OUTPUT_DIR,
+    "lock.txt"
+)
+
+
+# =========================================================
+# TEST MODE
+# =========================================================
+
+CATEGORY_LIMIT = 2
+
+# Для полного запуска:
 # CATEGORY_LIMIT = None
 
 
 # =========================================================
-# АВТОРИЗАЦИЯ
+# MARATON LOGIN
 # =========================================================
 
-# Данные сюда не вставляю.
-# Если сайт без авторизации не показывает Опт,
-# заполни эти две строки своими данными.
+# Вставь свои данные.
+# Я их здесь специально не дублирую.
 
 LOGIN = ""
 PASSWORD = ""
@@ -55,10 +73,13 @@ HEADERS = {
         "Chrome/139.0.0.0 Safari/537.36"
     ),
     "Accept": (
-        "text/html,application/xhtml+xml,application/xml;"
-        "q=0.9,image/avif,image/webp,*/*;q=0.8"
+        "text/html,application/xhtml+xml,"
+        "application/xml;q=0.9,image/avif,"
+        "image/webp,*/*;q=0.8"
     ),
-    "Accept-Language": "uk-UA,uk;q=0.9,ru;q=0.8,en;q=0.7",
+    "Accept-Language": (
+        "uk-UA,uk;q=0.9,ru;q=0.8,en;q=0.7"
+    ),
     "Connection": "keep-alive",
 }
 
@@ -71,8 +92,17 @@ def get_session():
         connect=3,
         read=3,
         backoff_factor=0.5,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["GET", "POST"],
+        status_forcelist=[
+            429,
+            500,
+            502,
+            503,
+            504,
+        ],
+        allowed_methods=[
+            "GET",
+            "POST",
+        ],
     )
 
     adapter = HTTPAdapter(
@@ -81,12 +111,44 @@ def get_session():
         pool_maxsize=10,
     )
 
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
+    session.mount(
+        "https://",
+        adapter,
+    )
+
+    session.mount(
+        "http://",
+        adapter,
+    )
 
     session.headers.update(HEADERS)
 
     return session
+
+
+# =========================================================
+# HELPERS
+# =========================================================
+
+def clean_text(value):
+    if not value:
+        return ""
+
+    return " ".join(
+        str(value).split()
+    ).strip()
+
+
+def normalize_url(url):
+    url = clean_text(url)
+
+    if url.startswith("//"):
+        return "https:" + url
+
+    if url.startswith("http://"):
+        return "https://" + url[7:]
+
+    return url
 
 
 # =========================================================
@@ -96,24 +158,40 @@ def get_session():
 def write_status(
     running=True,
     progress=0,
-    file_path=None,
 ):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(
+        OUTPUT_DIR,
+        exist_ok=True,
+    )
 
     data = {
         "running": running,
         "progress": progress,
         "user": USER,
-        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "file_path": file_path or FILE_PATH,
+        "time": datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
+        "file_path": FILE_PATH,
     }
 
     tmp_path = STATUS_PATH + ".tmp"
 
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with open(
+        tmp_path,
+        "w",
+        encoding="utf-8",
+    ) as f:
+        json.dump(
+            data,
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
 
-    os.replace(tmp_path, STATUS_PATH)
+    os.replace(
+        tmp_path,
+        STATUS_PATH,
+    )
 
 
 # =========================================================
@@ -121,20 +199,33 @@ def write_status(
 # =========================================================
 
 def acquire_lock():
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(
+        OUTPUT_DIR,
+        exist_ok=True,
+    )
 
     if os.path.exists(LOCK_FILE):
         try:
-            age = time.time() - os.path.getmtime(LOCK_FILE)
+            age = (
+                time.time()
+                - os.path.getmtime(LOCK_FILE)
+            )
 
             if age > 3600:
                 os.remove(LOCK_FILE)
             else:
-                raise RuntimeError("Maraton parser уже запущен.")
+                raise RuntimeError(
+                    "Maraton parser уже запущен."
+                )
+
         except FileNotFoundError:
             pass
 
-    with open(LOCK_FILE, "w", encoding="utf-8") as f:
+    with open(
+        LOCK_FILE,
+        "w",
+        encoding="utf-8",
+    ) as f:
         f.write(
             json.dumps(
                 {
@@ -154,29 +245,6 @@ def release_lock():
             os.remove(LOCK_FILE)
     except Exception:
         pass
-
-
-# =========================================================
-# HELPERS
-# =========================================================
-
-def clean_text(value):
-    if not value:
-        return ""
-
-    return " ".join(str(value).split()).strip()
-
-
-def normalize_url(url):
-    url = clean_text(url)
-
-    if url.startswith("//"):
-        return "https:" + url
-
-    if url.startswith("http://"):
-        return "https://" + url[7:]
-
-    return url
 
 
 # =========================================================
@@ -200,10 +268,16 @@ def parse_xml(xml_data):
     offers = []
 
     for offer in root.findall(".//offer"):
-        url = clean_text(offer.findtext("url"))
-        name = clean_text(offer.findtext("name"))
 
-        if not url or not name:
+        name = clean_text(
+            offer.findtext("name")
+        )
+
+        url = clean_text(
+            offer.findtext("url")
+        )
+
+        if not name or not url:
             continue
 
         offers.append(
@@ -217,24 +291,137 @@ def parse_xml(xml_data):
 
 
 # =========================================================
-# АВТОРИЗАЦИЯ MARATON
+# LOGIN
 # =========================================================
 
 def login_maraton(session):
     if not LOGIN or not PASSWORD:
+        print("⚠ MARATON LOGIN не задан")
         return False
 
-    login_url = "https://maraton.ua/login/"
+    login_page_url = "https://maraton.ua/my/"
 
-    data = {
-        "login": LOGIN,
-        "password": PASSWORD,
-        "remember": "1",
-        "wa_auth_login": "1",
-    }
+    response = session.get(
+        login_page_url,
+        timeout=30,
+    )
+
+    response.raise_for_status()
+
+    soup = BeautifulSoup(
+        response.text,
+        "html.parser",
+    )
+
+    # Ищем форму входа.
+    form = None
+
+    for candidate in soup.find_all("form"):
+        text = candidate.get_text(
+            " ",
+            strip=True
+        ).lower()
+
+        if (
+            "пароль" in text
+            or "password" in text
+        ):
+            form = candidate
+            break
+
+    if form is None:
+        raise RuntimeError(
+            "Не найдена форма входа Maraton"
+        )
+
+    action = form.get("action") or "/my/"
+
+    action = normalize_url(
+        requests.compat.urljoin(
+            login_page_url,
+            action,
+        )
+    )
+
+    data = {}
+
+    # Сохраняем hidden-поля формы.
+    for inp in form.find_all("input"):
+        name = inp.get("name")
+
+        if not name:
+            continue
+
+        input_type = (
+            inp.get("type") or ""
+        ).lower()
+
+        if input_type in [
+            "hidden",
+            "submit",
+        ]:
+            value = inp.get("value", "")
+
+            if value:
+                data[name] = value
+
+    # Определяем поле логина/телефона.
+    login_input = None
+
+    for inp in form.find_all("input"):
+        name = (
+            inp.get("name") or ""
+        ).lower()
+
+        input_type = (
+            inp.get("type") or ""
+        ).lower()
+
+        if input_type in [
+            "hidden",
+            "submit",
+            "button",
+        ]:
+            continue
+
+        if any(
+            key in name
+            for key in [
+                "login",
+                "phone",
+                "email",
+                "user",
+            ]
+        ):
+            login_input = inp
+            break
+
+    # Определяем пароль.
+    password_input = form.find(
+        "input",
+        {
+            "type": "password"
+        }
+    )
+
+    if login_input is None:
+        raise RuntimeError(
+            "Не найдено поле логина Maraton"
+        )
+
+    if password_input is None:
+        raise RuntimeError(
+            "Не найдено поле пароля Maraton"
+        )
+
+    login_name = login_input.get("name")
+    password_name = password_input.get("name")
+
+    data[login_name] = LOGIN
+    data[password_name] = PASSWORD
 
     response = session.post(
-        login_url,
+        action,
         data=data,
         timeout=30,
         allow_redirects=True,
@@ -242,25 +429,61 @@ def login_maraton(session):
 
     response.raise_for_status()
 
-    # Проверяем, появились ли признаки авторизованного пользователя.
-    text = response.text.lower()
+    # Проверяем, что после входа сайт не вернул
+    # снова обычную страницу авторизации.
+    soup_after = BeautifulSoup(
+        response.text,
+        "html.parser",
+    )
 
-    auth_markers = [
-        "выйти",
-        "вихід",
-        "logout",
-        "личный кабинет",
-        "особистий кабінет",
+    page_text = soup_after.get_text(
+        " ",
+        strip=True,
+    ).lower()
+
+    login_markers = [
+        "вход",
+        "войти",
+        "зарегистрироваться",
+        "пароль",
     ]
 
-    return any(marker in text for marker in auth_markers)
+    # Если форма логина всё ещё присутствует,
+    # авторизация, скорее всего, не прошла.
+    still_login_form = False
+
+    for candidate in soup_after.find_all("form"):
+        text = candidate.get_text(
+            " ",
+            strip=True
+        ).lower()
+
+        if (
+            "пароль" in text
+            and (
+                "войти" in text
+                or "вход" in text
+            )
+        ):
+            still_login_form = True
+            break
+
+    if still_login_form:
+        raise RuntimeError(
+            "Maraton: не удалось выполнить вход"
+        )
+
+    return True
 
 
 # =========================================================
-# ПАРСИНГ СТРАНИЦЫ ТОВАРА
+# PRODUCT PAGE
 # =========================================================
 
-def parse_product_page(session, url):
+def parse_product_page(
+    session,
+    url,
+):
     response = session.get(
         url,
         timeout=30,
@@ -275,42 +498,92 @@ def parse_product_page(session, url):
     )
 
     # -----------------------------------------------------
-    # ЦЕНА
+    # ПРОВЕРЯЕМ, ЧТО ЭТО НЕ СТРАНИЦА ВХОДА
+    # -----------------------------------------------------
+
+    page_text = soup.get_text(
+        " ",
+        strip=True,
+    ).lower()
+
+    # -----------------------------------------------------
+    # ОПТОВАЯ ЦЕНА
     # -----------------------------------------------------
 
     price = ""
 
-    # Основной вариант из карточки товара.
-    price_el = soup.select_one(
-        ".item-sidebar__price .price-number.s-product-price"
+    wholesale_block = soup.select_one(
+        ".item-sidebar__price"
     )
 
-    if price_el:
-        price = clean_text(
-            price_el.get("data-price")
+    if wholesale_block:
+
+        wholesale_label = wholesale_block.select_one(
+            ".price-text.prc__i_reg"
         )
 
-        if not price:
-            price = clean_text(
-                price_el.get_text(" ", strip=True)
-            )
+        if wholesale_label:
+            label_text = clean_text(
+                wholesale_label.get_text(
+                    " ",
+                    strip=True,
+                )
+            ).lower()
 
-    # Запасной вариант.
+            if (
+                "опт" in label_text
+                or "оптов" in label_text
+            ):
+                price_el = wholesale_block.select_one(
+                    ".price-number.s-product-price"
+                )
+
+                if price_el:
+                    price = clean_text(
+                        price_el.get(
+                            "data-price"
+                        )
+                    )
+
+                    if not price:
+                        price = clean_text(
+                            price_el.get_text(
+                                " ",
+                                strip=True,
+                            )
+                        )
+
+    # -----------------------------------------------------
+    # РЕЗЕРВНЫЙ ВАРИАНТ ЦЕНЫ
+    # -----------------------------------------------------
+
     if not price:
+
         price_el = soup.select_one(
-            'meta[itemprop="price"]'
+            ".price-number.s-product-price"
         )
 
         if price_el:
+
             price = clean_text(
-                price_el.get("content")
+                price_el.get(
+                    "data-price"
+                )
             )
+
+            if not price:
+                price = clean_text(
+                    price_el.get_text(
+                        " ",
+                        strip=True,
+                    )
+                )
 
     # -----------------------------------------------------
     # ВАЛЮТА
     # -----------------------------------------------------
 
-    currency = ""
+    currency = "USD"
 
     currency_el = soup.select_one(
         'meta[itemprop="priceCurrency"]'
@@ -319,10 +592,7 @@ def parse_product_page(session, url):
     if currency_el:
         currency = clean_text(
             currency_el.get("content")
-        )
-
-    if not currency:
-        currency = "USD"
+        ) or "USD"
 
     # -----------------------------------------------------
     # НАЛИЧИЕ
@@ -336,29 +606,33 @@ def parse_product_page(session, url):
 
     if stock_el:
         stock = clean_text(
-            stock_el.get_text(" ", strip=True)
+            stock_el.get_text(
+                " ",
+                strip=True,
+            )
         )
 
-    # Если текстового статуса нет — смотрим schema.org.
+    # Schema.org — только если текстового
+    # статуса нет.
     if not stock:
+
         availability_el = soup.select_one(
             'link[itemprop="availability"]'
         )
 
         if availability_el:
+
             href = clean_text(
                 availability_el.get("href")
-            )
+            ).lower()
 
-            href_lower = href.lower()
-
-            if "instock" in href_lower:
+            if "instock" in href:
                 stock = "В наличии"
 
-            elif "outofstock" in href_lower:
+            elif "outofstock" in href:
                 stock = "Нет в наличии"
 
-            elif "preorder" in href_lower:
+            elif "preorder" in href:
                 stock = "Под заказ"
 
     return {
@@ -373,9 +647,13 @@ def parse_product_page(session, url):
 # =========================================================
 
 def save_excel(rows):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(
+        OUTPUT_DIR,
+        exist_ok=True,
+    )
 
     wb = Workbook()
+
     ws = wb.active
     ws.title = "Maraton"
 
@@ -390,6 +668,7 @@ def save_excel(rows):
     ws.append(headers)
 
     for row in rows:
+
         ws.append(
             [
                 row["name"],
@@ -401,23 +680,21 @@ def save_excel(rows):
         )
 
     # Ширина колонок
-    widths = {
-        "A": 55,
-        "B": 14,
-        "C": 12,
-        "D": 20,
-        "E": 80,
-    }
-
-    for column, width in widths.items():
-        ws.column_dimensions[column].width = width
+    ws.column_dimensions["A"].width = 60
+    ws.column_dimensions["B"].width = 14
+    ws.column_dimensions["C"].width = 12
+    ws.column_dimensions["D"].width = 20
+    ws.column_dimensions["E"].width = 90
 
     # Цена числом
     for cell in ws["B"][1:]:
         if cell.value:
             try:
                 cell.value = float(
-                    str(cell.value).replace(",", ".")
+                    str(cell.value)
+                    .replace(",", ".")
+                    .replace("$", "")
+                    .strip()
                 )
             except Exception:
                 pass
@@ -425,47 +702,66 @@ def save_excel(rows):
     tmp_file = FILE_PATH + ".tmp"
 
     wb.save(tmp_file)
-    os.replace(tmp_file, FILE_PATH)
+
+    os.replace(
+        tmp_file,
+        FILE_PATH,
+    )
 
 
 # =========================================================
-# MAIN
+# RUN
 # =========================================================
 
 def run_parser():
+
     print("🔥 Maraton")
 
     acquire_lock()
-    write_status(True, 0)
+
+    write_status(
+        True,
+        0,
+    )
 
     try:
+
         session = get_session()
 
         # -------------------------------------------------
         # XML
         # -------------------------------------------------
 
-        xml_data = fetch_xml(session)
-        offers = parse_xml(xml_data)
+        xml_data = fetch_xml(
+            session
+        )
 
-        print(f"📦 Offers: {len(offers)}")
+        offers = parse_xml(
+            xml_data
+        )
+
+        print(
+            f"📦 Offers: {len(offers)}"
+        )
 
         if CATEGORY_LIMIT is not None:
-            offers = offers[:CATEGORY_LIMIT]
+
+            offers = offers[
+                :CATEGORY_LIMIT
+            ]
 
             print(
-                f"🧪 TEST MODE: {len(offers)} offers"
+                f"🧪 TEST MODE: "
+                f"{len(offers)} offers"
             )
 
         # -------------------------------------------------
         # LOGIN
         # -------------------------------------------------
 
-        if LOGIN and PASSWORD:
-            try:
-                login_maraton(session)
-            except Exception:
-                pass
+        login_maraton(
+            session
+        )
 
         # -------------------------------------------------
         # PRODUCTS
@@ -482,11 +778,13 @@ def run_parser():
             offers,
             start=1,
         ):
+
             price = ""
             currency = ""
             stock = ""
 
             try:
+
                 result = parse_product_page(
                     session,
                     offer["url"],
@@ -501,8 +799,6 @@ def run_parser():
 
             if price:
                 prices_ok += 1
-            else:
-                price_errors += 1
 
             rows.append(
                 {
@@ -514,9 +810,11 @@ def run_parser():
                 }
             )
 
-            progress = int(
-                index / total * 100
-            ) if total else 100
+            progress = (
+                int(index / total * 100)
+                if total
+                else 100
+            )
 
             write_status(
                 True,
@@ -545,7 +843,9 @@ def run_parser():
         # SAVE
         # -------------------------------------------------
 
-        save_excel(rows)
+        save_excel(
+            rows
+        )
 
         print(
             f"📦 Products: {len(rows)}"
@@ -554,13 +854,18 @@ def run_parser():
         write_status(
             False,
             100,
-            FILE_PATH,
         )
 
-        print("✅ Готово. Maraton")
+        print(
+            "✅ Готово. Maraton"
+        )
 
     except Exception as e:
-        write_status(False, 0)
+
+        write_status(
+            False,
+            0,
+        )
 
         print(
             f"❌ Ошибка Maraton: {e}"
@@ -569,6 +874,7 @@ def run_parser():
         raise
 
     finally:
+
         release_lock()
 
 
