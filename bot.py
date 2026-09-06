@@ -200,6 +200,14 @@ SUPPLIERS = {
             "lock": path("output/LunaBag/lock.txt"),
         }, 
     
+            "LunaBag_new": {
+            "name": "LunaBag_new",
+            "script": "parsers/LunaBag_new/run.py",
+            "file": path("output/LunaBag_new/LunaBag_new_LIVE.xlsx"),
+            "status": path("output/LunaBag_new/status.json"),
+            "lock": path("output/LunaBag_new/lock.txt"),
+        }, 
+    
             "Харьковская 240 Tec-Star": {
             "name": "Харьковская 240 Tec-Star",
             "script": "parsers/240_Tec-Star/run.py",
