@@ -799,12 +799,24 @@ async def receive_xml(message: types.Message):
 
     asyncio.create_task(parser_job())
 
-    await message.answer(
-        "🚀 <b>Maraton</b>\n\n"
-        "📦 XML получен\n"
-        "🔎 Запускаю парсер...",
-        parse_mode="HTML"
-    )
+    # Возвращаем пользователя на дашборд
+    try:
+        dashboard_msg = await message.answer(
+            dashboard_text(),
+            reply_markup=kb_dashboard(),
+            parse_mode="HTML"
+        )
+
+        DASHBOARD_MESSAGES[
+            message.chat.id
+        ] = dashboard_msg.message_id
+
+        DASHBOARD_OPENED.discard(
+            message.chat.id
+        )
+
+    except Exception as e:
+        print("DASHBOARD RETURN ERROR:", e)
     
 # =========================
 # RUN PARSER
