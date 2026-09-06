@@ -5,6 +5,7 @@ import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from openpyxl import Workbook
+from bs4 import BeautifulSoup
 import sys
 
 
@@ -12,16 +13,22 @@ USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 print("🔥 Maraton")
 
-
 # =========================================================
-# НАСТРОЙКИ
+# XML
 # =========================================================
 
 XML_URL = "https://maraton.ua/yandexmarket/97211e2f-3247-455b-9cd3-59c441963309.xml"
 
+# ТЕСТ
 CATEGORY_LIMIT = 2
+
+# ПОЛНЫЙ ЗАПУСК
 # CATEGORY_LIMIT = None
 
+
+# =========================================================
+# PATHS
+# =========================================================
 
 OUTPUT_DIR = os.path.abspath("output/Maraton")
 FILE_PATH = os.path.join(OUTPUT_DIR, "Maraton_LIVE.xlsx")
@@ -29,10 +36,18 @@ STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0"
-}
+# =========================================================
+# SESSION
+# =========================================================
 
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/140.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+}
 
 session = requests.Session()
 session.headers.update(HEADERS)
@@ -55,7 +70,7 @@ def is_locked():
 
         return True
 
-    except:
+    except Exception:
         return False
 
 
@@ -110,7 +125,7 @@ def save_status(
 
 def download_xml():
 
-    for _ in range(3):
+    for attempt in range(3):
 
         try:
             response = session.get(
@@ -122,12 +137,14 @@ def download_xml():
 
             return response.content
 
-        except Exception:
-            time.sleep(2)
+        except Exception as e:
 
-    raise Exception(
-        "Не удалось скачать XML Maraton"
-    )
+            if attempt == 2:
+                raise Exception(
+                    f"Не удалось скачать XML Maraton: {e}"
+                )
+
+            time.sleep(2)
 
 
 def get_text(element, tag):
@@ -142,10 +159,6 @@ def get_text(element, tag):
     )
 
 
-# =========================================================
-# PARSE XML
-# =========================================================
-
 def parse_xml(xml_data):
 
     root = ET.fromstring(xml_data)
@@ -158,7 +171,155 @@ def parse_xml(xml_data):
 
 
 # =========================================================
-# RUN PARSER
+# PRODUCT PAGE
+# =========================================================
+
+def get_product_data(url, xml_price="", xml_available=""):
+
+    if not url:
+        return xml_price, (
+            "В наличии"
+            if xml_available == "true"
+            else "Нет в наличии"
+        )
+
+    # XML иногда содержит http
+    # переводим на https
+    if url.startswith("http://maraton.ua"):
+        url = url.replace(
+            "http://maraton.ua",
+            "https://maraton.ua",
+            1
+        )
+
+    for attempt in range(3):
+
+        try:
+
+            response = session.get(
+                url,
+                timeout=30
+            )
+
+            response.raise_for_status()
+
+            soup = BeautifulSoup(
+                response.text,
+                "html.parser"
+            )
+
+            # =================================================
+            # ЦЕНА
+            # =================================================
+
+            price = ""
+
+            # Основной вариант
+            price_element = soup.select_one(
+                ".price-number.s-product-price"
+            )
+
+            if price_element:
+
+                price = (
+                    price_element.get("data-price")
+                    or price_element.get_text(
+                        " ",
+                        strip=True
+                    )
+                ).strip()
+
+            # Запасной вариант:
+            # <meta itemprop="price" content="39">
+            if not price:
+
+                meta_price = soup.select_one(
+                    'meta[itemprop="price"]'
+                )
+
+                if meta_price:
+
+                    price = (
+                        meta_price.get("content")
+                        or ""
+                    ).strip()
+
+            # =================================================
+            # НАЛИЧИЕ
+            # =================================================
+
+            status = ""
+
+            stock_element = soup.select_one(
+                ".stock-text"
+            )
+
+            if stock_element:
+
+                status = stock_element.get_text(
+                    " ",
+                    strip=True
+                )
+
+            # Если статус не нашли
+            if not status:
+
+                meta_availability = soup.select_one(
+                    'link[itemprop="availability"]'
+                )
+
+                if meta_availability:
+
+                    availability = (
+                        meta_availability.get("href")
+                        or ""
+                    ).lower()
+
+                    if "instock" in availability:
+                        status = "В наличии"
+
+                    elif "outofstock" in availability:
+                        status = "Нет в наличии"
+
+            # =================================================
+            # FALLBACK
+            # =================================================
+
+            if not price:
+                price = xml_price
+
+            if not status:
+
+                status = (
+                    "В наличии"
+                    if xml_available == "true"
+                    else "Нет в наличии"
+                )
+
+            return price, status
+
+        except Exception:
+
+            if attempt < 2:
+                time.sleep(1)
+                continue
+
+    # =====================================================
+    # Если страница не открылась
+    # =====================================================
+
+    return (
+        xml_price,
+        (
+            "В наличии"
+            if xml_available == "true"
+            else "Нет в наличии"
+        )
+    )
+
+
+# =========================================================
+# PARSER
 # =========================================================
 
 def run_parser():
@@ -178,7 +339,7 @@ def run_parser():
         )
 
         # -------------------------------------------------
-        # DOWNLOAD XML
+        # XML
         # -------------------------------------------------
 
         xml_data = download_xml()
@@ -236,13 +397,22 @@ def run_parser():
             "URL"
         ])
 
+        # -------------------------------------------------
+        # DEDUP
+        # -------------------------------------------------
+
         seen = set()
 
-        # -------------------------------------------------
-        # PRODUCTS
-        # -------------------------------------------------
+        # Чтобы не открывать один URL несколько раз
+        price_cache = {}
+
+        fallback_count = 0
 
         parse_total = len(offers_to_parse)
+
+        # -------------------------------------------------
+        # OFFERS
+        # -------------------------------------------------
 
         for i, offer in enumerate(
             offers_to_parse,
@@ -260,43 +430,40 @@ def run_parser():
                 FILE_PATH
             )
 
-            # Артикул
-            sku = offer.get(
-                "id",
-                ""
-            ).strip()
+            # ---------------------------------------------
+            # XML DATA
+            # ---------------------------------------------
 
-            # URL
+            sku = (
+                offer.get("id", "")
+                .strip()
+            )
+
             url = get_text(
                 offer,
                 "url"
             )
 
-            # Цена
-            price = get_text(
+            xml_price = get_text(
                 offer,
                 "price"
             )
 
-            # Валюта
             currency = get_text(
                 offer,
                 "currencyId"
             )
 
-            # Категория
             category_id = get_text(
                 offer,
                 "categoryId"
             )
 
-            # Название
             title = get_text(
                 offer,
                 "name"
             )
 
-            # Наличие
             available = (
                 offer.get(
                     "available",
@@ -306,19 +473,17 @@ def run_parser():
                 .lower()
             )
 
-            if available == "true":
-                status = "В наличии"
-            else:
-                status = "Нет в наличии"
-
-            # -------------------------------------------------
+            # ---------------------------------------------
             # DEDUP
-            # -------------------------------------------------
+            # ---------------------------------------------
 
             key = (
                 sku
                 or url
-                or (title, price)
+                or (
+                    title,
+                    xml_price
+                )
             )
 
             if key in seen:
@@ -329,9 +494,42 @@ def run_parser():
             if not title:
                 continue
 
-            # -------------------------------------------------
-            # WRITE
-            # -------------------------------------------------
+            # ---------------------------------------------
+            # PRODUCT PAGE
+            # ---------------------------------------------
+
+            if url in price_cache:
+
+                price, status = price_cache[url]
+
+            else:
+
+                price, status = get_product_data(
+                    url=url,
+                    xml_price=xml_price,
+                    xml_available=available
+                )
+
+                price_cache[url] = (
+                    price,
+                    status
+                )
+
+            # ---------------------------------------------
+            # FALLBACK CHECK
+            # ---------------------------------------------
+
+            if price == xml_price:
+
+                # Не обязательно значит ошибка:
+                # цена сайта может совпасть с XML.
+                #
+                # Поэтому здесь ничего не считаем.
+                pass
+
+            # ---------------------------------------------
+            # EXCEL
+            # ---------------------------------------------
 
             ws.append([
                 sku,
@@ -343,9 +541,9 @@ def run_parser():
                 url
             ])
 
-        # -------------------------------------------------
-        # SAVE EXCEL
-        # -------------------------------------------------
+        # =================================================
+        # SAVE
+        # =================================================
 
         os.makedirs(
             OUTPUT_DIR,
@@ -360,10 +558,6 @@ def run_parser():
             tmp,
             FILE_PATH
         )
-
-        # -------------------------------------------------
-        # FINISH
-        # -------------------------------------------------
 
         save_status(
             False,
