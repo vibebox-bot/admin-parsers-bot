@@ -12,7 +12,7 @@ import sys
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 ArizoneSports")
+print("🔥 ARIZONE_Sports")
 
 BASE = "https://arizonesports.com.ua/uk"
 
@@ -30,8 +30,8 @@ CATEGORY_LIMIT = None
 PRODUCT_LIMIT = None
 
 
-OUTPUT_DIR = os.path.abspath("output/ArizoneSports")
-FILE_PATH = os.path.join(OUTPUT_DIR, "ArizoneSports_LIVE.xlsx")
+OUTPUT_DIR = os.path.abspath("output/ARIZONE_Sports")
+FILE_PATH = os.path.join(OUTPUT_DIR, "ARIZONE_Sports_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
@@ -1061,7 +1061,7 @@ def run_parser():
 
         print()
         print(
-            "✅ ГОТОВО"
+            "✅ ГОТОВО ARIZONE_Sports"
         )
 
         print(
