@@ -21,13 +21,13 @@ BASE = "https://arizonesports.com.ua/uk"
 # ⚙️ SWITCH
 # =========================
 
-# CATEGORY_LIMIT = 2
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 2
+# CATEGORY_LIMIT = None
 
 # Для теста можно ограничить количество товаров.
 # Например:
-# PRODUCT_LIMIT = 20
-PRODUCT_LIMIT = None
+PRODUCT_LIMIT = 20
+# PRODUCT_LIMIT = None
 
 
 OUTPUT_DIR = os.path.abspath("output/ARIZONE_Sports")
