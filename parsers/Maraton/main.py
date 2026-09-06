@@ -34,7 +34,8 @@ LOCK_FILE = os.path.join(OUTPUT_DIR, "parser.lock")
 
 # Для теста — первые 2 товара
 # После проверки поставь None
-CATEGORY_LIMIT = 25
+#CATEGORY_LIMIT = 25
+CATEGORY_LIMIT = None
 
 
 # =========================================================
@@ -540,9 +541,6 @@ def run_parser():
                 :CATEGORY_LIMIT
             ]
 
-            print(
-                f"🧪 TEST MODE: {len(offers)} offers"
-            )
 
         total = len(offers)
 
@@ -591,9 +589,6 @@ def run_parser():
 
                 price_errors += 1
 
-                print(
-                    f"⚠ Ошибка: {url} | {e}"
-                )
 
                 rows.append({
                     "name": offer["name"],
@@ -623,16 +618,6 @@ def run_parser():
         # -------------------------------------------------
 
         save_excel(rows)
-
-        print(
-            f"💰 Prices from site: "
-            f"{price_ok}/{total}"
-        )
-
-        print(
-            f"⚠ Price errors: "
-            f"{price_errors}"
-        )
 
         print(
             f"📦 Products: "
