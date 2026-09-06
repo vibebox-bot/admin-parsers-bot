@@ -25,7 +25,7 @@ BASE = "https://lunabag.com.ua"
 # =========================
 
 CATEGORY_LIMIT = 2
-#CATEGORY_LIMIT = None
+# CATEGORY_LIMIT = None
 
 
 OUTPUT_DIR = os.path.abspath("output/LunaBag_new")
@@ -281,7 +281,7 @@ def set_currency_usd():
     try:
 
         # Получаем главную страницу,
-        # чтобы получить актуальный redirect
+        # чтобы получить актуальную форму валюты
         r = session.get(
             BASE,
             timeout=30
@@ -322,7 +322,7 @@ def set_currency_usd():
 
         payload = {}
 
-        # Собираем hidden поля
+        # Собираем hidden поля формы
         for inp in form.select(
             "input"
         ):
@@ -337,15 +337,15 @@ def set_currency_usd():
                 ""
             )
 
-        # В новой форме есть code
+        # Устанавливаем USD
         payload["code"] = "USD"
 
-        # redirect
+        # Если redirect отсутствует
         if "redirect" not in payload:
 
             payload["redirect"] = BASE
 
-        response = session.post(
+        session.post(
             action,
             data=payload,
             headers={
@@ -381,7 +381,7 @@ def get_categories():
 
     seen = set()
 
-    # Главный контейнер меню
+    # Главный контейнер каталога
     menu = soup.select_one(
         "nav.ds-menu-catalog-inner"
     )
@@ -393,6 +393,7 @@ def get_categories():
         )
 
         return categories
+
 
     def add_category(url):
 
@@ -409,31 +410,51 @@ def get_categories():
         if parsed.netloc.lower() != urlparse(BASE).netloc.lower():
             return
 
-        # Не добавляем javascript / #
+        # Не добавляем javascript
         if url.startswith(
             "javascript:"
         ):
             return
 
+        # Не добавляем служебные страницы
+        if "route=product/product" in url:
+            return
+
+        if "route=account/" in url:
+            return
+
+        if "route=checkout/" in url:
+            return
+
+        if "route=information/" in url:
+            return
+
         if url not in seen:
 
-            seen.add(url)
+            seen.add(
+                url
+            )
 
-            categories.append(url)
+            categories.append(
+                url
+            )
+
 
     def walk(element):
 
-        # Берем все ссылки внутри текущего
-        # блока меню.
+        # Ищем ВСЕ ссылки внутри меню.
         #
-        # В меню есть:
-        # main category
-        # -> subcategory
-        # -> sub-subcategory
+        # Это позволяет пройти:
         #
-        # Нам нужны только ссылки категорий.
+        # категория
+        #   -> подкатегория
+        #       -> подподкатегория
+        #
+        # и т.д.
 
-        for a in element.select("a[href]"):
+        for a in element.select(
+            "a[href]"
+        ):
 
             href = a.get(
                 "href",
@@ -447,21 +468,11 @@ def get_categories():
             if href == "#":
                 continue
 
-            # Пропускаем служебные ссылки
+            # Пропускаем javascript
             if href.startswith(
                 "javascript:"
             ):
                 continue
-
-            # Некоторые ссылки могут вести
-            # на account/cart и т.п.
-            #
-            # Берем только ссылки,
-            # которые выглядят как категории.
-            #
-            # Но product/product здесь
-            # тоже теоретически может встретиться,
-            # поэтому исключаем товары.
 
             full_url = normalize_url(
                 href
@@ -470,29 +481,27 @@ def get_categories():
             if not full_url:
                 continue
 
-            if "route=product/product" in full_url:
-                continue
-
-            if "route=account/" in full_url:
-                continue
-
-            if "route=checkout/" in full_url:
-                continue
-
-            if "route=information/" in full_url:
-                continue
-
             add_category(
                 full_url
             )
 
-    # Сначала проходим все меню
+
+    # Проходим всё меню
     walk(menu)
 
     print(
         f"📂 Categories found: "
         f"{len(categories)}"
     )
+
+    for i, category in enumerate(
+        categories,
+        1
+    ):
+
+        print(
+            f"   {i}. {category}"
+        )
 
     return categories
 
@@ -536,16 +545,68 @@ def get_last_page(soup):
                     )
 
                     if page > 0:
+
                         pages.append(
                             page
                         )
 
                 except:
+
                     pass
 
     return max(
         pages
     )
+
+
+# =========================
+# PRODUCT PAGE STATUS
+# =========================
+
+def get_product_status(url):
+
+    if not url:
+        return ""
+
+    try:
+
+        print(
+            f"         🌐 Открываем товар:"
+            f" {url}"
+        )
+
+        soup = get_soup(
+            url
+        )
+
+        status_el = soup.select_one(
+            ".ds-product-main-stock"
+        )
+
+        if status_el:
+
+            status = clean(
+                status_el.get_text(
+                    " ",
+                    strip=True
+                )
+            )
+
+            print(
+                f"         📦 Статус товара: "
+                f"{status}"
+            )
+
+            return status
+
+    except Exception as e:
+
+        print(
+            "⚠ PRODUCT STATUS ERROR:",
+            e
+        )
+
+    return ""
 
 
 # =========================
@@ -621,7 +682,7 @@ def parse_card(card):
 
 
     # =========================
-    # STATUS
+    # STATUS FROM CARD
     # =========================
 
     status_el = card.select_one(
@@ -656,6 +717,27 @@ def parse_card(card):
         )
 
 
+    # =========================
+    # FALLBACK STATUS
+    # =========================
+    #
+    # Если в карточке категории
+    # статус отсутствует,
+    # заходим на страницу товара.
+    #
+
+    if not result["status"] and result["url"]:
+
+        print(
+            f"         🔎 Нет статуса в карточке: "
+            f"{result['title']}"
+        )
+
+        result["status"] = get_product_status(
+            result["url"]
+        )
+
+
     return result
 
 
@@ -673,6 +755,7 @@ def parse_category(
         f"📂 {cat_url}"
     )
 
+
     # =========================
     # FIRST PAGE
     # =========================
@@ -684,6 +767,11 @@ def parse_category(
     if not first_page:
 
         return all_items
+
+
+    # =========================
+    # LAST PAGE
+    # =========================
 
     last_page = get_last_page(
         first_page
@@ -707,6 +795,7 @@ def parse_category(
             cat_url,
             page
         )
+
 
         # Для первой страницы
         # используем уже загруженный soup
@@ -735,16 +824,23 @@ def parse_category(
         )
 
 
+        # =========================
+        # PRODUCTS
+        # =========================
+
         for card in cards:
 
             product = parse_card(
                 card
             )
 
+
             # Без названия товар
             # не сохраняем
             if not product["title"]:
+
                 continue
+
 
             all_items.append(
                 [
@@ -925,7 +1021,7 @@ def run_parser():
                 # Приоритет:
                 # SKU
                 # если SKU нет -> URL
-                # если и URL нет -> title + price
+                # если URL нет -> title + price
                 #
 
                 if sku:
@@ -1046,8 +1142,6 @@ def run_parser():
             e
         )
 
-        # Чтобы при ошибке бот видел,
-        # что процесс завершился
         save_status(
             False,
             100,
