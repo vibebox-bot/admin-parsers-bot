@@ -222,6 +222,14 @@ SUPPLIERS = {
             "status": path("output/Makita/status.json"),
             "lock": path("output/Makita/lock.txt"),
         }, 
+            "Maraton": {
+            "name": "Maraton",
+            "script": "parsers/Maraton/run.py",
+            "file": path("output/Maraton/Maraton_LIVE.xlsx"),
+            "status": path("output/Maraton/status.json"),
+            "lock": path("output/Maraton/lock.txt"),
+        }, 
+    
 }
 
 
