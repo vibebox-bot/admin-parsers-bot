@@ -20,10 +20,10 @@ print("🔥 Maraton")
 XML_URL = "https://maraton.ua/yandexmarket/97211e2f-3247-455b-9cd3-59c441963309.xml"
 
 # ТЕСТ
-CATEGORY_LIMIT = 2
+#CATEGORY_LIMIT = 2
 
-# ПОЛНЫЙ ЗАПУСК
-# CATEGORY_LIMIT = None
+ПОЛНЫЙ ЗАПУСК
+CATEGORY_LIMIT = None
 
 
 # =========================================================
