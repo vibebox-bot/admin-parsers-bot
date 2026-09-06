@@ -18,13 +18,9 @@ from urllib.parse import urlparse, parse_qs
 # =========================================================
 # НАСТРОЙКИ
 # =========================================================
-
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-XML_URL = (
-    "https://maraton.ua/yandexmarket/"
-    "97211e2f-3247-455b-9cd3-59c441963309.xml"
-)
+XML_URL = sys.argv[2] if len(sys.argv) > 2 else ""
 
 OUTPUT_DIR = os.path.abspath("output/Maraton")
 FILE_PATH = os.path.join(OUTPUT_DIR, "Maraton_LIVE.xlsx")
