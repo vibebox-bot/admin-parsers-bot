@@ -7,33 +7,26 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 import sys
+from urllib.parse import urljoin, urlparse, urlunparse
 
 
-# =========================================================
-# USER
-# =========================================================
+# ============================================================
+# НАСТРОЙКИ
+# ============================================================
 
-USER = sys.argv[1] if len(sys.argv) > 1 else "default"
-
-
-# =========================================================
-# SETTINGS
-# =========================================================
+USER = sys.argv[1] if len(sys.argv) > 1 else "Manual"
 
 BASE = "https://arizonesports.com.ua/uk"
+DOMAIN = "arizonesports.com.ua"
 
-# None = все категории
-# Для теста можно поставить, например: 2
-CATEGORY_LIMIT = 1
+# Для первого теста можно поставить:
+CATEGORY_LIMIT = 2
+PRODUCT_LIMIT = 20
+#
+# После проверки:
+#CATEGORY_LIMIT = None
+#PRODUCT_LIMIT = None
 
-# None = все товары
-# Для теста можно поставить, например: 20
-PRODUCT_LIMIT = None
-
-
-# =========================================================
-# OUTPUT
-# =========================================================
 
 OUTPUT_DIR = os.path.abspath("output/ArizoneSports")
 FILE_PATH = os.path.join(
@@ -52,9 +45,9 @@ LOCK_FILE = os.path.join(
 )
 
 
-# =========================================================
+# ============================================================
 # HTTP
-# =========================================================
+# ============================================================
 
 HEADERS = {
     "User-Agent": (
@@ -70,13 +63,14 @@ HEADERS = {
     "Connection": "keep-alive",
 }
 
+
 session = requests.Session()
 session.headers.update(HEADERS)
 
 
-# =========================================================
+# ============================================================
 # LOCK
-# =========================================================
+# ============================================================
 
 def create_lock():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -90,7 +84,7 @@ def create_lock():
             if age > 3600:
                 os.remove(LOCK_FILE)
             else:
-                print("⚠️ Parser already running")
+                print("⛔ PARSER ALREADY RUNNING")
                 return False
 
         except Exception:
@@ -103,7 +97,7 @@ def create_lock():
         return True
 
     except Exception as e:
-        print(f"❌ Cannot create lock: {e}")
+        print(f"❌ LOCK ERROR: {e}")
         return False
 
 
@@ -115,26 +109,24 @@ def remove_lock():
         pass
 
 
-# =========================================================
+# ============================================================
 # STATUS
-# =========================================================
+# ============================================================
 
 def save_status(
     status,
-    message="",
     current=0,
     total=0,
-    category=""
+    message=""
 ):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     data = {
         "status": status,
-        "message": message,
         "current": current,
         "total": total,
-        "category": category,
-        "updated_at": datetime.now().isoformat()
+        "message": message,
+        "updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
 
     try:
@@ -153,9 +145,85 @@ def save_status(
         pass
 
 
-# =========================================================
-# HELPERS
-# =========================================================
+# ============================================================
+# HTTP GET
+# ============================================================
+
+def get_soup(url, params=None):
+    try:
+        response = session.get(
+            url,
+            params=params,
+            timeout=30
+        )
+
+        response.raise_for_status()
+
+        response.encoding = response.apparent_encoding
+
+        return BeautifulSoup(
+            response.text,
+            "html.parser"
+        )
+
+    except Exception as e:
+        print(f"❌ GET ERROR: {url}")
+        print(f"   {e}")
+        return None
+
+
+# ============================================================
+# URL
+# ============================================================
+
+def absolute_url(url):
+    if not url:
+        return ""
+
+    url = url.strip()
+
+    if url.startswith("//"):
+        return "https:" + url
+
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+
+    return urljoin(
+        BASE + "/",
+        url
+    )
+
+
+def base_product_url(url):
+    """
+    Убирает #цвет из URL.
+
+    Например:
+
+    /187-product.html#/43-kolir-bezhevij
+
+    превращается в:
+
+    /187-product.html
+    """
+
+    parsed = urlparse(url)
+
+    return urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            parsed.query,
+            ""
+        )
+    )
+
+
+# ============================================================
+# CLEAN
+# ============================================================
 
 def clean(value):
     if value is None:
@@ -164,182 +232,239 @@ def clean(value):
     value = str(value)
 
     value = value.replace("\xa0", " ")
-    value = re.sub(r"\s+", " ", value)
+
+    value = re.sub(
+        r"\s+",
+        " ",
+        value
+    )
 
     return value.strip()
 
 
-def absolute_url(url):
-    if not url:
-        return ""
+# ============================================================
+# ТРАНСЛИТЕРАЦИЯ ЦВЕТОВ
+# ============================================================
 
-    url = url.strip()
+TRANSLIT = {
+    "а": "a",
+    "б": "b",
+    "в": "v",
+    "г": "g",
+    "ґ": "g",
+    "д": "d",
+    "е": "e",
+    "є": "ye",
+    "ж": "zh",
+    "з": "z",
+    "и": "i",
+    "і": "i",
+    "ї": "yi",
+    "й": "j",
+    "к": "k",
+    "л": "l",
+    "м": "m",
+    "н": "n",
+    "о": "o",
+    "п": "p",
+    "р": "r",
+    "с": "s",
+    "т": "t",
+    "у": "u",
+    "ф": "f",
+    "х": "kh",
+    "ц": "ts",
+    "ч": "ch",
+    "ш": "sh",
+    "щ": "shch",
+    "ь": "",
+    "ю": "yu",
+    "я": "ya",
 
-    # Убираем fragment #/43-kolir...
-    # Цветовые варианты НЕ являются отдельными товарами
-    url = url.split("#", 1)[0]
+    "ё": "yo",
+    "ы": "y",
+    "э": "e",
+    "ъ": "",
 
-    if url.startswith("http://") or url.startswith("https://"):
-        return url
+    "А": "A",
+    "Б": "B",
+    "В": "V",
+    "Г": "G",
+    "Ґ": "G",
+    "Д": "D",
+    "Е": "E",
+    "Є": "Ye",
+    "Ж": "Zh",
+    "З": "Z",
+    "И": "I",
+    "І": "I",
+    "Ї": "Yi",
+    "Й": "J",
+    "К": "K",
+    "Л": "L",
+    "М": "M",
+    "Н": "N",
+    "О": "O",
+    "П": "P",
+    "Р": "R",
+    "С": "S",
+    "Т": "T",
+    "У": "U",
+    "Ф": "F",
+    "Х": "Kh",
+    "Ц": "Ts",
+    "Ч": "Ch",
+    "Ш": "Sh",
+    "Щ": "Shch",
+    "Ь": "",
+    "Ю": "Yu",
+    "Я": "Ya",
 
-    if url.startswith("/"):
-        return "https://arizonesports.com.ua" + url
-
-    return BASE.rstrip("/") + "/" + url.lstrip("/")
-
-
-# =========================================================
-# GET SOUP
-# =========================================================
-
-def get_soup(url, params=None, retries=3):
-    for attempt in range(1, retries + 1):
-
-        try:
-            response = session.get(
-                url,
-                params=params,
-                timeout=40
-            )
-
-            response.raise_for_status()
-
-            return BeautifulSoup(
-                response.text,
-                "html.parser"
-            )
-
-        except Exception as e:
-
-            print(
-                f"⚠️ Request error "
-                f"{attempt}/{retries}: {url}"
-            )
-            print(e)
-
-            if attempt < retries:
-                time.sleep(2)
-
-    return None
+    "Ё": "Yo",
+    "Ы": "Y",
+    "Э": "E",
+    "Ъ": "",
+}
 
 
-# =========================================================
-# LOGIN
-# =========================================================
-#
-# На ArizoneSports авторизация пока не используется.
-# Оставляем функцию в структуре парсера.
-# =========================================================
+def translit_slug(text):
+    """
+    Делает slug примерно в том же формате,
+    который использует сайт в hash URL.
 
-def login():
-    print("🔐 Login not required")
-    return True
+    Бежевий -> bezhevij
+    Білий   -> bilij
+    Зелений -> zelenij
+    Рожевий -> rozhevij
+    Чорний  -> chornij
+    """
+
+    text = clean(text)
+
+    result = []
+
+    for char in text:
+        result.append(
+            TRANSLIT.get(char, char)
+        )
+
+    text = "".join(result)
+
+    text = text.lower()
+
+    # Сайт использует дефисы
+    text = re.sub(
+        r"[^a-z0-9]+",
+        "-",
+        text
+    )
+
+    text = text.strip("-")
+
+    return text
 
 
-# =========================================================
-# CATEGORIES
-# =========================================================
+# ============================================================
+# КАТЕГОРИИ
+# ============================================================
 
 def get_categories():
-    """
-    Забираем ВСЕ категории и подкатегории
-    из блока #categories_block_left.
-
-    Не ограничиваемся первым уровнем.
-    Любая глубина дерева будет обработана.
-    """
-
-    print("📂 Получаем категории...")
+    print("📂 GET CATEGORIES")
 
     soup = get_soup(BASE)
 
     if not soup:
-        print("❌ Не удалось получить главную страницу")
         return []
 
-    categories_block = soup.select_one(
+    container = soup.select_one(
         "#categories_block_left"
     )
 
-    if not categories_block:
-        print(
-            "❌ Не найден #categories_block_left"
-        )
+    if not container:
+        print("❌ #categories_block_left NOT FOUND")
         return []
 
     categories = []
+
+    # ВАЖНО:
+    #
+    # Не ограничиваемся первым уровнем.
+    #
+    # Берём ВСЕ ссылки внутри дерева:
+    #
+    # категория
+    # └── подкатегория
+    #     └── подподкатегория
+    #
+    links = container.select(
+        "ul.tree a[href]"
+    )
+
     seen = set()
 
-    # Берём все ссылки внутри дерева
-    for link in categories_block.select(
-        "ul.tree a[href]"
-    ):
-
-        href = link.get("href")
+    for a in links:
+        href = a.get("href")
 
         if not href:
             continue
 
         url = absolute_url(href)
 
-        if not url:
+        parsed = urlparse(url)
+
+        if parsed.netloc and parsed.netloc != DOMAIN:
             continue
 
-        # Только наш сайт
-        if "arizonesports.com.ua" not in url:
-            continue
+        # Убираем hash/query
+        url = base_product_url(url)
 
-        # Не добавляем дубли
         if url in seen:
             continue
 
+        seen.add(url)
+
         name = clean(
-            link.get_text(" ", strip=True)
+            a.get_text(
+                " ",
+                strip=True
+            )
         )
 
         if not name:
             continue
 
-        seen.add(url)
-
-        categories.append({
-            "name": name,
-            "url": url
-        })
+        categories.append(
+            {
+                "name": name,
+                "url": url
+            }
+        )
 
     print(
-        f"📂 Найдено категорий/подкатегорий: "
-        f"{len(categories)}"
+        f"📂 FOUND CATEGORIES: {len(categories)}"
     )
 
-    for i, category in enumerate(
-        categories,
-        start=1
-    ):
-        print(
-            f"   {i}. "
-            f"{category['name']} -> "
-            f"{category['url']}"
-        )
+    if CATEGORY_LIMIT:
+        categories = categories[:CATEGORY_LIMIT]
 
     return categories
 
 
-# =========================================================
+# ============================================================
 # SHOW ALL
-# =========================================================
+# ============================================================
 
-def get_show_all_url(category_url, soup):
+def get_show_all_data(cat_url, soup):
     """
-    На странице категории есть форма:
+    На сайте есть:
 
     <form class="showall" ...>
         <input name="n" value="85">
         <input name="id_category" value="14">
     </form>
 
-    Используем её, чтобы получить все товары
-    категории одним запросом.
+    Используем этот механизм, чтобы получить
+    сразу все товары категории.
     """
 
     form = soup.select_one(
@@ -347,9 +472,12 @@ def get_show_all_url(category_url, soup):
     )
 
     if not form:
-        return None, None
+        return None
 
-    action = form.get("action") or category_url
+    action = form.get("action")
+
+    if not action:
+        action = cat_url
 
     action = absolute_url(action)
 
@@ -364,321 +492,293 @@ def get_show_all_url(category_url, soup):
         if name:
             params[name] = value
 
-    # Обычно здесь есть n=85
-    n = params.get("n")
-
-    if not n:
-        return None, None
+    if "n" not in params:
+        return None
 
     try:
-        n_int = int(n)
+        count = int(
+            re.sub(
+                r"\D",
+                "",
+                str(params["n"])
+            )
+        )
     except Exception:
-        return None, None
+        count = 0
 
-    if n_int <= 0:
-        return None, None
+    if count <= 0:
+        return None
 
-    return action, params
+    return {
+        "url": action,
+        "params": params,
+        "count": count
+    }
 
 
-# =========================================================
+# ============================================================
 # PRODUCT LINKS
-# =========================================================
+# ============================================================
 
 def extract_product_links(soup):
     """
-    Ищем ссылки на товары.
+    Достаём ссылки именно на товары.
 
-    Важно:
-    #/43-kolir-bezhevij
-    #/26-kolir-zelenij
+    Основной шаблон сайта:
 
-    отбрасываются, потому что это варианты
-    одного товара.
+    <li class="product-box item">
+        <a class="lnk_img product-image"
+           href="...html">
     """
 
+    if not soup:
+        return []
+
     links = []
+
     seen = set()
 
     selectors = [
-        "ul.product_list li.ajax_block_product h5 a[href]",
-        "ul.product_list li.ajax_block_product a.product-name[href]",
-        "ul.product_list li.ajax_block_product a[href]",
-        ".product-container a.product-name[href]",
-        ".product-container h5 a[href]",
-        ".product-container a[href]",
+        "ul.product_list li.ajax_block_product a.product-name",
+        "ul.product_list li.ajax_block_product h5 a",
+        "ul.product_list li.ajax_block_product a[href*='.html']",
+
+        ".product-container a.product-name",
+        ".product-container h5 a",
+        ".product-container a[href*='.html']",
+
+        "li.product-box.item a.product-image",
+        "li.product-box.item h5.product-name a",
+        "li.product-box.item a[href*='.html']",
+
+        "#productscategory_list li.product-box a[href*='.html']",
     ]
 
     for selector in selectors:
 
-        for link in soup.select(selector):
+        for a in soup.select(selector):
 
-            href = link.get("href")
+            href = a.get("href")
 
             if not href:
                 continue
 
-            url = absolute_url(href)
+            href = absolute_url(href)
 
-            if not url:
+            parsed = urlparse(href)
+
+            if parsed.netloc != DOMAIN:
                 continue
 
-            # Только товары нашего сайта
-            if "arizonesports.com.ua" not in url:
+            path = parsed.path.lower()
+
+            if not path.endswith(".html"):
                 continue
 
-            # Нам нужны HTML-страницы товаров
-            if ".html" not in url.lower():
+            # Убираем # и query
+            href = base_product_url(href)
+
+            if href in seen:
                 continue
 
-            # Убираем fragment
-            url = url.split("#", 1)[0]
+            seen.add(href)
 
-            if url in seen:
-                continue
-
-            seen.add(url)
-            links.append(url)
+            links.append(href)
 
     return links
 
 
-# =========================================================
+# ============================================================
 # CATEGORY PARSER
-# =========================================================
+# ============================================================
 
 def parse_category(category):
-    """
-    Получаем все товары из одной категории.
-
-    Сначала пробуем "Показати все".
-
-    Если по какой-то причине оно не сработало,
-    используем обычную страницу категории.
-    """
-
-    category_name = category["name"]
-    category_url = category["url"]
+    name = category["name"]
+    cat_url = category["url"]
 
     print()
-    print("=" * 80)
-    print(f"📁 CATEGORY: {category_name}")
-    print(category_url)
-    print("=" * 80)
-
-    save_status(
-        "category",
-        f"Обработка категории: {category_name}",
-        category=category_name
+    print(
+        f"📁 CATEGORY: {name}"
+    )
+    print(
+        f"🔗 {cat_url}"
     )
 
-    soup = get_soup(category_url)
+    soup = get_soup(cat_url)
 
     if not soup:
-        print(
-            "❌ Не удалось получить категорию"
-        )
         return []
 
-    # -----------------------------------------------------
-    # 1. SHOW ALL
-    # -----------------------------------------------------
+    # --------------------------------------------------------
+    # Сначала пробуем "Показати все"
+    # --------------------------------------------------------
 
-    showall_url, showall_params = get_show_all_url(
-        category_url,
+    show_all = get_show_all_data(
+        cat_url,
         soup
     )
 
-    if showall_url:
+    if show_all:
 
         print(
-            f"📄 Найдена кнопка 'Показати все': "
-            f"{showall_params}"
+            f"📦 CATEGORY PRODUCTS EXPECTED: "
+            f"{show_all['count']}"
         )
 
         all_soup = get_soup(
-            showall_url,
-            params=showall_params
+            show_all["url"],
+            params=show_all["params"]
         )
 
         if all_soup:
 
-            product_links = extract_product_links(
+            links = extract_product_links(
                 all_soup
             )
 
-            if product_links:
-
-                print(
-                    f"✅ Показати все: "
-                    f"{len(product_links)} товаров"
-                )
-
-                return product_links
-
             print(
-                "⚠️ 'Показати все' открылось, "
-                "но товары не найдены"
+                f"🔎 SHOW ALL PRODUCT LINKS: "
+                f"{len(links)}"
             )
 
-    # -----------------------------------------------------
-    # 2. CURRENT PAGE
-    # -----------------------------------------------------
+            # Если получили товары — используем
+            if links:
 
-    product_links = extract_product_links(
+                # Иногда сервер может вернуть не все товары.
+                # Поэтому, если количество выглядит разумно,
+                # принимаем результат.
+                if (
+                    show_all["count"] <= 0
+                    or len(links) >= show_all["count"]
+                    or len(links) > 1
+                ):
+                    return links
+
+    # --------------------------------------------------------
+    # Если SHOW ALL не сработал
+    # --------------------------------------------------------
+    #
+    # У сайта пагинация:
+    #
+    # /category.html#/page-2
+    #
+    # Но # сервер не получает.
+    #
+    # Поэтому сначала пробуем обычные ссылки ?page=N
+    # и дополнительно ищем количество страниц.
+    # --------------------------------------------------------
+
+    first_links = extract_product_links(
         soup
     )
 
     print(
-        f"📦 На текущей странице: "
-        f"{len(product_links)} товаров"
+        f"🔎 FIRST PAGE PRODUCT LINKS: "
+        f"{len(first_links)}"
     )
 
-    # -----------------------------------------------------
-    # 3. FALLBACK PAGINATION
-    # -----------------------------------------------------
-    #
-    # На сайте ссылки имеют:
-    #
-    # /category#/page-2
-    #
-    # Fragment сервер не получает.
-    #
-    # Поэтому сначала пытаемся найти
-    # реальные ссылки пагинации / параметры.
-    # -----------------------------------------------------
+    links = list(first_links)
 
-    pagination = soup.select_one(
-        "#pagination_bottom"
-    )
+    seen = set(links)
 
-    if not pagination:
-        pagination = soup.select_one(
-            ".pagination"
+    # Ищем все номера страниц
+    page_numbers = set()
+
+    for a in soup.select(
+        "#pagination_bottom a[href]"
+    ):
+        href = a.get("href", "")
+
+        match = re.search(
+            r"#/page-(\d+)",
+            href
         )
 
-    if pagination:
-
-        page_numbers = set()
-
-        for a in pagination.select("a[href]"):
-
-            href = a.get("href", "")
-
-            # Ищем #/page-2
-            match = re.search(
-                r"#/page-(\d+)",
-                href
+        if match:
+            page_numbers.add(
+                int(match.group(1))
             )
 
-            if match:
-                try:
-                    page_numbers.add(
-                        int(match.group(1))
-                    )
-                except Exception:
-                    pass
+    if page_numbers:
 
-            # На случай обычной ?page=2
-            match = re.search(
-                r"[?&]page=(\d+)",
-                href
+        max_page = max(
+            page_numbers
+        )
+
+        print(
+            f"📄 PAGES FOUND: 1-{max_page}"
+        )
+
+        for page in range(
+            2,
+            max_page + 1
+        ):
+
+            # PrestaShop часто принимает page
+            # через query parameter.
+            params = {
+                "page": page
+            }
+
+            page_soup = get_soup(
+                cat_url,
+                params=params
             )
 
-            if match:
-                try:
-                    page_numbers.add(
-                        int(match.group(1))
-                    )
-                except Exception:
-                    pass
+            if not page_soup:
+                continue
 
-        if page_numbers:
+            page_links = extract_product_links(
+                page_soup
+            )
 
             print(
-                f"📄 Найдены страницы: "
-                f"{sorted(page_numbers)}"
+                f"   PAGE {page}: "
+                f"{len(page_links)} products"
             )
 
-            for page in sorted(page_numbers):
+            for link in page_links:
 
-                # Сначала пробуем ?page=N
-                page_soup = get_soup(
-                    category_url,
-                    params={
-                        "page": page
-                    }
-                )
-
-                if not page_soup:
-                    continue
-
-                page_links = extract_product_links(
-                    page_soup
-                )
-
-                if page_links:
-
-                    print(
-                        f"   📄 Страница {page}: "
-                        f"{len(page_links)} товаров"
-                    )
-
-                    for url in page_links:
-
-                        if url not in product_links:
-                            product_links.append(url)
-
-    # -----------------------------------------------------
-    # DEDUPE
-    # -----------------------------------------------------
-
-    unique = []
-    seen = set()
-
-    for url in product_links:
-
-        url = absolute_url(url)
-
-        if url in seen:
-            continue
-
-        seen.add(url)
-        unique.append(url)
+                if link not in seen:
+                    seen.add(link)
+                    links.append(link)
 
     print(
-        f"📦 Итого товаров в категории: "
-        f"{len(unique)}"
+        f"📦 TOTAL CATEGORY PRODUCTS: "
+        f"{len(links)}"
     )
 
-    return unique
+    return links
 
 
-# =========================================================
+# ============================================================
 # STATUS
-# =========================================================
+# ============================================================
 
 def parse_status(soup):
     """
-    Определяем наличие товара.
+    Варианты на сайте:
 
-    Вариант 1:
-    #availability_value
+    1.
+    <span id="availability_value"
+          class="label label-danger">
+        Наразі товар відсутній
+    </span>
 
-    Например:
-    Наразі товар відсутній
-
-    Вариант 2:
-    schema.org:
+    2.
+    availability_value пустой,
+    но есть:
 
     <link itemprop="availability"
           href="https://schema.org/InStock">
-
     """
 
-    # -----------------------------------------------------
-    # 1. availability_value
-    # -----------------------------------------------------
+    if not soup:
+        return ""
+
+    # --------------------------------------------------------
+    # 1. Видимый текст
+    # --------------------------------------------------------
 
     availability = soup.select_one(
         "#availability_value"
@@ -694,109 +794,160 @@ def parse_status(soup):
         )
 
         if text:
-
-            lower = text.lower()
-
-            if (
-                "відсут" in lower
-                or "немає" in lower
-                or "нема" in lower
-                or "out of stock" in lower
-            ):
-                return "Немає в наявності"
-
-            if (
-                "наяв" in lower
-                or "in stock" in lower
-            ):
-                return "В наявності"
-
             return text
 
-    # -----------------------------------------------------
-    # 2. Schema availability
-    # -----------------------------------------------------
+    # --------------------------------------------------------
+    # 2. Schema.org
+    # --------------------------------------------------------
 
-    availability_link = soup.select_one(
-        "[itemprop='availability']"
+    schema = soup.select_one(
+        "link[itemprop='availability']"
     )
 
-    if availability_link:
+    if schema:
 
         href = (
-            availability_link.get("href")
-            or ""
-        ).lower()
+            schema.get("href", "")
+            .strip()
+        )
 
-        if "instock" in href:
+        if "InStock" in href:
             return "В наявності"
 
-        if (
-            "outofstock" in href
-            or "soldout" in href
-        ):
-            return "Немає в наявності"
+        if "OutOfStock" in href:
+            return "Наразі товар відсутній"
 
-    # -----------------------------------------------------
-    # 3. Last quantities
-    # -----------------------------------------------------
+        if "PreOrder" in href:
+            return "Під замовлення"
 
-    last_quantities = soup.select_one(
-        "#last_quantities"
+    return ""
+
+
+# ============================================================
+# SKU
+# ============================================================
+
+def parse_sku(soup):
+    """
+    Артикул:
+
+    <p id="product_reference">
+        <label>Артикул</label>
+        <span itemprop="sku"
+              content="BBTT-Q7">
+            BBTT-Q7
+        </span>
+    </p>
+    """
+
+    if not soup:
+        return ""
+
+    sku = soup.select_one(
+        "#product_reference span[itemprop='sku']"
     )
 
-    if last_quantities:
+    if sku:
 
-        text = clean(
-            last_quantities.get_text(
+        value = (
+            sku.get("content")
+            or sku.get_text(
                 " ",
                 strip=True
             )
         )
 
-        if text:
-            return "В наявності"
+        return clean(value)
 
-    # -----------------------------------------------------
-    # 4. Default
-    # -----------------------------------------------------
+    # Запасной вариант
+    sku = soup.select_one(
+        "#product_reference .editable"
+    )
 
-    return "Невідомо"
+    if sku:
+        return clean(
+            sku.get_text(
+                " ",
+                strip=True
+            )
+        )
+
+    return ""
 
 
-# =========================================================
+# ============================================================
+# TITLE
+# ============================================================
+
+def parse_title(soup):
+    if not soup:
+        return ""
+
+    title = soup.select_one(
+        "h1[itemprop='name']"
+    )
+
+    if title:
+        return clean(
+            title.get_text(
+                " ",
+                strip=True
+            )
+        )
+
+    return ""
+
+
+# ============================================================
 # COLORS
-# =========================================================
+# ============================================================
 
 def parse_colors(soup):
     """
-    Получаем все доступные цвета товара.
+    На сайте:
 
-    Например:
+    <fieldset class="attribute_fieldset">
+        <label class="attribute_label">
+            Колір
+        </label>
 
-    Блакитний
-    Зелений
-    Рожевий
-    Чорний
-    Фіолетовий
+        <div class="attribute_list">
+            <ul>
 
-    Важно:
+                <li>
+                    ...
+                    <input
+                        name="group_4"
+                        value="43">
+                    ...
+                    <span>Бежевий</span>
+                </li>
 
-    URL:
-    #/43-kolir-bezhevij
-    #/26-kolir-zelenij
+                ...
 
-    НЕ обрабатываем отдельно.
+            </ul>
+        </div>
+    </fieldset>
 
-    Это варианты одного товара.
-    Все варианты собираем из #attributes.
+
+    Возвращаем:
+
+    [
+        {
+            "id": "43",
+            "name": "Бежевий",
+            "slug": "bezhevij"
+        },
+        ...
+    ]
     """
+
+    if not soup:
+        return []
 
     colors = []
 
-    # -----------------------------------------------------
-    # Ищем все группы атрибутов
-    # -----------------------------------------------------
+    seen = set()
 
     fieldsets = soup.select(
         "#attributes .attribute_fieldset"
@@ -818,516 +969,244 @@ def parse_colors(soup):
             )
         ).lower()
 
-        # Нас интересует только Колір
+        # Ищем именно атрибут "Колір"
         if "колір" not in label_text:
             continue
-
-        # -------------------------------------------------
-        # Варианты цветов
-        # -------------------------------------------------
 
         for li in fieldset.select(
             ".attribute_list li"
         ):
 
-            # Пытаемся взять span с названием
-            color_spans = li.select(
-                "span"
+            input_el = li.select_one(
+                "input.attribute_radio"
             )
 
-            color = ""
-
-            for span in color_spans:
-
-                text = clean(
-                    span.get_text(
-                        " ",
-                        strip=True
-                    )
-                )
-
-                if not text:
-                    continue
-
-                # Пропускаем технические элементы
-                if text.lower() in {
-                    "checked",
-                    "radio"
-                }:
-                    continue
-
-                # Если внутри есть название цвета
-                color = text
-
-            # Если span не дал результат
-            if not color:
-                color = clean(
-                    li.get_text(
-                        " ",
-                        strip=True
-                    )
-                )
-
-            if not color:
+            if not input_el:
                 continue
 
-            # Убираем технический мусор
-            color = re.sub(
-                r"\s+",
-                " ",
-                color
-            ).strip()
+            color_id = clean(
+                input_el.get("value")
+            )
 
-            # Иногда текст может содержать
-            # лишние служебные слова
-            color = color.replace(
-                "checked",
-                ""
-            ).strip()
+            # Берём название цвета
+            # именно из span, чтобы не захватывать
+            # лишний текст.
+            color_span = li.select_one(
+                "span:not(.checked)"
+            )
 
-            if (
-                color
-                and color not in colors
-            ):
-                colors.append(color)
-
-    # -----------------------------------------------------
-    # Альтернативный поиск,
-    # если структура немного отличается
-    # -----------------------------------------------------
-
-    if not colors:
-
-        attributes = soup.select_one(
-            "#attributes"
-        )
-
-        if attributes:
-
-            for li in attributes.select(
-                "li"
-            ):
-
-                text = clean(
-                    li.get_text(
+            if color_span:
+                color_name = clean(
+                    color_span.get_text(
                         " ",
                         strip=True
                     )
                 )
+            else:
+                # Запасной вариант
+                spans = li.select("span")
 
-                if not text:
-                    continue
+                color_name = ""
 
-                # Проверяем, что это часть
-                # группы Колір
-                parent_fieldset = li.find_parent(
-                    "fieldset"
-                )
-
-                if not parent_fieldset:
-                    continue
-
-                label = parent_fieldset.select_one(
-                    ".attribute_label"
-                )
-
-                if not label:
-                    continue
-
-                label_text = clean(
-                    label.get_text(
-                        " ",
-                        strip=True
+                for span in spans:
+                    text = clean(
+                        span.get_text(
+                            " ",
+                            strip=True
+                        )
                     )
-                ).lower()
 
-                if "колір" not in label_text:
-                    continue
+                    if text and text.lower() not in (
+                        "checked",
+                    ):
+                        color_name = text
 
-                if text not in colors:
-                    colors.append(text)
+            if not color_name:
+                continue
 
-    return ", ".join(colors)
+            key = (
+                color_id,
+                color_name.lower()
+            )
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+
+            colors.append(
+                {
+                    "id": color_id,
+                    "name": color_name,
+                    "slug": translit_slug(
+                        color_name
+                    )
+                }
+            )
+
+    return colors
 
 
-# =========================================================
-# SKU / ARTICLE
-# =========================================================
+# ============================================================
+# COLOR URL
+# ============================================================
 
-def parse_sku(soup):
+def make_color_url(
+    product_url,
+    color
+):
     """
-    Основной источник:
+    Формируем URL именно так,
+    как его делает сайт:
 
-    <span
-        class="editable"
-        itemprop="sku"
-        content="BBTT-Q7">
-        BBTT-Q7
-    </span>
+    ...html#/43-kolir-bezhevij
 
-    Сначала берём content,
-    затем текст,
-    затем запасной вариант.
+    ...html#/31-kolir-bilij
+
+    ...html#/26-kolir-zelenij
     """
 
-    # -----------------------------------------------------
-    # 1. itemprop=sku
-    # -----------------------------------------------------
-
-    sku_el = soup.select_one(
-        "#product_reference [itemprop='sku']"
+    product_url = base_product_url(
+        product_url
     )
 
-    if sku_el:
+    color_id = color["id"]
+    color_slug = color["slug"]
 
-        sku = clean(
-            sku_el.get("content")
-            or sku_el.get_text(
-                " ",
-                strip=True
-            )
-        )
-
-        if sku:
-            return sku
-
-    # -----------------------------------------------------
-    # 2. .editable
-    # -----------------------------------------------------
-
-    sku_el = soup.select_one(
-        "#product_reference .editable"
+    return (
+        f"{product_url}"
+        f"#/{color_id}-kolir-{color_slug}"
     )
 
-    if sku_el:
 
-        sku = clean(
-            sku_el.get("content")
-            or sku_el.get_text(
-                " ",
-                strip=True
-            )
-        )
-
-        if sku:
-            return sku
-
-    # -----------------------------------------------------
-    # 3. product_reference text
-    # -----------------------------------------------------
-
-    ref = soup.select_one(
-        "#product_reference"
-    )
-
-    if ref:
-
-        text = clean(
-            ref.get_text(
-                " ",
-                strip=True
-            )
-        )
-
-        text = re.sub(
-            r"^Артикул\s*",
-            "",
-            text,
-            flags=re.I
-        )
-
-        text = clean(text)
-
-        if text:
-            return text
-
-    return ""
-
-
-# =========================================================
+# ============================================================
 # PRODUCT
-# =========================================================
+# ============================================================
 
-def parse_product(url):
-    """
-    Парсим одну карточку товара.
-    """
-
+def parse_product(product_url):
     print(
-        f"      🔎 {url}"
+        f"   🔎 PRODUCT: {product_url}"
     )
 
-    soup = get_soup(url)
+    soup = get_soup(
+        product_url
+    )
 
     if not soup:
-        print(
-            "      ❌ Не удалось открыть товар"
-        )
-        return None
+        return []
 
-    # -----------------------------------------------------
-    # TITLE
-    # -----------------------------------------------------
-
-    title_el = soup.select_one(
-        "h1[itemprop='name']"
+    title = parse_title(
+        soup
     )
-
-    if not title_el:
-        title_el = soup.select_one(
-            "h1"
-        )
-
-    title = ""
-
-    if title_el:
-        title = clean(
-            title_el.get_text(
-                " ",
-                strip=True
-            )
-        )
-
-    # -----------------------------------------------------
-    # SKU
-    # -----------------------------------------------------
 
     sku = parse_sku(
         soup
     )
 
-    # -----------------------------------------------------
-    # STATUS
-    # -----------------------------------------------------
-
     status = parse_status(
         soup
     )
-
-    # -----------------------------------------------------
-    # COLORS
-    # -----------------------------------------------------
 
     colors = parse_colors(
         soup
     )
 
-    # -----------------------------------------------------
-    # PRICE USD
-    # -----------------------------------------------------
+    # --------------------------------------------------------
+    # Если цветов НЕТ
+    # создаём одну строку без цвета.
+    # --------------------------------------------------------
+
+    if not colors:
+
+        return [
+            {
+                "SKU": sku,
+                "TITLE": title,
+                "PRICE USD": "",
+                "STATUS": status,
+                "COLOR": "",
+                "URL": base_product_url(
+                    product_url
+                )
+            }
+        ]
+
+    # --------------------------------------------------------
+    # Если есть цвета:
     #
-    # Пока НЕ берём цену с сайта.
-    #
-    # Здесь позже подключим Google Sheet
-    # и будем искать цену по SKU.
-    # -----------------------------------------------------
+    # КАЖДЫЙ ЦВЕТ = ОТДЕЛЬНАЯ СТРОКА
+    # --------------------------------------------------------
 
-    price_usd = ""
+    products = []
 
-    # -----------------------------------------------------
-    # RESULT
-    # -----------------------------------------------------
+    for color in colors:
 
-    product = {
-        "SKU": sku,
-        "TITLE": title,
-        "PRICE USD": price_usd,
-        "STATUS": status,
-        "COLORS": colors,
-        "URL": url
-    }
+        color_url = make_color_url(
+            product_url,
+            color
+        )
 
-    print(
-        f"      ✅ SKU: {sku or '—'}"
-    )
+        products.append(
+            {
+                "SKU": sku,
+                "TITLE": title,
+                "PRICE USD": "",
+                "STATUS": status,
+                "COLOR": color["name"],
+                "URL": color_url
+            }
+        )
 
-    print(
-        f"      📦 STATUS: {status}"
-    )
-
-    print(
-        f"      🎨 COLORS: "
-        f"{colors or '—'}"
-    )
-
-    return product
+    return products
 
 
-# =========================================================
-# SAVE EXCEL
-# =========================================================
-
-def save_excel(products):
-    """
-    Сохраняем результат в Excel.
-    """
-
-    os.makedirs(
-        OUTPUT_DIR,
-        exist_ok=True
-    )
-
-    wb = Workbook()
-
-    ws = wb.active
-    ws.title = "Products"
-
-    headers = [
-        "SKU",
-        "TITLE",
-        "PRICE USD",
-        "STATUS",
-        "COLORS",
-        "URL"
-    ]
-
-    ws.append(headers)
-
-    for product in products:
-
-        ws.append([
-            product.get("SKU", ""),
-            product.get("TITLE", ""),
-            product.get("PRICE USD", ""),
-            product.get("STATUS", ""),
-            product.get("COLORS", ""),
-            product.get("URL", "")
-        ])
-
-    # Автоширина
-    widths = {
-        "A": 20,
-        "B": 60,
-        "C": 15,
-        "D": 25,
-        "E": 40,
-        "F": 90
-    }
-
-    for column, width in widths.items():
-        ws.column_dimensions[
-            column
-        ].width = width
-
-    # Freeze header
-    ws.freeze_panes = "A2"
-
-    # Filter
-    ws.auto_filter.ref = (
-        ws.dimensions
-    )
-
-    # Временный файл
-    temp_file = FILE_PATH + ".tmp"
-
-    wb.save(
-        temp_file
-    )
-
-    # Замена старого
-    if os.path.exists(FILE_PATH):
-        os.remove(FILE_PATH)
-
-    os.replace(
-        temp_file,
-        FILE_PATH
-    )
-
-    print()
-    print(
-        f"💾 Excel сохранён:"
-    )
-    print(
-        FILE_PATH
-    )
-
-
-# =========================================================
-# RUN PARSER
-# =========================================================
+# ============================================================
+# MAIN PARSER
+# ============================================================
 
 def run_parser():
+
+    print("🔥 ARIZONESPORTS PARSER STARTED")
+    print(f"👤 USER: {USER}")
 
     if not create_lock():
         return
 
-    start_time = time.time()
-
     try:
-
-        print()
-        print("🔥 ARIZONE SPORTS PARSER")
-        print("=" * 80)
-        print(
-            f"🌐 BASE: {BASE}"
-        )
-        print(
-            f"📁 OUTPUT: {FILE_PATH}"
-        )
-        print("=" * 80)
 
         save_status(
             "starting",
+            0,
+            0,
             "Запуск парсера"
         )
 
-        # -------------------------------------------------
-        # LOGIN
-        # -------------------------------------------------
-
-        if not login():
-
-            print(
-                "❌ Login failed"
-            )
-
-            save_status(
-                "error",
-                "Login failed"
-            )
-
-            return
-
-        # -------------------------------------------------
+        # ----------------------------------------------------
         # CATEGORIES
-        # -------------------------------------------------
+        # ----------------------------------------------------
 
         categories = get_categories()
 
         if not categories:
 
             print(
-                "❌ Категории не найдены"
+                "❌ CATEGORIES NOT FOUND"
             )
 
             save_status(
                 "error",
+                0,
+                0,
                 "Категории не найдены"
             )
 
             return
 
-        # -------------------------------------------------
-        # CATEGORY LIMIT
-        # -------------------------------------------------
-
-        if CATEGORY_LIMIT is not None:
-
-            categories = categories[
-                :CATEGORY_LIMIT
-            ]
-
-            print()
-            print(
-                f"🧪 TEST MODE: "
-                f"{len(categories)} категорий"
-            )
-
-        # -------------------------------------------------
+        # ----------------------------------------------------
         # COLLECT PRODUCT URLS
-        # -------------------------------------------------
+        # ----------------------------------------------------
 
-        all_product_urls = []
+        product_urls = []
 
         seen_urls = set()
 
@@ -1340,235 +1219,304 @@ def run_parser():
             start=1
         ):
 
+            save_status(
+                "categories",
+                category_index,
+                total_categories,
+                category["name"]
+            )
+
             print()
             print(
-                f"📂 CATEGORY "
-                f"{category_index}/"
-                f"{total_categories}"
+                f"📂 [{category_index}/"
+                f"{total_categories}] "
+                f"{category['name']}"
             )
 
-            save_status(
-                "category",
-                f"{category_index}/{total_categories}",
-                current=category_index,
-                total=total_categories,
-                category=category["name"]
-            )
-
-            product_urls = parse_category(
+            links = parse_category(
                 category
             )
 
-            for product_url in product_urls:
+            for url in links:
 
-                product_url = absolute_url(
-                    product_url
+                url = base_product_url(
+                    url
                 )
 
-                if not product_url:
+                if url in seen_urls:
                     continue
 
-                if product_url in seen_urls:
-                    continue
+                seen_urls.add(url)
 
-                seen_urls.add(
-                    product_url
+                product_urls.append(
+                    url
                 )
 
-                all_product_urls.append(
-                    product_url
-                )
-
-            print(
-                f"📊 Всего уникальных товаров "
-                f"после категории: "
-                f"{len(all_product_urls)}"
-            )
-
-            # -------------------------------------------------
-            # PRODUCT LIMIT
-            # -------------------------------------------------
+                if (
+                    PRODUCT_LIMIT
+                    and
+                    len(product_urls)
+                    >= PRODUCT_LIMIT
+                ):
+                    break
 
             if (
-                PRODUCT_LIMIT is not None
-                and len(all_product_urls)
+                PRODUCT_LIMIT
+                and
+                len(product_urls)
                 >= PRODUCT_LIMIT
             ):
-
-                all_product_urls = (
-                    all_product_urls[
-                        :PRODUCT_LIMIT
-                    ]
-                )
-
-                print(
-                    f"🧪 PRODUCT LIMIT: "
-                    f"{PRODUCT_LIMIT}"
-                )
-
                 break
 
-        # -------------------------------------------------
-        # NO PRODUCTS
-        # -------------------------------------------------
+        print()
+        print(
+            f"🛒 UNIQUE PRODUCTS: "
+            f"{len(product_urls)}"
+        )
 
-        if not all_product_urls:
+        if not product_urls:
 
-            print()
             print(
-                "❌ Товары не найдены"
+                "❌ PRODUCTS NOT FOUND"
             )
 
             save_status(
                 "error",
+                0,
+                0,
                 "Товары не найдены"
             )
 
             return
 
-        print()
-        print("=" * 80)
-        print(
-            f"🛒 ВСЕГО УНИКАЛЬНЫХ ТОВАРОВ: "
-            f"{len(all_product_urls)}"
+        # ----------------------------------------------------
+        # EXCEL
+        # ----------------------------------------------------
+
+        wb = Workbook()
+
+        ws = wb.active
+        ws.title = "Products"
+
+        headers = [
+            "SKU",
+            "TITLE",
+            "PRICE USD",
+            "STATUS",
+            "COLOR",
+            "URL"
+        ]
+
+        ws.append(
+            headers
         )
-        print("=" * 80)
 
-        # -------------------------------------------------
+        # ----------------------------------------------------
         # PARSE PRODUCTS
-        # -------------------------------------------------
-
-        products = []
-
-        seen_skus = set()
+        # ----------------------------------------------------
 
         total_products = len(
-            all_product_urls
+            product_urls
         )
 
+        # Теперь дедупликация:
+        #
+        # SKU + COLOR
+        #
+        # а НЕ SKU отдельно.
+        #
+        # Потому что:
+        #
+        # BBTT-Q7 + Бежевий
+        # BBTT-Q7 + Білий
+        # BBTT-Q7 + Зелений
+        #
+        # это три строки.
+        seen_variants = set()
+
+        parsed_count = 0
+
         for index, product_url in enumerate(
-            all_product_urls,
+            product_urls,
             start=1
         ):
 
-            print()
-            print(
-                f"📦 PRODUCT "
-                f"{index}/{total_products}"
-            )
-
             save_status(
-                "product",
-                f"{index}/{total_products}",
-                current=index,
-                total=total_products
-            )
-
-            product = parse_product(
+                "products",
+                index,
+                total_products,
                 product_url
             )
 
-            if not product:
-                continue
-
-            sku = clean(
-                product.get("SKU", "")
+            rows = parse_product(
+                product_url
             )
 
-            # -------------------------------------------------
-            # DEDUPE BY SKU
-            # -------------------------------------------------
-            #
-            # Если SKU есть — считаем его главным
-            # идентификатором товара.
-            #
-            # Цветовые #/ варианты сюда не попадут,
-            # потому что URL уже очищается от fragment.
-            # -------------------------------------------------
+            for row in rows:
 
-            if sku:
-
-                sku_key = sku.lower()
-
-                if sku_key in seen_skus:
-
-                    print(
-                        f"      ⚠️ Дубликат SKU: "
-                        f"{sku}"
-                    )
-
-                    continue
-
-                seen_skus.add(
-                    sku_key
+                sku = clean(
+                    row.get("SKU")
                 )
 
-            products.append(
-                product
+                color = clean(
+                    row.get("COLOR")
+                )
+
+                # ------------------------------------------------
+                # Дедупликация
+                # ------------------------------------------------
+                #
+                # Если SKU есть:
+                # SKU + COLOR
+                #
+                # Если SKU почему-то нет:
+                # URL + COLOR
+                #
+                # ------------------------------------------------
+
+                if sku:
+
+                    variant_key = (
+                        sku.lower(),
+                        color.lower()
+                    )
+
+                else:
+
+                    variant_key = (
+                        row["URL"].split("#")[0].lower(),
+                        color.lower()
+                    )
+
+                if variant_key in seen_variants:
+                    continue
+
+                seen_variants.add(
+                    variant_key
+                )
+
+                ws.append(
+                    [
+                        row["SKU"],
+                        row["TITLE"],
+                        row["PRICE USD"],
+                        row["STATUS"],
+                        row["COLOR"],
+                        row["URL"]
+                    ]
+                )
+
+                parsed_count += 1
+
+            print(
+                f"   ✅ [{index}/"
+                f"{total_products}] "
+                f"rows: {len(rows)}"
             )
 
-        # -------------------------------------------------
+        # ----------------------------------------------------
+        # WIDTH
+        # ----------------------------------------------------
+
+        widths = {
+            "A": 18,
+            "B": 65,
+            "C": 15,
+            "D": 30,
+            "E": 20,
+            "F": 100
+        }
+
+        for column, width in widths.items():
+            ws.column_dimensions[
+                column
+            ].width = width
+
+        # ----------------------------------------------------
+        # FREEZE
+        # ----------------------------------------------------
+
+        ws.freeze_panes = "A2"
+
+        # ----------------------------------------------------
         # SAVE
-        # -------------------------------------------------
+        # ----------------------------------------------------
+
+        os.makedirs(
+            OUTPUT_DIR,
+            exist_ok=True
+        )
+
+        temp_file = FILE_PATH + ".tmp"
+
+        wb.save(
+            temp_file
+        )
+
+        # Если старый файл существует —
+        # заменяем его новым.
+        if os.path.exists(
+            FILE_PATH
+        ):
+            os.remove(
+                FILE_PATH
+            )
+
+        os.replace(
+            temp_file,
+            FILE_PATH
+        )
 
         print()
-        print("=" * 80)
         print(
-            f"💾 Сохраняем "
-            f"{len(products)} товаров..."
-        )
-        print("=" * 80)
-
-        save_excel(
-            products
-        )
-
-        # -------------------------------------------------
-        # FINISH
-        # -------------------------------------------------
-
-        elapsed = (
-            time.time()
-            - start_time
-        )
-
-        print()
-        print("=" * 80)
-        print("✅ PARSER FINISHED")
-        print(
-            f"📦 Товаров: {len(products)}"
+            "========================================"
         )
         print(
-            f"⏱ Время: "
-            f"{elapsed:.1f} сек."
+            "🔥 ARIZONESPORTS PARSER FINISHED"
         )
         print(
-            f"📄 FILE: {FILE_PATH}"
+            f"📂 Categories: "
+            f"{len(categories)}"
         )
-        print("=" * 80)
+        print(
+            f"🛒 Product URLs: "
+            f"{len(product_urls)}"
+        )
+        print(
+            f"📄 Excel rows: "
+            f"{parsed_count}"
+        )
+        print(
+            f"💾 FILE: "
+            f"{FILE_PATH}"
+        )
+        print(
+            "========================================"
+        )
 
         save_status(
-            "done",
-            f"Готово. Товаров: {len(products)}",
-            current=len(products),
-            total=len(products)
+            "finished",
+            parsed_count,
+            parsed_count,
+            "Готово"
         )
 
     except Exception as e:
 
         print()
-        print("=" * 80)
-        print("❌ PARSER ERROR")
-        print("=" * 80)
+        print(
+            "❌ PARSER ERROR"
+        )
 
         print(
-            type(e).__name__,
-            str(e)
+            repr(e)
         )
 
         save_status(
             "error",
-            f"{type(e).__name__}: {e}"
+            0,
+            0,
+            str(e)
         )
 
         raise
@@ -1578,9 +1526,9 @@ def run_parser():
         remove_lock()
 
 
-# =========================================================
+# ============================================================
 # START
-# =========================================================
+# ============================================================
 
 if __name__ == "__main__":
     run_parser()
