@@ -290,6 +290,15 @@ def load_google_prices():
 
         price_map = {}
 
+        # Приоритет колонок цены
+        price_columns = [
+            "Оптова ціна, $",
+            "Оптова ціна",
+            "Ціна оптова",
+            "Дроп (від +100 грн)",
+            "Цена"
+        ]
+
         for sheet_name in wb.sheetnames:
 
             ws = wb[sheet_name]
@@ -308,15 +317,29 @@ def load_google_prices():
             article_col = None
             price_col = None
 
+            # Ищем Артикул
             for index, value in enumerate(header_row):
 
                 header = clean(value)
 
                 if header == "Артикул":
                     article_col = index
+                    break
 
-                elif header == "Оптова ціна, $":
-                    price_col = index
+            # Ищем цену по приоритету
+            for price_header in price_columns:
+
+                for index, value in enumerate(header_row):
+
+                    header = clean(value)
+
+                    if header == price_header:
+
+                        price_col = index
+                        break
+
+                if price_col is not None:
+                    break
 
             if article_col is None:
                 continue
@@ -346,6 +369,8 @@ def load_google_prices():
                 if price is None:
                     continue
 
+                # Если артикул уже был найден
+                # на другой вкладке — оставляем первое значение
                 if sku in price_map:
                     continue
 
