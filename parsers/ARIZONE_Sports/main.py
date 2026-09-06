@@ -23,8 +23,8 @@ GOOGLE_SHEET_ID = "1ROCGu-3W8PotpQSIgzHRDkXCiDeHU0_dzEjuRnkNHv0"
 
 # Для теста можно поставить число.
 # None = обрабатывать всё
-CATEGORY_LIMIT = 2
-PRODUCT_LIMIT = 20
+CATEGORY_LIMIT = None
+PRODUCT_LIMIT = None
 
 OUTPUT_DIR = os.path.abspath("output/ARIZONE_Sports")
 
