@@ -123,12 +123,6 @@ def get_soup(url):
 
             r = session.get(url, timeout=30)
 
-            print(
-                f"🌐 {r.status_code} | "
-                f"{len(r.content)} bytes | "
-                f"{url}"
-            )
-
             if r.status_code == 200:
 
                 return BeautifulSoup(
@@ -138,10 +132,6 @@ def get_soup(url):
 
         except Exception as e:
 
-            print(
-                f"⚠ HTTP ERROR {attempt + 1}/3: "
-                f"{url} | {e}"
-            )
 
         time.sleep(1)
 
@@ -279,9 +269,6 @@ def parse_price(value):
 
 def load_google_prices():
 
-    print("")
-    print("📊 GOOGLE SHEETS")
-    print("=" * 60)
 
     export_url = (
         "https://docs.google.com/spreadsheets/d/"
@@ -291,39 +278,18 @@ def load_google_prices():
 
     try:
 
-        print(f"⬇ Download XLSX:")
-        print(export_url)
-
         response = session.get(
             export_url,
             timeout=60
         )
 
-        print(
-            f"📥 Google response: "
-            f"{response.status_code} | "
-            f"{len(response.content)} bytes"
-        )
 
         if response.status_code != 200:
 
-            print(
-                f"❌ Google Sheet download failed: "
-                f"HTTP {response.status_code}"
-            )
 
             return {}
 
         if len(response.content) < 1000:
-
-            print(
-                "❌ Google Sheet response is too small. "
-                "Probably not XLSX."
-            )
-
-            print(
-                response.text[:500]
-            )
 
             return {}
 
@@ -343,9 +309,6 @@ def load_google_prices():
 
             return {}
 
-        print(
-            f"📚 Tabs found: {len(wb.sheetnames)}"
-        )
 
         price_map = {}
         duplicate_skus = []
@@ -355,8 +318,7 @@ def load_google_prices():
 
         for sheet_name in wb.sheetnames:
 
-            print("")
-            print(f"📄 TAB: {sheet_name}")
+
 
             ws = wb[sheet_name]
 
@@ -370,7 +332,6 @@ def load_google_prices():
 
             except StopIteration:
 
-                print("⚠ Empty sheet")
                 continue
 
             header_row = list(header_row)
@@ -390,28 +351,15 @@ def load_google_prices():
 
             if article_col is None:
 
-                print(
-                    "⚠ Header «Артикул» not found"
-                )
 
                 continue
 
             if price_col is None:
 
-                print(
-                    "⚠ Header «Оптова ціна, $» not found"
-                )
+
 
                 continue
 
-            print(
-                f"   Артикул column: {article_col + 1}"
-            )
-
-            print(
-                f"   Оптова ціна, $ column: "
-                f"{price_col + 1}"
-            )
 
             sheet_prices = 0
 
@@ -457,12 +405,6 @@ def load_google_prices():
                             )
                         )
 
-                        print(
-                            f"⚠ DUPLICATE SKU: "
-                            f"{sku} | "
-                            f"{old_price} -> {price} | "
-                            f"tab: {sheet_name}"
-                        )
 
                     # По договоренности:
                     # оставляем первое найденное значение
@@ -470,59 +412,29 @@ def load_google_prices():
 
                 price_map[sku] = price
 
-            print(
-                f"   💰 Prices loaded: {sheet_prices}"
-            )
 
         wb.close()
 
-        print("")
-        print("=" * 60)
-        print(
-            f"💰 TOTAL UNIQUE PRICES: "
-            f"{len(price_map)}"
-        )
 
-        print(
-            f"📦 TOTAL DATA ROWS: "
-            f"{total_rows}"
-        )
-
-        print(
-            f"⚠ DUPLICATES WITH DIFFERENT PRICE: "
-            f"{len(duplicate_skus)}"
-        )
 
         if price_map:
 
-            print("")
-            print("🔎 PRICE EXAMPLES:")
+
 
             for sku, price in list(
                 price_map.items()
             )[:20]:
 
-                print(
-                    f"   {sku} -> ${price:g}"
-                )
 
         else:
 
-            print("")
-            print(
-                "❌ GOOGLE PRICE MAP IS EMPTY!"
-            )
 
-        print("=" * 60)
-        print("")
 
         return price_map
 
     except Exception as e:
 
-        print(
-            f"❌ GOOGLE SHEET ERROR: {e}"
-        )
+
 
         return {}
 
@@ -544,10 +456,7 @@ def get_categories():
 
     if not tree:
 
-        print(
-            "❌ #categories_block_left ul.tree "
-            "not found"
-        )
+
 
         return categories
 
@@ -579,9 +488,7 @@ def get_categories():
 
     for i, cat in enumerate(categories, 1):
 
-        print(
-            f"   {i}. {cat}"
-        )
+
 
     return categories
 
@@ -685,10 +592,7 @@ def get_category_products(cat_url):
 
     if show_all_url:
 
-        print(
-            f"   🔥 SHOW ALL: "
-            f"{show_all_url}"
-        )
+
 
         soup = get_soup(
             show_all_url
@@ -698,10 +602,7 @@ def get_category_products(cat_url):
             soup
         )
 
-        print(
-            f"   📦 Show-all products: "
-            f"{len(product_links)}"
-        )
+
 
         for url in product_links:
 
@@ -723,9 +624,7 @@ def get_category_products(cat_url):
         first_page
     )
 
-    print(
-        f"   📄 Pages: {last_page}"
-    )
+
 
     for page in range(
         1,
@@ -759,10 +658,7 @@ def get_category_products(cat_url):
             soup
         )
 
-        print(
-            f"   📄 Page {page}: "
-            f"{len(product_links)} products"
-        )
+
 
         for url in product_links:
 
@@ -1388,35 +1284,16 @@ def parse_product(
 
     if price is None:
 
-        print(
-            f"❌ NO PRICE | "
-            f"SKU={sku} | "
-            f"{title}"
-        )
+
 
     else:
 
-        print(
-            f"💰 PRICE | "
-            f"SKU={sku} | "
-            f"${price:g} | "
-            f"{title}"
-        )
-
-    print(
-        f"   🎨 Colors: "
-        f"{len(colors)}"
-    )
 
     for color in colors:
 
         if color["name"]:
 
-            print(
-                f"      - "
-                f"{color['name']} "
-                f"(ID {color['id']})"
-            )
+
 
     rows = []
 
@@ -1473,15 +1350,6 @@ def run_parser():
 
         if not price_map:
 
-            print("")
-            print(
-                "❌ ОСТАНОВКА."
-            )
-            print(
-                "❌ Не загружена ни одна "
-                "оптовая цена из Google Sheet."
-            )
-            print("")
 
             save_status(
                 False,
@@ -1564,23 +1432,11 @@ def run_parser():
                 FILE_PATH
             )
 
-            print("")
-            print("=" * 70)
-            print(
-                f"📂 CATEGORY "
-                f"{i}/{total}"
-            )
-            print(cat)
-            print("=" * 70)
 
             product_urls = get_category_products(
                 cat
             )
 
-            print(
-                f"📦 Products found: "
-                f"{len(product_urls)}"
-            )
 
             if PRODUCT_LIMIT:
 
@@ -1599,12 +1455,6 @@ def run_parser():
 
                 total_products += 1
 
-                print("")
-                print(
-                    f"🔎 PRODUCT "
-                    f"{total_products}"
-                )
-                print(product_url)
 
                 rows = parse_product(
                     product_url,
@@ -1652,55 +1502,24 @@ def run_parser():
         # FINAL LOG
         # =================================
 
-        print("")
-        print("=" * 70)
-        print("✅ PARSER FINISHED")
-        print("=" * 70)
+
 
         print(
             f"📂 Categories: "
             f"{total}"
         )
 
-        print(
-            f"📦 Unique products: "
-            f"{total_products}"
-        )
 
-        print(
-            f"🎨 Excel rows: "
-            f"{total_rows}"
-        )
-
-        print(
-            f"💰 Prices in Google: "
-            f"{len(price_map)}"
-        )
-
-        print(
-            f"❌ Missing prices: "
-            f"{len(missing_prices)}"
-        )
 
         if missing_prices:
 
-            print("")
-            print(
-                "❌ SKUs WITHOUT PRICE:"
-            )
+
 
             for sku in list(
                 missing_prices
             )[:100]:
 
-                print(
-                    f"   {sku}"
-                )
 
-        print("")
-        print(
-            f"📄 FILE: {FILE_PATH}"
-        )
 
         save_status(
             False,
@@ -1709,7 +1528,7 @@ def run_parser():
             FILE_PATH
         )
 
-        print("")
+
         print(
             "✅ Готово. ARIZONE Sports"
         )
