@@ -75,7 +75,6 @@ def create_lock():
         try:
             age = time.time() - os.path.getmtime(LOCK_FILE)
 
-            # Старый lock считаем зависшим
             if age > 3600:
                 os.remove(LOCK_FILE)
                 print("⚠️ Удалён старый lock")
@@ -89,14 +88,24 @@ def create_lock():
 
     try:
 
-        with open(LOCK_FILE, "w", encoding="utf-8") as f:
-            f.write(str(os.getpid()))
+        with open(
+            LOCK_FILE,
+            "w",
+            encoding="utf-8"
+        ) as f:
+
+            f.write(
+                str(os.getpid())
+            )
 
         return True
 
     except Exception as e:
 
-        print(f"❌ Не удалось создать lock: {e}")
+        print(
+            f"❌ Не удалось создать lock: {e}"
+        )
+
         return False
 
 
@@ -122,14 +131,23 @@ def save_status(
     message=""
 ):
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(
+        OUTPUT_DIR,
+        exist_ok=True
+    )
 
     data = {
         "status": status,
         "current": current,
         "total": total,
         "message": message,
-        "updated": datetime.now().isoformat()
+
+        # ВАЖНО:
+        # оставляем именно формат,
+        # который использует Telegram-бот
+        "updated": datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
     }
 
     try:
@@ -149,16 +167,25 @@ def save_status(
 
     except Exception as e:
 
-        print(f"⚠️ Ошибка status.json: {e}")
+        print(
+            f"⚠️ Ошибка status.json: {e}"
+        )
 
 
 # ============================================================
 # HTTP
 # ============================================================
 
-def get_soup(url, params=None, retries=3):
+def get_soup(
+    url,
+    params=None,
+    retries=3
+):
 
-    for attempt in range(1, retries + 1):
+    for attempt in range(
+        1,
+        retries + 1
+    ):
 
         try:
 
@@ -180,7 +207,8 @@ def get_soup(url, params=None, retries=3):
             print(
                 f"⚠️ Ошибка GET "
                 f"{url} "
-                f"(попытка {attempt}/{retries}): {e}"
+                f"(попытка {attempt}/{retries}): "
+                f"{e}"
             )
 
             if attempt < retries:
@@ -207,6 +235,7 @@ def absolute_url(url):
         return "https://" + DOMAIN + url
 
     if url.startswith("http://"):
+
         return url.replace(
             "http://",
             "https://",
@@ -216,7 +245,11 @@ def absolute_url(url):
     if url.startswith("https://"):
         return url
 
-    return BASE.rstrip("/") + "/" + url.lstrip("/")
+    return (
+        BASE.rstrip("/")
+        + "/"
+        + url.lstrip("/")
+    )
 
 
 def base_product_url(url):
@@ -288,22 +321,29 @@ TRANSLIT_MAP = {
 
 def translit_slug(value):
 
-    value = clean(value).lower()
+    value = clean(
+        value
+    ).lower()
 
     result = ""
 
     for char in value:
 
         if char in TRANSLIT_MAP:
-            result += TRANSLIT_MAP[char]
+
+            result += TRANSLIT_MAP[
+                char
+            ]
 
         elif (
             char.isalnum()
             or char in "-_"
         ):
+
             result += char
 
         elif char in " .":
+
             result += "-"
 
     result = re.sub(
@@ -324,7 +364,9 @@ def normalize_header(value):
     if value is None:
         return ""
 
-    value = str(value).strip().lower()
+    value = str(
+        value
+    ).strip().lower()
 
     value = value.replace(
         "\n",
@@ -345,13 +387,17 @@ def normalize_sku(value):
     if value is None:
         return ""
 
-    value = str(value).strip()
+    value = str(
+        value
+    ).strip()
 
-    # Например Google может вернуть 1234.0
+    # Например:
+    # 1234.0 → 1234
     if re.fullmatch(
         r"\d+\.0",
         value
     ):
+
         value = value[:-2]
 
     return value.strip().lower()
@@ -362,7 +408,9 @@ def parse_price(value):
     if value is None:
         return None
 
-    value = str(value).strip()
+    value = str(
+        value
+    ).strip()
 
     if not value:
         return None
@@ -385,7 +433,11 @@ def parse_price(value):
     value = value.strip()
 
     # 28,50 → 28.50
-    if "," in value and "." not in value:
+    if (
+        "," in value
+        and "." not in value
+    ):
+
         value = value.replace(
             ",",
             "."
@@ -399,7 +451,9 @@ def parse_price(value):
 
     try:
 
-        return float(value)
+        return float(
+            value
+        )
 
     except ValueError:
 
@@ -446,7 +500,7 @@ def get_google_sheet_price_map():
     )
 
     # --------------------------------------------------------
-    # Ищем все gid вкладок
+    # Получаем все gid вкладок
     # --------------------------------------------------------
 
     sheet_links = []
@@ -484,15 +538,16 @@ def get_google_sheet_price_map():
         if not name:
             name = f"Лист {gid}"
 
-        exists = False
+        already_exists = False
 
         for old_gid, old_name in sheet_links:
 
             if old_gid == gid:
-                exists = True
+
+                already_exists = True
                 break
 
-        if not exists:
+        if not already_exists:
 
             sheet_links.append(
                 (
@@ -508,14 +563,15 @@ def get_google_sheet_price_map():
         )
 
         print(
-            "Проверь, что таблица открыта "
+            "Проверь, что таблица доступна "
             "для просмотра по ссылке."
         )
 
         return {}
 
     print(
-        f"📚 Найдено листов: {len(sheet_links)}"
+        f"📚 Найдено листов: "
+        f"{len(sheet_links)}"
     )
 
     # --------------------------------------------------------
@@ -524,11 +580,10 @@ def get_google_sheet_price_map():
 
     prices = {}
 
-    # Дубликаты
     duplicates = []
 
     # --------------------------------------------------------
-    # Идём по каждому листу
+    # Проходим ВСЕ листы
     # --------------------------------------------------------
 
     for gid, sheet_name in sheet_links:
@@ -561,7 +616,8 @@ def get_google_sheet_price_map():
         except Exception as e:
 
             print(
-                f"   ❌ Ошибка загрузки листа: {e}"
+                f"   ❌ Ошибка загрузки листа: "
+                f"{e}"
             )
 
             continue
@@ -574,7 +630,9 @@ def get_google_sheet_price_map():
             StringIO(text)
         )
 
-        rows = list(reader)
+        rows = list(
+            reader
+        )
 
         if not rows:
 
@@ -585,7 +643,7 @@ def get_google_sheet_price_map():
             continue
 
         # ----------------------------------------------------
-        # Ищем строку заголовков
+        # Ищем заголовки
         # ----------------------------------------------------
 
         header_index = None
@@ -608,10 +666,14 @@ def get_google_sheet_price_map():
                 normalized_headers
             ):
 
+                # Нужна именно эта колонка
                 if header == "артикул":
+
                     found_article = col
 
+                # И именно эта цена
                 if header == "оптова ціна, $":
+
                     found_price = col
 
             if (
@@ -627,21 +689,15 @@ def get_google_sheet_price_map():
                 break
 
         # ----------------------------------------------------
-        # Если колонки не найдены
+        # Если нужных колонок нет
         # ----------------------------------------------------
 
         if header_index is None:
 
             print(
-                "   ⚠️ Не найдены колонки:"
-            )
-
-            print(
-                "      Артикул"
-            )
-
-            print(
-                "      Оптова ціна, $"
+                "   ⚠️ Не найдены колонки "
+                "'Артикул' и "
+                "'Оптова ціна, $'"
             )
 
             continue
@@ -695,7 +751,7 @@ def get_google_sheet_price_map():
                 continue
 
             # ------------------------------------------------
-            # SKU уже есть
+            # Если SKU уже есть
             # ------------------------------------------------
 
             if sku in prices:
@@ -714,25 +770,28 @@ def get_google_sheet_price_map():
                     })
 
                     print(
-                        f"   ⚠️ Дубликат "
+                        f"   ⚠️ Дубликат SKU "
                         f"{sku}: "
-                        f"{old_price} / {price}"
+                        f"{old_price} / "
+                        f"{price}"
                     )
 
-                    # Оставляем первое найденное
+                    # Первую найденную цену оставляем
                     continue
 
             else:
 
                 prices[sku] = price
+
                 added += 1
 
         print(
-            f"   ➕ Добавлено цен: {added}"
+            f"   ➕ Добавлено цен: "
+            f"{added}"
         )
 
     # --------------------------------------------------------
-    # Результат
+    # Итог
     # --------------------------------------------------------
 
     print()
@@ -766,6 +825,7 @@ def get_google_sheet_price_map():
     print(
         "=" * 60
     )
+
     print()
 
     return prices
@@ -777,9 +837,13 @@ def get_google_sheet_price_map():
 
 def get_categories():
 
-    print("📂 Получаем категории...")
+    print(
+        "📂 Получаем категории..."
+    )
 
-    soup = get_soup(BASE)
+    soup = get_soup(
+        BASE
+    )
 
     if not soup:
         return []
@@ -799,15 +863,9 @@ def get_categories():
     categories = []
     seen = set()
 
-    # --------------------------------------------------------
-    # Берём ВСЕ ссылки внутри дерева.
-    #
-    # Поэтому автоматически получаем:
-    # категория
-    # └── подкатегория
-    #     └── подподкатегория
-    #         └── ...
-    # --------------------------------------------------------
+    # Все категории,
+    # подкатегории,
+    # подподкатегории и т.д.
 
     for a in block.select(
         "ul.tree a[href]"
@@ -845,7 +903,9 @@ def get_categories():
         if href in seen:
             continue
 
-        seen.add(href)
+        seen.add(
+            href
+        )
 
         categories.append({
             "name": name,
@@ -853,6 +913,7 @@ def get_categories():
         })
 
     if CATEGORY_LIMIT:
+
         categories = categories[
             :CATEGORY_LIMIT
         ]
@@ -933,7 +994,10 @@ def get_show_all_data(soup):
         )
 
         if category_id:
-            data["id_category"] = category_id
+
+            data[
+                "id_category"
+            ] = category_id
 
     return {
         "url": action,
@@ -1019,16 +1083,16 @@ def extract_product_links(soup):
             if ".html" not in href:
                 continue
 
-            # ------------------------------------------------
-            # Отбрасываем явно не товарные ссылки
-            # ------------------------------------------------
-
             if href in seen:
                 continue
 
-            seen.add(href)
+            seen.add(
+                href
+            )
 
-            links.append(href)
+            links.append(
+                href
+            )
 
     return links
 
@@ -1069,7 +1133,10 @@ def get_page_numbers(soup):
             )
 
             if page not in pages:
-                pages.append(page)
+
+                pages.append(
+                    page
+                )
 
     pages.sort()
 
@@ -1080,11 +1147,14 @@ def get_page_numbers(soup):
 # КАТЕГОРИЯ
 # ============================================================
 
-def parse_category(category_url):
+def parse_category(
+    category_url
+):
 
     print()
     print(
-        f"📁 КАТЕГОРИЯ: {category_url}"
+        f"📁 КАТЕГОРИЯ: "
+        f"{category_url}"
     )
 
     soup = get_soup(
@@ -1095,7 +1165,7 @@ def parse_category(category_url):
         return []
 
     # --------------------------------------------------------
-    # Сначала пытаемся Показать все
+    # Сначала Показать все
     # --------------------------------------------------------
 
     show_all = get_show_all_data(
@@ -1130,15 +1200,13 @@ def parse_category(category_url):
 
                 return links
 
-            else:
-
-                print(
-                    "   ⚠️ Показать все "
-                    "не вернуло товары"
-                )
+            print(
+                "   ⚠️ Показать все "
+                "не вернуло товары"
+            )
 
     # --------------------------------------------------------
-    # Обычная первая страница
+    # Первая страница
     # --------------------------------------------------------
 
     links = extract_product_links(
@@ -1151,11 +1219,13 @@ def parse_category(category_url):
     )
 
     all_links = list(
-        dict.fromkeys(links)
+        dict.fromkeys(
+            links
+        )
     )
 
     # --------------------------------------------------------
-    # Получаем номера страниц
+    # Дополнительные страницы
     # --------------------------------------------------------
 
     pages = get_page_numbers(
@@ -1169,21 +1239,11 @@ def parse_category(category_url):
             f"{pages}"
         )
 
-    # --------------------------------------------------------
-    # Если Show All не сработал,
-    # пробуем ?page=N
-    # --------------------------------------------------------
-
     for page in pages:
 
         if page <= 1:
             continue
 
-        # В исходном сайте ссылки выглядят как:
-        # #/page-2
-        #
-        # requests fragment не отправляет,
-        # поэтому пробуем обычный параметр page.
         page_soup = get_soup(
             category_url,
             params={
@@ -1206,7 +1266,10 @@ def parse_category(category_url):
         for link in page_links:
 
             if link not in all_links:
-                all_links.append(link)
+
+                all_links.append(
+                    link
+                )
 
     print(
         f"   ✅ Всего товаров в категории: "
@@ -1256,7 +1319,9 @@ def parse_sku(soup):
         )
 
         if sku:
-            return clean(sku)
+            return clean(
+                sku
+            )
 
         return clean(
             element.get_text(
@@ -1265,9 +1330,9 @@ def parse_sku(soup):
             )
         )
 
-    # fallback
     element = soup.select_one(
-        "#product_reference .editable"
+        "#product_reference "
+        ".editable"
     )
 
     if element:
@@ -1277,7 +1342,9 @@ def parse_sku(soup):
         )
 
         if sku:
-            return clean(sku)
+            return clean(
+                sku
+            )
 
         return clean(
             element.get_text(
@@ -1296,7 +1363,7 @@ def parse_sku(soup):
 def parse_status(soup):
 
     # --------------------------------------------------------
-    # Сначала видимый текст
+    # Видимый статус
     # --------------------------------------------------------
 
     element = soup.select_one(
@@ -1355,10 +1422,6 @@ def parse_status(soup):
 
             return "Немає в наявності"
 
-    # --------------------------------------------------------
-    # Если ничего не нашли
-    # --------------------------------------------------------
-
     return ""
 
 
@@ -1391,7 +1454,6 @@ def parse_colors(soup):
             )
         ).lower()
 
-        # Нас интересует именно Колір
         if "колір" not in label_text:
             continue
 
@@ -1413,17 +1475,15 @@ def parse_colors(soup):
                 )
             )
 
-            # ----------------------------------------------
-            # Получаем название цвета
-            # ----------------------------------------------
-
             color_name = ""
 
-            spans = li.select(
-                "span"
-            )
+            # ------------------------------------------------
+            # Ищем название цвета
+            # ------------------------------------------------
 
-            for span in spans:
+            for span in li.select(
+                "span"
+            ):
 
                 text = clean(
                     span.get_text(
@@ -1432,29 +1492,26 @@ def parse_colors(soup):
                     )
                 )
 
-                if text:
+                if not text:
+                    continue
 
-                    # Не берём span checked
-                    if text.lower() not in (
-                        "checked",
-                    ):
+                if text.lower() == "checked":
+                    continue
 
-                        color_name = text
+                color_name = text
 
-            # ----------------------------------------------
-            # Если span не нашли
-            # ----------------------------------------------
+            # ------------------------------------------------
+            # fallback
+            # ------------------------------------------------
 
             if not color_name:
 
-                text = clean(
+                color_name = clean(
                     li.get_text(
                         " ",
                         strip=True
                     )
                 )
-
-                color_name = text
 
             if not color_name:
                 continue
@@ -1468,10 +1525,11 @@ def parse_colors(soup):
             })
 
     # --------------------------------------------------------
-    # Удаляем дубликаты
+    # Дубликаты
     # --------------------------------------------------------
 
     result = []
+
     seen = set()
 
     for color in colors:
@@ -1484,9 +1542,13 @@ def parse_colors(soup):
         if key in seen:
             continue
 
-        seen.add(key)
+        seen.add(
+            key
+        )
 
-        result.append(color)
+        result.append(
+            color
+        )
 
     return result
 
@@ -1514,7 +1576,12 @@ def make_color_url(
         ""
     )
 
-    if not color_id or not slug:
+    if (
+        not color_id
+        or
+        not slug
+    ):
+
         return product_url
 
     return (
@@ -1556,14 +1623,17 @@ def parse_product(
     )
 
     # --------------------------------------------------------
-    # ЦЕНА ИЗ GOOGLE SHEETS
+    # Цена ТОЛЬКО из Google Sheets
     # --------------------------------------------------------
 
     price = price_map.get(
-        normalize_sku(sku)
+        normalize_sku(
+            sku
+        )
     )
 
     if price is None:
+
         price = ""
 
     colors = parse_colors(
@@ -1573,7 +1643,7 @@ def parse_product(
     rows = []
 
     # --------------------------------------------------------
-    # Если цветов нет
+    # Без цветов
     # --------------------------------------------------------
 
     if not colors:
@@ -1590,9 +1660,7 @@ def parse_product(
         return rows
 
     # --------------------------------------------------------
-    # Если есть цвета
-    #
-    # Каждый цвет = отдельная строка
+    # Каждый цвет отдельной строкой
     # --------------------------------------------------------
 
     for color in colors:
@@ -1677,11 +1745,9 @@ def save_excel(rows):
     # Формат цены
     # --------------------------------------------------------
 
-    price_column = 3
-
     for cell in ws.iter_cols(
-        min_col=price_column,
-        max_col=price_column,
+        min_col=3,
+        max_col=3,
         min_row=2
     ):
 
@@ -1692,12 +1758,10 @@ def save_excel(rows):
                 (int, float)
             ):
 
-                c.number_format = (
-                    '0.00'
-                )
+                c.number_format = "0.00"
 
     # --------------------------------------------------------
-    # Автоширина
+    # Ширина
     # --------------------------------------------------------
 
     widths = {
@@ -1716,7 +1780,7 @@ def save_excel(rows):
         ].width = width
 
     # --------------------------------------------------------
-    # Закрепляем шапку
+    # Freeze
     # --------------------------------------------------------
 
     ws.freeze_panes = "A2"
@@ -1727,7 +1791,7 @@ def save_excel(rows):
 
     print()
     print(
-        f"💾 Excel сохранён:"
+        "💾 Excel сохранён:"
     )
 
     print(
@@ -1742,15 +1806,20 @@ def save_excel(rows):
 def run_parser():
 
     print()
-    print("🔥 BOT STARTED")
-    print("🚀 BOT RUNNING")
-    print("🚀 STARTED ArizoneSports")
     print(
-        f"📄 SCRIPT: parsers/ArizoneSports/run.py"
+        "🔥 BOT STARTED"
+    )
+    print(
+        "🚀 BOT RUNNING"
+    )
+    print(
+        "🚀 STARTED Самокаты ARIZONE Sports"
+    )
+    print(
+        "📄 SCRIPT: parsers/ARIZONE_Sports/run.py"
     )
 
     if not create_lock():
-
         return
 
     save_status(
@@ -1763,7 +1832,7 @@ def run_parser():
     try:
 
         # ====================================================
-        # 1. Загружаем цены
+        # 1. Google Sheets
         # ====================================================
 
         price_map = (
@@ -1771,7 +1840,7 @@ def run_parser():
         )
 
         # ====================================================
-        # 2. Получаем категории
+        # 2. Категории
         # ====================================================
 
         save_status(
@@ -1799,7 +1868,7 @@ def run_parser():
             return
 
         # ====================================================
-        # 3. Обходим все категории
+        # 3. Обходим категории
         # ====================================================
 
         all_product_links = []
@@ -1853,7 +1922,7 @@ def run_parser():
         )
 
         # ====================================================
-        # 4. Ограничение для теста
+        # 4. Лимит
         # ====================================================
 
         if PRODUCT_LIMIT:
@@ -1870,7 +1939,7 @@ def run_parser():
             )
 
         # ====================================================
-        # 5. Парсим товары
+        # 5. Товары
         # ====================================================
 
         result_rows = []
@@ -1940,15 +2009,12 @@ def run_parser():
                     f"{e}"
                 )
 
-            # Небольшая пауза
-            time.sleep(0.15)
+            time.sleep(
+                0.15
+            )
 
         # ====================================================
         # 6. Дедупликация
-        #
-        # SKU + COLOR
-        #
-        # Поэтому цвета НЕ объединяются.
         # ====================================================
 
         final_rows = []
@@ -2004,7 +2070,7 @@ def run_parser():
             )
 
         # ====================================================
-        # 7. Сохраняем Excel
+        # 7. Excel
         # ====================================================
 
         save_excel(
@@ -2012,7 +2078,19 @@ def run_parser():
         )
 
         # ====================================================
-        # 8. Финальный статус
+        # 8. Статистика
+        # ====================================================
+
+        priced_count = sum(
+            1
+            for row in final_rows
+            if row.get(
+                "PRICE USD"
+            ) != ""
+        )
+
+        # ====================================================
+        # 9. Финальный статус
         # ====================================================
 
         save_status(
@@ -2023,30 +2101,34 @@ def run_parser():
         )
 
         print()
-        print("=" * 60)
-        print("🎉 ПАРСЕР ЗАВЕРШЁН")
+        print(
+            "=" * 60
+        )
+        print(
+            "🎉 ПАРСЕР ЗАВЕРШЁН"
+        )
         print(
             f"📦 Строк в Excel: "
             f"{len(final_rows)}"
         )
         print(
-            f"💰 SKU с ценами: "
-            f"{sum("
-                "1 for row in final_rows "
-                "if row.get('PRICE USD') != ''"
-            )}"
+            f"💰 Строк с ценами: "
+            f"{priced_count}"
         )
         print(
             f"📄 Файл: "
             f"{FILE_PATH}"
         )
-        print("=" * 60)
+        print(
+            "=" * 60
+        )
 
     except Exception as e:
 
         print()
         print(
-            f"💥 КРИТИЧЕСКАЯ ОШИБКА: {e}"
+            f"💥 КРИТИЧЕСКАЯ ОШИБКА: "
+            f"{e}"
         )
 
         save_status(
