@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import time
+from datetime import datetime
 import re
 import xml.etree.ElementTree as ET
 
@@ -58,7 +59,7 @@ def write_status(progress=0, running=True):
         "running": running,
         "progress": progress,
         "user": USER,
-        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "file_path": FILE_PATH,
     }
 
