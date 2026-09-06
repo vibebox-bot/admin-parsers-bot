@@ -58,7 +58,7 @@ def write_status(progress=0, running=True):
         "running": running,
         "progress": progress,
         "user": USER,
-        "time": time.time(),
+        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
         "file_path": FILE_PATH,
     }
 
