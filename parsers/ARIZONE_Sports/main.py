@@ -1196,6 +1196,7 @@ def transliterate_ukrainian(text):
     return result.strip("-")
 
 
+
 # =========================
 # PRODUCT COLORS
 # =========================
@@ -1206,182 +1207,89 @@ def get_product_colors(soup):
 
     seen = set()
 
-    # ---------------------------------
-    # Ищем fieldset, где legend = Колір
-    # ---------------------------------
-
+    # Ищем именно блок атрибута "Колір"
     for fieldset in soup.select(
-        "#attributes .attribute_fieldset, "
-        ".attribute_fieldset"
+        "fieldset.attribute_fieldset"
     ):
 
-        legend = fieldset.select_one(
-            "legend"
+        label = fieldset.select_one(
+            "label.attribute_label"
         )
 
-        if not legend:
+        if not label:
             continue
 
-        legend_text = clean(
-            legend.get_text(
+        label_text = clean(
+            label.get_text(
                 " ",
                 strip=True
             )
         ).casefold()
 
-        if "колір" not in legend_text:
+        if "колір" not in label_text:
             continue
 
-        # radio/input цвета
-        inputs = fieldset.select(
-            "input[type='radio']"
-        )
-
-        for inp in inputs:
-
-            color_id = (
-                inp.get("value")
-                or inp.get("data-value")
-                or ""
-            )
-
-            color_id = clean(
-                color_id
-            )
-
-            # Ищем label именно для этого input
-            label = None
-
-            input_id = inp.get("id")
-
-            if input_id:
-
-                label = fieldset.select_one(
-                    f"label[for='{input_id}']"
-                )
-
-            if not label:
-
-                parent = inp.parent
-
-                if parent:
-
-                    label = parent.select_one(
-                        "label"
-                    )
-
-            color_name = ""
-
-            if label:
-
-                color_name = clean(
-                    label.get_text(
-                        " ",
-                        strip=True
-                    )
-                )
-
-            if not color_name:
-
-                color_name = clean(
-                    inp.get(
-                        "title",
-                        ""
-                    )
-                )
-
-            if not color_name:
-
-                color_name = clean(
-                    inp.get(
-                        "data-label",
-                        ""
-                    )
-                )
-
-            if not color_name:
-                continue
-
-            key = (
-                color_id,
-                color_name.casefold()
-            )
-
-            if key in seen:
-                continue
-
-            seen.add(key)
-
-            colors.append(
-                {
-                    "id": color_id,
-                    "name": color_name
-                }
-            )
-
-    # ---------------------------------
-    # Дополнительный поиск radio
-    # если структура отличается
-    # ---------------------------------
-
-    if not colors:
-
-        for inp in soup.select(
-            "input[type='radio']"
+        # Внутри блока цвета каждый вариант
+        # находится в отдельном li
+        for li in fieldset.select(
+            ".attribute_list ul > li"
         ):
 
-            parent_text = ""
+            radio = li.select_one(
+                "input.attribute_radio"
+            )
 
-            parent = inp.parent
-
-            if parent:
-
-                parent_text = clean(
-                    parent.get_text(
-                        " ",
-                        strip=True
-                    )
-                ).casefold()
-
-            if (
-                "колір" not in parent_text
-                and "цвет" not in parent_text
-            ):
+            if not radio:
                 continue
 
             color_id = clean(
-                inp.get("value", "")
+                radio.get(
+                    "value",
+                    ""
+                )
             )
 
-            input_id = inp.get("id")
-
-            label = None
-
-            if input_id:
-
-                label = soup.select_one(
-                    f"label[for='{input_id}']"
-                )
-
+            # Название цвета находится
+            # в отдельном span после блока radio
             color_name = ""
 
-            if label:
+            spans = li.select(
+                ":scope > span"
+            )
 
-                color_name = clean(
-                    label.get_text(
+            for span in spans:
+
+                text = clean(
+                    span.get_text(
                         " ",
                         strip=True
                     )
                 )
 
+                if text:
+                    color_name = text
+                    break
+
+            # Запасной вариант:
+            # берём все span внутри li
             if not color_name:
 
-                color_name = clean(
-                    inp.get(
-                        "title",
-                        ""
+                for span in li.select("span"):
+
+                    # пропускаем span, внутри которого input
+                    if span.select_one("input"):
+                        continue
+
+                    text = clean(
+                        span.get_text(
+                            " ",
+                            strip=True
+                        )
                     )
-                )
+
+                    if text:
+                        color_name = text
+                        break
 
             if not color_name:
                 continue
@@ -1396,17 +1304,13 @@ def get_product_colors(soup):
 
             seen.add(key)
 
-            colors.append(
-                {
-                    "id": color_id,
-                    "name": color_name
-                }
-            )
+            colors.append({
+                "id": color_id,
+                "name": color_name
+            })
 
-    # ---------------------------------
-    # Если цветов нет
-    # ---------------------------------
-
+    # Если у товара цветов нет —
+    # всё равно создаём одну строку товара
     if not colors:
 
         return [
@@ -1417,7 +1321,6 @@ def get_product_colors(soup):
         ]
 
     return colors
-
 
 # =========================
 # COLOR URL
