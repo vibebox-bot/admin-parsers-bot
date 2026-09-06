@@ -28,10 +28,10 @@ PRODUCT_LIMIT = 20
 #PRODUCT_LIMIT = None
 
 
-OUTPUT_DIR = os.path.abspath("output/ArizoneSports")
+OUTPUT_DIR = os.path.abspath("output/ARIZONE_Sports")
 FILE_PATH = os.path.join(
     OUTPUT_DIR,
-    "ArizoneSports_LIVE.xlsx"
+    "ARIZONE_Sports_LIVE.xlsx"
 )
 
 STATUS_PATH = os.path.join(
