@@ -229,6 +229,14 @@ SUPPLIERS = {
             "status": path("output/Maraton/status.json"),
             "lock": path("output/Maraton/lock.txt"),
         }, 
+            "Самокаты ARIZONE Sports": {
+            "name": "Самокаты ARIZONE Sports",
+            "script": "parsers/ARIZONE_Sports/run.py",
+            "file": path("output/ARIZONE_Sports/ARIZONE_Sports_LIVE.xlsx"),
+            "status": path("output/ARIZONE_Sports/status.json"),
+            "lock": path("output/ARIZONE_Sports/lock.txt"),
+        }, 
+    
     
 }
 
