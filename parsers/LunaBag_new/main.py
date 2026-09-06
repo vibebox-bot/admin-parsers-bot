@@ -24,8 +24,8 @@ BASE = "https://lunabag.com.ua"
 # ⚙️ SWITCH
 # =========================
 
-CATEGORY_LIMIT = 2
-#CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = 2
+CATEGORY_LIMIT = None
 
 
 OUTPUT_DIR = os.path.abspath("output/LunaBag_new")
