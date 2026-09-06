@@ -25,7 +25,7 @@ BASE = "https://lunabag.com.ua"
 # =========================
 
 CATEGORY_LIMIT = 2
-# CATEGORY_LIMIT = None
+#CATEGORY_LIMIT = None
 
 
 OUTPUT_DIR = os.path.abspath("output/LunaBag_new")
@@ -807,11 +807,6 @@ def run_parser():
                 :CATEGORY_LIMIT
             ]
 
-            print(
-                f"🧪 TEST MODE: "
-                f"{len(categories)} categories"
-            )
-
 
         total = len(
             categories
@@ -855,13 +850,6 @@ def run_parser():
                 progress,
                 USER,
                 FILE_PATH
-            )
-
-
-            print(
-                f"🔹 Category "
-                f"{i}/{total} "
-                f"({progress}%)"
             )
 
 
@@ -970,25 +958,8 @@ def run_parser():
 
 
         print(
-            "================================"
-        )
-
-        print(
             "✅ Готово LunaBag_new"
         )
-
-        print(
-            f"📦 Products: {len(seen)}"
-        )
-
-        print(
-            f"📄 File: {FILE_PATH}"
-        )
-
-        print(
-            "================================"
-        )
-
 
     except Exception as e:
 
