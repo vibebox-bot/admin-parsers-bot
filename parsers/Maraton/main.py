@@ -45,7 +45,7 @@ LOCK_FILE = os.path.join(
 # TEST MODE
 # =========================================================
 
-CATEGORY_LIMIT = 2
+CATEGORY_LIMIT = 25
 
 # Для полного запуска:
 # CATEGORY_LIMIT = None
