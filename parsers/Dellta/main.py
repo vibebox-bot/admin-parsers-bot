@@ -72,7 +72,7 @@ def login():
         headers={
             "X-Requested-With": "XMLHttpRequest",
             "Referer": login_url
-        }
+        },
         timeout=(15, 60)
     )
 
