@@ -134,6 +134,9 @@ def get_soup(url):
             #print(f"🔄 Повторяем через 5 секунд: {url}")
             time.sleep(5)
 
+def clean(t):
+    return re.sub(r"\s+", " ", t).strip() if t else ""
+
 
 # =========================
 # CATEGORIES
