@@ -212,7 +212,7 @@ def parse_category(cat_url):
 
         url = f"{cat_url}?start={page}"
 
-        print(f"📄 {url}")
+        #print(f"📄 {url}")
 
         soup = get_soup(url)
 
