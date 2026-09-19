@@ -44,7 +44,8 @@ def login():
     login_url = BASE + "/login"
 
     # 1. GET страницу (ВАЖНО для cookies + возможных токенов)
-    r = session.get(login_url)
+    #r = session.get(login_url)
+    r = session.get(login_url, timeout=(15, 60))
     soup = BeautifulSoup(r.text, "html.parser")
 
     # 2. собираем hidden поля (если есть csrf / token)
@@ -72,6 +73,7 @@ def login():
             "X-Requested-With": "XMLHttpRequest",
             "Referer": login_url
         }
+        timeout=(15, 60)
     )
 
     #print("STATUS:", r2.status_code)
@@ -109,19 +111,36 @@ def save_status(running=False, progress=0, user="", file_path=""):
 # HTTP
 # =========================
 def get_soup(url):
-    r = session.get(url, timeout=30)
-    return BeautifulSoup(r.text, "html.parser")
+    while True:
+        try:
+            #print(f"🌐 Dellta: загрузка {url}")
 
+            r = session.get(
+                url,
+                timeout=(15, 60)
+            )
 
-def clean(t):
-    return re.sub(r"\s+", " ", t).strip() if t else ""
+            r.raise_for_status()
+
+            return BeautifulSoup(r.text, "html.parser")
+
+        except requests.exceptions.Timeout:
+            #print(f"⏱️ Dellta: сервер долго отвечает")
+            #print(f"🔄 Повторяем через 5 секунд: {url}")
+            time.sleep(5)
+
+        except requests.exceptions.RequestException as e:
+            #print(f"❌ Dellta: ошибка запроса: {e}")
+            #print(f"🔄 Повторяем через 5 секунд: {url}")
+            time.sleep(5)
 
 
 # =========================
 # CATEGORIES
 # =========================
 def get_categories():
-    r = session.get(BASE)
+    r = session.get(BASE, timeout=(15, 60))
+    #r = session.get(BASE)
     soup = BeautifulSoup(r.text, "html.parser")
 
     categories = []
