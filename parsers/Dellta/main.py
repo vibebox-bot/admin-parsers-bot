@@ -26,8 +26,8 @@ print("🔥 DELLTA LIFE PARSER")
 BASE = "https://b2b.delltalife.com"
 
 # Для первого теста можно поставить:
-# CATEGORY_LIMIT = 2
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 2
+# CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "123456"
