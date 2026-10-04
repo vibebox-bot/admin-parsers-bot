@@ -1,4 +1,3 @@
-import sys
 import json
 import time
 import re
@@ -90,14 +89,25 @@ def save_status(status, **extra):
     }
 
     STATUS_FILE.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2),
+        json.dumps(
+            data,
+            ensure_ascii=False,
+            indent=2
+        ),
         encoding="utf-8"
     )
 
 
 def create_lock():
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    LOCK_FILE.write_text("running", encoding="utf-8")
+    OUTPUT_DIR.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    LOCK_FILE.write_text(
+        "running",
+        encoding="utf-8"
+    )
 
 
 def remove_lock():
@@ -112,9 +122,13 @@ def remove_lock():
 # ==========================================================
 
 def create_excel():
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(
+        parents=True,
+        exist_ok=True
+    )
 
     wb = Workbook()
+
     ws = wb.active
     ws.title = SHEET_NAME
 
@@ -130,16 +144,21 @@ def create_excel():
 
 
 def append_products(products):
+
     if not products:
         return
 
     if not OUTPUT_FILE.exists():
         create_excel()
 
-    wb = load_workbook(OUTPUT_FILE)
+    wb = load_workbook(
+        OUTPUT_FILE
+    )
+
     ws = wb[SHEET_NAME]
 
     for product in products:
+
         ws.append([
             product["SKU"],
             product["TITLE"],
@@ -156,9 +175,15 @@ def append_products(products):
 # ==========================================================
 
 def parse_products(html):
-    soup = BeautifulSoup(html, "html.parser")
 
-    rows = soup.select("tr.itemPosition.simple")
+    soup = BeautifulSoup(
+        html,
+        "html.parser"
+    )
+
+    rows = soup.select(
+        "tr.itemPosition.simple"
+    )
 
     products = []
 
@@ -168,10 +193,15 @@ def parse_products(html):
         # SKU
         # --------------------------------------------------
 
-        sku_el = row.select_one("td.td_2 .gray")
+        sku_el = row.select_one(
+            "td.td_2 .gray"
+        )
 
         sku = clean_text(
-            sku_el.get_text(" ", strip=True)
+            sku_el.get_text(
+                " ",
+                strip=True
+            )
             if sku_el
             else ""
         )
@@ -185,12 +215,16 @@ def parse_products(html):
         )
 
         if not title_el:
+
             title_el = row.select_one(
                 "td.td_2 a[href]"
             )
 
         title = clean_text(
-            title_el.get_text(" ", strip=True)
+            title_el.get_text(
+                " ",
+                strip=True
+            )
             if title_el
             else ""
         )
@@ -212,7 +246,10 @@ def parse_products(html):
         )
 
         status = clean_text(
-            status_el.get_text(" ", strip=True)
+            status_el.get_text(
+                " ",
+                strip=True
+            )
             if status_el
             else ""
         )
@@ -222,16 +259,21 @@ def parse_products(html):
         # --------------------------------------------------
 
         price_el = row.select_one(
-            "td.td_3 .price-table tr.line-1 span.active"
+            "td.td_3 .price-table "
+            "tr.line-1 span.active"
         )
 
         if not price_el:
+
             price_el = row.select_one(
                 "td.td_3 tr.line-1 span.active"
             )
 
         price = clean_price(
-            price_el.get_text(" ", strip=True)
+            price_el.get_text(
+                " ",
+                strip=True
+            )
             if price_el
             else ""
         )
@@ -269,15 +311,28 @@ def get_categories(page):
     time.sleep(5)
 
     html = page.content()
-    soup = BeautifulSoup(html, "html.parser")
+
+    soup = BeautifulSoup(
+        html,
+        "html.parser"
+    )
 
     categories = []
 
-    for link in soup.select("a[href*='/invertoryi-']"):
+    for link in soup.select(
+        "a[href*='/invertoryi-']"
+    ):
 
-        href = link.get("href", "")
+        href = link.get(
+            "href",
+            ""
+        )
+
         name = clean_text(
-            link.get_text(" ", strip=True)
+            link.get_text(
+                " ",
+                strip=True
+            )
         )
 
         if not href or not name:
@@ -327,37 +382,45 @@ def login(page):
 
     time.sleep(5)
 
-    enter_button = page.locator("#a-enter")
+    enter_button = page.locator(
+        "#a-enter"
+    )
 
     if not enter_button.count():
-        log("❌ Кнопка авторизации не найдена")
         return False
 
     enter_button.click()
 
     try:
-        page.locator("#login-form").wait_for(
+
+        page.locator(
+            "#login-form"
+        ).wait_for(
             state="visible",
             timeout=15000
         )
+
     except PlaywrightTimeoutError:
-        log("❌ Форма авторизации не открылась")
+
         return False
 
     page.locator(
         "input[name='email_auth']"
-    ).fill(EMAIL)
+    ).fill(
+        EMAIL
+    )
 
     page.locator(
         "input[name='pass_auth']"
-    ).fill(PASSWORD)
+    ).fill(
+        PASSWORD
+    )
 
     login_button = page.locator(
         "#login-form button.modalButton"
     )
 
     if not login_button.count():
-        log("❌ Кнопка входа не найдена")
         return False
 
     login_button.click()
@@ -365,13 +428,16 @@ def login(page):
     time.sleep(5)
 
     try:
-        if page.locator("#login-form").is_visible():
-            log("❌ Авторизация не выполнена")
-            return False
-    except Exception:
-        pass
 
-    log("✅ Авторизация завершена")
+        if page.locator(
+            "#login-form"
+        ).is_visible():
+
+            return False
+
+    except Exception:
+
+        pass
 
     return True
 
@@ -390,7 +456,6 @@ def run_parser():
         categories=0
     )
 
-    log("🔥 DELLTA LIFE PARSER")
     log("🚀 Запуск парсера Dellta")
 
     try:
@@ -434,27 +499,31 @@ def run_parser():
             # КАТЕГОРИИ
             # ------------------------------------------------
 
-
-            categories = get_categories(page)
-
+            categories = get_categories(
+                page
+            )
 
             if not categories:
-                log("❌ Категории не найдены")
                 return
 
             if CATEGORY_LIMIT:
-                categories = categories[:CATEGORY_LIMIT]
-
+                categories = categories[
+                    :CATEGORY_LIMIT
+                ]
 
             # ------------------------------------------------
             # АВТОРИЗАЦИЯ
             # ------------------------------------------------
 
             if not login(page):
+
                 save_status(
                     "error",
                     error="Authorization failed"
                 )
+
+                browser.close()
+
                 return
 
             # ------------------------------------------------
@@ -467,7 +536,6 @@ def run_parser():
                 categories,
                 start=1
             ):
-
 
                 try:
 
@@ -490,13 +558,6 @@ def run_parser():
                             products
                         )
 
-            
-
-                    else:
-
-                        log(
-                            "📦 Товаров: 0"
-                        )
 
                     save_status(
                         "running",
@@ -504,6 +565,9 @@ def run_parser():
                         categories=index
                     )
 
+                except Exception:
+
+                    continue
 
             # ------------------------------------------------
             # ЗАВЕРШЕНИЕ
@@ -518,9 +582,9 @@ def run_parser():
                 file=str(OUTPUT_FILE)
             )
 
-        
-            log("🎉 DELLTA ЗАВЕРШЕН")
-           
+            log(
+                "🎉 DELLTA ЗАВЕРШЕН"
+            )
 
     except Exception as e:
 
