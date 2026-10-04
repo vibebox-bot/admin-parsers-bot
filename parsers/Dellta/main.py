@@ -18,7 +18,7 @@ BASE_URL = "https://b2b.delltalife.com"
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "123456"
 
-CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = 2
 
 OUTPUT_DIR = Path("output/Dellta")
 OUTPUT_FILE = OUTPUT_DIR / "Dellta_LIVE.xlsx"
@@ -434,14 +434,9 @@ def run_parser():
             # КАТЕГОРИИ
             # ------------------------------------------------
 
-            log("📂 Получаем категории...")
 
             categories = get_categories(page)
 
-            log(
-                f"📂 Найдено категорий/ссылок: "
-                f"{len(categories)}"
-            )
 
             if not categories:
                 log("❌ Категории не найдены")
@@ -450,16 +445,10 @@ def run_parser():
             if CATEGORY_LIMIT:
                 categories = categories[:CATEGORY_LIMIT]
 
-                log(
-                    f"🧪 Тестовый лимит категорий: "
-                    f"{CATEGORY_LIMIT}"
-                )
 
             # ------------------------------------------------
             # АВТОРИЗАЦИЯ
             # ------------------------------------------------
-
-            log("🔐 Авторизация Dellta...")
 
             if not login(page):
                 save_status(
@@ -479,14 +468,6 @@ def run_parser():
                 start=1
             ):
 
-                log(
-                    f"📂 КАТЕГОРИЯ "
-                    f"{index}/{len(categories)}"
-                )
-
-                log(
-                    f"📂 {category['name']}"
-                )
 
                 try:
 
@@ -509,10 +490,7 @@ def run_parser():
                             products
                         )
 
-                        log(
-                            f"📦 Товаров: "
-                            f"{len(products)}"
-                        )
+            
 
                     else:
 
@@ -526,12 +504,6 @@ def run_parser():
                         categories=index
                     )
 
-                except Exception as e:
-
-                    log(
-                        f"⚠ Ошибка категории: "
-                        f"{e}"
-                    )
 
             # ------------------------------------------------
             # ЗАВЕРШЕНИЕ
@@ -546,18 +518,9 @@ def run_parser():
                 file=str(OUTPUT_FILE)
             )
 
-            log("")
-            log("================================")
-            log("")
+        
             log("🎉 DELLTA ЗАВЕРШЕН")
-            log(
-                f"📦 Всего товаров: "
-                f"{total_products}"
-            )
-            log(
-                f"📄 Excel: "
-                f"{OUTPUT_FILE}"
-            )
+           
 
     except Exception as e:
 
