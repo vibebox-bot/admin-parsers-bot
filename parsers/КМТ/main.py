@@ -7,12 +7,12 @@ import xml.etree.ElementTree as ET
 
 from datetime import datetime
 from openpyxl import Workbook
-from playwright.sync_api import sync_playwright
+from bs4 import BeautifulSoup
 
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 Харьковская КМТ — XML + AUTH + SITE PRICE PARSER")
+print("🔥 Харьковская КМТ — XML + LOGIN + SITE PRICE PARSER")
 
 
 # ==========================================================
@@ -25,14 +25,30 @@ FEED_URL = (
 )
 
 LOGIN_URL = "https://kmt5.com.ua/login/"
+LOGIN_AJAX_URL = "https://kmt5.com.ua/login/?ajax=1"
+
+# ==========================================================
+# ЛОГИН КМТ
+# ==========================================================
 
 KMT_LOGIN = "finik257@gmail.com"
 KMT_PASSWORD = "18022021"
 
-#PRODUCT_LIMIT = None
+# ==========================================================
+# ТЕСТ
+# После проверки поставить None
+# ==========================================================
+
 PRODUCT_LIMIT = 5
 
-OUTPUT_DIR = os.path.abspath("output/КМТ")
+
+# ==========================================================
+# ФАЙЛЫ
+# ==========================================================
+
+OUTPUT_DIR = os.path.abspath(
+    "output/КМТ"
+)
 
 FILE_PATH = os.path.join(
     OUTPUT_DIR,
@@ -49,14 +65,9 @@ LOCK_FILE = os.path.join(
     "lock.txt"
 )
 
-STORAGE_STATE = os.path.join(
-    OUTPUT_DIR,
-    "kmt_auth.json"
-)
-
 
 # ==========================================================
-# HTTP SESSION
+# HEADERS
 # ==========================================================
 
 HEADERS = {
@@ -67,17 +78,27 @@ HEADERS = {
         "(KHTML, like Gecko) "
         "Chrome/120.0 Safari/537.36"
     ),
+
     "Accept": (
+        "text/html,"
+        "application/xhtml+xml,"
         "application/xml,"
         "text/xml,"
-        "application/xhtml+xml,"
-        "text/html;q=0.9,"
         "*/*;q=0.8"
+    ),
+
+    "Accept-Language": (
+        "uk-UA,uk;q=0.9,"
+        "ru;q=0.8,en;q=0.7"
     )
 }
 
+
 session = requests.Session()
-session.headers.update(HEADERS)
+
+session.headers.update(
+    HEADERS
+)
 
 
 # ==========================================================
@@ -86,18 +107,25 @@ session.headers.update(HEADERS)
 
 def is_locked():
 
-    if not os.path.exists(LOCK_FILE):
+    if not os.path.exists(
+        LOCK_FILE
+    ):
         return False
 
     try:
 
-        age = time.time() - os.path.getmtime(
-            LOCK_FILE
+        age = (
+            time.time()
+            - os.path.getmtime(
+                LOCK_FILE
+            )
         )
 
         if age > 3600:
 
-            os.remove(LOCK_FILE)
+            os.remove(
+                LOCK_FILE
+            )
 
             return False
 
@@ -123,15 +151,21 @@ def set_lock(state):
             encoding="utf-8"
         ) as f:
 
-            f.write(str(time.time()))
+            f.write(
+                str(time.time())
+            )
 
     else:
 
-        if os.path.exists(LOCK_FILE):
+        if os.path.exists(
+            LOCK_FILE
+        ):
 
             try:
 
-                os.remove(LOCK_FILE)
+                os.remove(
+                    LOCK_FILE
+                )
 
             except Exception:
 
@@ -226,13 +260,15 @@ def download_feed():
             )
 
             print(
-                f"   HTTP: {response.status_code}"
+                f"   HTTP: "
+                f"{response.status_code}"
             )
 
             if response.status_code != 200:
 
                 last_error = (
-                    f"HTTP {response.status_code}"
+                    f"HTTP "
+                    f"{response.status_code}"
                 )
 
                 time.sleep(2)
@@ -243,7 +279,9 @@ def download_feed():
 
             if not content:
 
-                last_error = "XML feed пустой"
+                last_error = (
+                    "XML feed пустой"
+                )
 
                 time.sleep(2)
 
@@ -267,7 +305,8 @@ def download_feed():
             time.sleep(2)
 
     raise RuntimeError(
-        f"Не удалось загрузить XML: {last_error}"
+        "Не удалось загрузить XML: "
+        + last_error
     )
 
 
@@ -277,10 +316,14 @@ def download_feed():
 
 def local_name(tag):
 
-    if not isinstance(tag, str):
+    if not isinstance(
+        tag,
+        str
+    ):
         return ""
 
     if "}" in tag:
+
         return tag.split(
             "}",
             1
@@ -294,7 +337,9 @@ def get_child_text(
     wanted_name
 ):
 
-    wanted_name = wanted_name.lower()
+    wanted_name = (
+        wanted_name.lower()
+    )
 
     for child in element:
 
@@ -449,6 +494,7 @@ def parse_xml(xml_content):
             "CODE": vendor_code,
             "PRODUCT_CODE": product_code,
             "TITLE": title,
+            "PRICE": "",
             "STATUS": status,
             "URL": url
         })
@@ -464,265 +510,152 @@ def parse_xml(xml_content):
 
 
 # ==========================================================
-# PLAYWRIGHT AUTH
+# LOGIN
 # ==========================================================
 
-def login_to_kmt(browser):
+def login_kmt():
 
-    print("🔐 Авторизация на КМТ...")
-
-    context = browser.new_context()
-
-    page = context.new_page()
+    print(
+        "🔐 Авторизация КМТ..."
+    )
 
     try:
 
-        page.goto(
+        # --------------------------------------------------
+        # 1. Открываем login page
+        # --------------------------------------------------
+
+        response = session.get(
             LOGIN_URL,
-            wait_until="domcontentloaded",
-            timeout=60000
+            timeout=30
         )
 
-        page.wait_for_timeout(1000)
-
-        # --------------------------------------------------
-        # Если уже авторизованы
-        # --------------------------------------------------
-
-        login_field = page.locator(
-            'input[name="email"]'
+        print(
+            f"   Login page: "
+            f"HTTP {response.status_code}"
         )
 
-        if not login_field.count():
-
-            print(
-                "✅ Уже авторизованы"
-            )
-
-            context.storage_state(
-                path=STORAGE_STATE
-            )
-
-            return context
-
-
-        if not KMT_LOGIN or not KMT_PASSWORD:
+        if response.status_code != 200:
 
             raise RuntimeError(
-                "Не заданы KMT_LOGIN "
-                "и KMT_PASSWORD"
+                "Не удалось открыть "
+                "страницу авторизации"
             )
 
 
         # --------------------------------------------------
-        # Заполняем форму
+        # 2. Отправляем AJAX login
         # --------------------------------------------------
 
-        print("   Ввожу логин...")
+        login_headers = {
+            "Referer": LOGIN_URL,
+            "Origin": "https://kmt5.com.ua",
+            "X-Requested-With": "XMLHttpRequest",
+            "Content-Type": (
+                "application/x-www-form-urlencoded; "
+                "charset=UTF-8"
+            ),
+            "Accept": (
+                "application/json,"
+                "text/javascript,"
+                "text/html,"
+                "*/*;q=0.01"
+            )
+        }
 
-        page.locator(
+
+        payload = {
+            "email": KMT_LOGIN,
+            "password": KMT_PASSWORD
+        }
+
+
+        response = session.post(
+            LOGIN_AJAX_URL,
+            data=payload,
+            headers=login_headers,
+            timeout=30
+        )
+
+
+        print(
+            f"   Login AJAX: "
+            f"HTTP {response.status_code}"
+        )
+
+        print(
+            f"   Ответ: "
+            f"{clean(response.text)[:300]}"
+        )
+
+
+        if response.status_code != 200:
+
+            raise RuntimeError(
+                f"Авторизация вернула HTTP "
+                f"{response.status_code}"
+            )
+
+
+        # --------------------------------------------------
+        # 3. Проверяем авторизацию
+        # --------------------------------------------------
+
+        check = session.get(
+            "https://kmt5.com.ua/",
+            timeout=30
+        )
+
+
+        if check.status_code != 200:
+
+            raise RuntimeError(
+                "Не удалось проверить "
+                "авторизацию"
+            )
+
+
+        soup = BeautifulSoup(
+            check.text,
+            "html.parser"
+        )
+
+
+        # Если на главной снова есть
+        # поле email — значит мы не вошли
+
+        login_field = soup.select_one(
             'input[name="email"]'
-        ).fill(
-            KMT_LOGIN
-        )
-
-        print("   Ввожу пароль...")
-
-        page.locator(
-            'input[name="password"]'
-        ).fill(
-            KMT_PASSWORD
         )
 
 
-        # --------------------------------------------------
-        # Нажимаем Войти
-        # --------------------------------------------------
+        if login_field:
 
-        print(
-            "   Нажимаю «Увійти»..."
-        )
-
-        page.locator(
-            '[data-authsubmit]'
-        ).click()
-
-
-        # Ждём AJAX-авторизацию
-
-        page.wait_for_timeout(
-            2000
-        )
-
-
-        # --------------------------------------------------
-        # Проверяем, исчезла ли форма
-        # --------------------------------------------------
-
-        login_field = page.locator(
-            'input[name="email"]'
-        )
-
-        if login_field.count():
-
-            # Иногда AJAX отвечает чуть позже
-
-            page.wait_for_timeout(
-                2000
+            raise RuntimeError(
+                "КМТ не авторизовал аккаунт. "
+                "Проверь логин и пароль."
             )
 
 
-        if login_field.count():
-
-            # Проверяем текст страницы
-
-            body_text = clean(
-                page.locator(
-                    "body"
-                ).inner_text()
-            ).lower()
-
-            if (
-                "невір" in body_text
-                or "неправ" in body_text
-                or "помил" in body_text
-                or "парол" in body_text
-            ):
-
-                raise RuntimeError(
-                    "КМТ не принял логин/пароль"
-                )
-
-
-        # --------------------------------------------------
-        # Сохраняем авторизацию
-        # --------------------------------------------------
-
-        context.storage_state(
-            path=STORAGE_STATE
-        )
-
         print(
-            "✅ Авторизация выполнена"
+            "✅ Авторизация КМТ успешна"
         )
 
-        return context
+        return True
 
-    except Exception:
 
-        context.close()
+    except Exception as e:
 
-        raise
+        raise RuntimeError(
+            f"Ошибка авторизации: {e}"
+        )
 
 
 # ==========================================================
-# LOAD SAVED AUTH
-# ==========================================================
-
-def create_kmt_context(browser):
-
-    # ------------------------------------------------------
-    # Если есть сохранённая авторизация
-    # ------------------------------------------------------
-
-    if os.path.exists(
-        STORAGE_STATE
-    ):
-
-        print(
-            "🔑 Найдена сохранённая "
-            "авторизация КМТ"
-        )
-
-        try:
-
-            context = browser.new_context(
-                storage_state=STORAGE_STATE
-            )
-
-            test_page = context.new_page()
-
-            test_page.goto(
-                "https://kmt5.com.ua/",
-                wait_until="domcontentloaded",
-                timeout=60000
-            )
-
-            test_page.wait_for_timeout(
-                500
-            )
-
-            # Если форма входа есть —
-            # сохранённая сессия истекла
-
-            if test_page.locator(
-                'input[name="email"]'
-            ).count():
-
-                print(
-                    "⚠ Сессия КМТ истекла"
-                )
-
-                context.close()
-
-                os.remove(
-                    STORAGE_STATE
-                )
-
-                return login_to_kmt(
-                    browser
-                )
-
-            print(
-                "✅ Сохранённая сессия работает"
-            )
-
-            return context
-
-        except Exception as e:
-
-            print(
-                f"⚠ Старая сессия "
-                f"не работает: {e}"
-            )
-
-            try:
-
-                context.close()
-
-            except Exception:
-
-                pass
-
-            try:
-
-                os.remove(
-                    STORAGE_STATE
-                )
-
-            except Exception:
-
-                pass
-
-            return login_to_kmt(
-                browser
-            )
-
-    # ------------------------------------------------------
-    # Первый запуск
-    # ------------------------------------------------------
-
-    return login_to_kmt(
-        browser
-    )
-
-
-# ==========================================================
-# GET PRICE FROM SITE
+# PRICE
 # ==========================================================
 
 def get_site_price(
-    page,
     url
 ):
 
@@ -730,48 +663,61 @@ def get_site_price(
 
         return ""
 
+
     try:
 
-        page.goto(
+        response = session.get(
             url,
-            wait_until="domcontentloaded",
-            timeout=30000
+            timeout=15
         )
 
-        # Ждём появления цены.
-        # Не ждём долго.
 
-        try:
+        if response.status_code != 200:
 
-            page.locator(
-                ".bb-price .opt[data-baseprice]"
-            ).wait_for(
-                state="attached",
-                timeout=5000
+            print(
+                f"   ⚠ HTTP "
+                f"{response.status_code}"
             )
 
-        except Exception:
-
-            pass
+            return ""
 
 
         # --------------------------------------------------
-        # Наша цена
+        # Проверяем, что это НЕ пустая
+        # неавторизованная страница
         # --------------------------------------------------
 
-        price_element = page.locator(
+        if len(response.text.strip()) < 500:
+
+            print(
+                "   ⚠ Страница слишком маленькая"
+            )
+
+            return ""
+
+
+        soup = BeautifulSoup(
+            response.text,
+            "html.parser"
+        )
+
+
+        # --------------------------------------------------
+        # НАША ЦЕНА
+        # --------------------------------------------------
+
+        price_element = soup.select_one(
             ".bb-price .opt[data-baseprice]"
-        ).first
+        )
 
 
-        if price_element.count():
-
-            price = price_element.get_attribute(
-                "data-baseprice"
-            )
+        if price_element:
 
             price = clean(
-                price
+                price_element.get(
+                    "data-baseprice",
+                    ""
+                )
             )
 
             if price:
@@ -780,22 +726,21 @@ def get_site_price(
 
 
         # --------------------------------------------------
-        # Дополнительный вариант
+        # Резервный селектор
         # --------------------------------------------------
 
-        price_element = page.locator(
+        price_element = soup.select_one(
             ".opt[data-baseprice]"
-        ).first
+        )
 
 
-        if price_element.count():
-
-            price = price_element.get_attribute(
-                "data-baseprice"
-            )
+        if price_element:
 
             price = clean(
-                price
+                price_element.get(
+                    "data-baseprice",
+                    ""
+                )
             )
 
             if price:
@@ -805,18 +750,18 @@ def get_site_price(
 
         return ""
 
+
     except Exception as e:
 
         print(
-            f"   ⚠ Ошибка страницы: "
-            f"{e}"
+            f"   ⚠ Ошибка цены: {e}"
         )
 
         return ""
 
 
 # ==========================================================
-# SAVE EMPTY EXCEL
+# EMPTY EXCEL
 # ==========================================================
 
 def create_empty_excel():
@@ -914,7 +859,7 @@ def save_excel(items):
 
 
 # ==========================================================
-# MAIN PARSER
+# RUN
 # ==========================================================
 
 def run_parser():
@@ -927,7 +872,9 @@ def run_parser():
 
         return
 
+
     set_lock(True)
+
 
     try:
 
@@ -939,6 +886,7 @@ def run_parser():
             False,
             ""
         )
+
 
         print(
             "🚀 Запуск парсера КМТ"
@@ -981,113 +929,19 @@ def run_parser():
 
 
         # ==================================================
-        # BROWSER
+        # LOGIN
         # ==================================================
 
         try:
 
-            with sync_playwright() as p:
-
-                browser = p.chromium.launch(
-                    headless=True
-                )
-
-                try:
-
-                    context = create_kmt_context(
-                        browser
-                    )
-
-                    page = context.new_page()
-
-                    total = len(products)
-
-                    price_found = 0
-
-                    price_missing = 0
-
-                    items = []
-
-
-                    # ======================================
-                    # PRODUCTS
-                    # ======================================
-
-                    for index, product in enumerate(
-                        products,
-                        1
-                    ):
-
-                        title = product["TITLE"]
-
-                        print(
-                            f"🌐 {index}/{total} "
-                            f"| {title[:70]}"
-                        )
-
-
-                        price = get_site_price(
-                            page,
-                            product["URL"]
-                        )
-
-
-                        if price:
-
-                            price_found += 1
-
-                            print(
-                                f"   💵 ${price}"
-                            )
-
-                        else:
-
-                            price_missing += 1
-
-                            print(
-                                "   ⚠ Цена не найдена"
-                            )
-
-
-                        product["PRICE"] = price
-
-                        items.append(
-                            product
-                        )
-
-
-                        progress = int(
-                            index / total * 100
-                        )
-
-
-                        if (
-                            index == 1
-                            or index % 10 == 0
-                            or index == total
-                        ):
-
-                            save_status(
-                                True,
-                                progress,
-                                USER,
-                                FILE_PATH
-                            )
-
-
-                    context.close()
-
-                finally:
-
-                    browser.close()
-
+            login_kmt()
 
         except Exception as e:
 
             error_message = str(e)
 
             print(
-                f"❌ ОШИБКА БРАУЗЕРА: "
+                f"❌ ОШИБКА АВТОРИЗАЦИИ: "
                 f"{error_message}"
             )
 
@@ -1106,10 +960,82 @@ def run_parser():
 
 
         # ==================================================
+        # PRODUCTS
+        # ==================================================
+
+        total = len(products)
+
+        price_found = 0
+
+        price_missing = 0
+
+
+        for index, product in enumerate(
+            products,
+            1
+        ):
+
+            title = product[
+                "TITLE"
+            ]
+
+            print(
+                f"🌐 {index}/{total} "
+                f"| {title[:70]}"
+            )
+
+
+            price = get_site_price(
+                product["URL"]
+            )
+
+
+            if price:
+
+                price_found += 1
+
+                print(
+                    f"   💵 ${price}"
+                )
+
+            else:
+
+                price_missing += 1
+
+                print(
+                    "   ⚠ Цена не найдена"
+                )
+
+
+            product[
+                "PRICE"
+            ] = price
+
+
+            progress = int(
+                index / total * 100
+            )
+
+
+            if (
+                index == 1
+                or index % 10 == 0
+                or index == total
+            ):
+
+                save_status(
+                    True,
+                    progress,
+                    USER,
+                    FILE_PATH
+                )
+
+
+        # ==================================================
         # SAVE
         # ==================================================
 
-        if not items:
+        if not products:
 
             error_message = (
                 "Парсер завершился: "
@@ -1137,7 +1063,7 @@ def run_parser():
         try:
 
             save_excel(
-                items
+                products
             )
 
         except Exception as e:
@@ -1193,19 +1119,23 @@ def run_parser():
         )
 
         print(
-            f"✅ Товаров: {len(items)}"
+            f"✅ Товаров: "
+            f"{len(products)}"
         )
 
         print(
-            f"💵 Цена найдена: {price_found}"
+            f"💵 Цена найдена: "
+            f"{price_found}"
         )
 
         print(
-            f"⚠ Цена не найдена: {price_missing}"
+            f"⚠ Цена не найдена: "
+            f"{price_missing}"
         )
 
         print(
-            f"📄 Файл: {FILE_PATH}"
+            f"📄 Файл: "
+            f"{FILE_PATH}"
         )
 
         print(
@@ -1219,7 +1149,7 @@ def run_parser():
 
 
 # ==========================================================
-# START
+# MAIN
 # ==========================================================
 
 if __name__ == "__main__":
