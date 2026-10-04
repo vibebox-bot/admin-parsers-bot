@@ -19,9 +19,6 @@ BASE_URL = "https://b2b.delltalife.com"
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "123456"
 
-EMAIL = os.getenv("DELLTA_EMAIL", "angelinatitor@gmail.com")
-PASSWORD = os.getenv("DELLTA_PASSWORD", "")
-
 CATEGORY_LIMIT = 1
 
 OUTPUT_DIR = Path("output/Dellta")
