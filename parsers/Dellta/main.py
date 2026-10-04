@@ -1,104 +1,68 @@
 
 import os
+import sys
 import json
 import re
 import time
 import requests
+
 from datetime import datetime
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
-import sys
 
 
-# =========================================================
-# 👤 USER
-# =========================================================
+# ==========================================================
+# USER
+# ==========================================================
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 
+# ==========================================================
+# SETTINGS
+# ==========================================================
+
 print("🔥 DELLTA LIFE PARSER")
-
-
-# =========================================================
-# ⚙️ CONFIG
-# =========================================================
 
 BASE = "https://b2b.delltalife.com"
 
-# Тестируем сначала 2 категории
-CATEGORY_LIMIT = 2
-
-# После успешного теста:
-# CATEGORY_LIMIT = None
-
+# Для теста можно поставить 2
+# CATEGORY_LIMIT = 2
+CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "123456"
 
-
-OUTPUT_DIR = os.path.abspath(
-    "output/Dellta"
-)
-
-FILE_PATH = os.path.join(
-    OUTPUT_DIR,
-    "Dellta_LIVE.xlsx"
-)
-
-STATUS_PATH = os.path.join(
-    OUTPUT_DIR,
-    "status.json"
-)
+OUTPUT_DIR = os.path.abspath("output/Dellta")
+FILE_PATH = os.path.join(OUTPUT_DIR, "Dellta_LIVE.xlsx")
+STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 
 
-# =========================================================
-# 🌐 HEADERS
-# =========================================================
+# ==========================================================
+# HTTP
+# ==========================================================
 
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/140.0.0.0 Safari/537.36"
+        "Chrome/131.0.0.0 Safari/537.36"
     ),
-
     "Accept": (
-        "text/html,application/xhtml+xml,"
-        "application/xml;q=0.9,"
-        "image/avif,image/webp,"
-        "*/*;q=0.8"
+        "text/html,application/xhtml+xml,application/xml;"
+        "q=0.9,image/avif,image/webp,*/*;q=0.8"
     ),
-
-    "Accept-Language": (
-        "uk-UA,uk;q=0.9,"
-        "ru;q=0.8,en;q=0.7"
-    ),
-
-    "Accept-Encoding": (
-        "gzip, deflate"
-    ),
-
+    "Accept-Language": "uk-UA,uk;q=0.9,ru;q=0.8,en-US;q=0.7,en;q=0.6",
     "Connection": "keep-alive",
-
-    "Upgrade-Insecure-Requests": "1"
 }
 
-
-# =========================================================
-# 🔗 SESSION
-# =========================================================
-
 session = requests.Session()
-
-session.headers.update(
-    HEADERS
-)
+session.headers.update(HEADERS)
 
 
-# =========================================================
+# ==========================================================
 # STATUS
-# =========================================================
+# ==========================================================
 
 def save_status(
     running=False,
@@ -106,49 +70,38 @@ def save_status(
     user="",
     file_path=""
 ):
-
-    os.makedirs(
-        OUTPUT_DIR,
-        exist_ok=True
-    )
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     data = {
         "running": running,
         "progress": progress,
         "user": user,
-        "time": datetime.now().strftime(
-            "%Y-%m-%d %H:%M:%S"
-        ),
-        "file_path": file_path
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "file_path": file_path,
     }
 
     tmp = STATUS_PATH + ".tmp"
 
-    with open(
-        tmp,
-        "w",
-        encoding="utf-8"
-    ) as f:
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(
+                data,
+                f,
+                ensure_ascii=False,
+                indent=2
+            )
 
-        json.dump(
-            data,
-            f,
-            ensure_ascii=False,
-            indent=2
-        )
+        os.replace(tmp, STATUS_PATH)
 
-    os.replace(
-        tmp,
-        STATUS_PATH
-    )
+    except Exception as e:
+        print(f"⚠ Не удалось сохранить status.json: {e}")
 
 
-# =========================================================
-# 🧹 CLEAN
-# =========================================================
+# ==========================================================
+# HELPERS
+# ==========================================================
 
 def clean(text):
-
     if not text:
         return ""
 
@@ -159,459 +112,328 @@ def clean(text):
     ).strip()
 
 
-# =========================================================
-# 🌐 HTTP REQUEST
-# =========================================================
+def absolute_url(url):
+    if not url:
+        return ""
 
-def request_page(
-    url,
-    method="GET",
-    data=None,
-    referer=None
-):
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
 
-    headers = dict(
-        HEADERS
-    )
+    if url.startswith("/"):
+        return BASE.rstrip("/") + url
 
-    if referer:
-
-        headers["Referer"] = referer
-
-    try:
-
-        if method == "POST":
-
-            r = session.post(
-                url,
-                data=data,
-                headers=headers,
-                timeout=(15, 60),
-                allow_redirects=True
-            )
-
-        else:
-
-            r = session.get(
-                url,
-                headers=headers,
-                timeout=(15, 60),
-                allow_redirects=True
-            )
-
-        print(
-            f"🌐 {method} {url} → HTTP {r.status_code}"
-        )
-
-        # =================================================
-        # 429
-        # =================================================
-
-        if r.status_code == 429:
-
-            print("")
-            print(
-                "❌ Dellta вернул HTTP 429"
-            )
-
-            print(
-                "❌ Ответ: Захищена сторінка"
-            )
-
-            print(
-                "🌐 Final URL:",
-                r.url
-            )
-
-            print(
-                "📄 Content-Type:",
-                r.headers.get(
-                    "Content-Type",
-                    ""
-                )
-            )
-
-            location = r.headers.get(
-                "Location"
-            )
-
-            if location:
-
-                print(
-                    "↪ Location:",
-                    location
-                )
-
-            set_cookie = r.headers.get(
-                "Set-Cookie",
-                ""
-            )
-
-            if set_cookie:
-
-                print(
-                    "🍪 Set-Cookie:",
-                    set_cookie[:500]
-                )
-
-            print(
-                "📄 Response title:"
-            )
-
-            try:
-
-                soup = BeautifulSoup(
-                    r.text,
-                    "html.parser"
-                )
-
-                title = soup.title
-
-                if title:
-
-                    print(
-                        "   ",
-                        clean(
-                            title.get_text()
-                        )
-                    )
-
-            except Exception:
-                pass
-
-            print("")
-
-            return None
-
-        # =================================================
-        # OTHER HTTP ERRORS
-        # =================================================
-
-        if r.status_code >= 400:
-
-            print(
-                f"❌ HTTP ERROR: {r.status_code}"
-            )
-
-            print(
-                r.text[:500]
-            )
-
-            return None
-
-        return r
-
-    except requests.exceptions.Timeout:
-
-        print(
-            f"⏱ TIMEOUT: {url}"
-        )
-
-        return None
-
-    except requests.exceptions.ConnectionError as e:
-
-        print(
-            f"🔌 CONNECTION ERROR: {e}"
-        )
-
-        return None
-
-    except requests.exceptions.RequestException as e:
-
-        print(
-            f"❌ REQUEST ERROR: {e}"
-        )
-
-        return None
+    return BASE.rstrip("/") + "/" + url.lstrip("/")
 
 
-# =========================================================
-# 🏠 INITIAL CONNECTION
-# =========================================================
-
-def open_main_page():
-
-    print("")
-    print(
-        "🌐 Проверяем соединение с Dellta..."
-    )
-
-    r = request_page(
-        BASE,
-        method="GET"
-    )
-
-    if not r:
-
-        print(
-            "❌ Главная страница Dellta недоступна"
-        )
-
-        return False
-
-    print(
-        "✅ Главная страница получена"
-    )
-
-    print(
-        "📏 Размер ответа:",
-        len(r.text),
-        "байт"
-    )
-
-    return True
-
-
-# =========================================================
-# 🔐 LOGIN
-# =========================================================
+# ==========================================================
+# LOGIN
+# ==========================================================
 
 def login():
+    print("🔐 Авторизация Dellta...")
 
-    print("")
-    print(
-        "🔐 Авторизация Dellta..."
-    )
-
-    # -----------------------------------------------------
-    # Сначала открываем главную.
-    # Получаем обычную HTTP-сессию.
-    # -----------------------------------------------------
-
-    r_main = request_page(
-        BASE,
-        method="GET"
-    )
-
-    if not r_main:
-
-        print(
-            "❌ Не удалось открыть главную страницу"
-        )
-
-        return False
-
-    print(
-        "✅ Главная страница открыта"
-    )
-
-    # -----------------------------------------------------
-    # LOGIN ENDPOINT
-    # -----------------------------------------------------
-
-    login_action = (
-        BASE
-        + "/themes/default/ajax/login.php"
-    )
-
-    payload = {
-        "email_auth": EMAIL,
-        "pass_auth": PASSWORD
-    }
-
-    headers = {
-        "User-Agent": HEADERS["User-Agent"],
-
-        "Accept": "*/*",
-
-        "Accept-Language": (
-            "uk-UA,uk;q=0.9,"
-            "ru;q=0.8,en;q=0.7"
-        ),
-
-        "Content-Type": (
-            "application/x-www-form-urlencoded; "
-            "charset=UTF-8"
-        ),
-
-        "X-Requested-With": "XMLHttpRequest",
-
-        "Origin": BASE,
-
-        "Referer": BASE + "/",
-
-        "Connection": "keep-alive"
-    }
-
-    print(
-        "🔐 Отправляем login.php..."
-    )
+    login_page = BASE + "/"
 
     try:
+        print(f"🌐 GET {login_page}")
 
-        r = session.post(
-            login_action,
-            data=payload,
-            headers=headers,
+        r = session.get(
+            login_page,
             timeout=(15, 60),
             allow_redirects=True
         )
 
+        print(f"🌐 HTTP: {r.status_code}")
+        print(f"🌐 Final URL: {r.url}")
+
     except requests.exceptions.RequestException as e:
-
-        print(
-            "❌ LOGIN ERROR:",
-            e
-        )
-
+        print(f"❌ Ошибка GET главной страницы: {e}")
         return False
 
-    print(
-        f"🔐 LOGIN HTTP: {r.status_code}"
-    )
-
-    # =====================================================
+    # ------------------------------------------------------
     # 429
-    # =====================================================
+    # ------------------------------------------------------
 
     if r.status_code == 429:
-
-        print("")
-        print(
-            "❌ LOGIN заблокирован Dellta: HTTP 429"
+        soup = BeautifulSoup(
+            r.text,
+            "html.parser"
         )
 
-        print(
-            "❌ Сервер вернул «Захищена сторінка»"
+        title = clean(
+            soup.title.get_text()
+            if soup.title
+            else ""
         )
 
-        print(
-            "🌐 Final URL:",
-            r.url
-        )
+        print("❌ Dellta вернул HTTP 429")
 
-        print(
-            "📄 Response:"
-        )
+        if title:
+            print(f"❌ Response title: {title}")
 
-        print(
-            r.text[:700]
-        )
+        text = clean(soup.get_text(" ", strip=True))
 
-        print("")
+        if text:
+            print(f"❌ Ответ: {text[:500]}")
+
+        print()
+        print(
+            "⚠ Сервер Dellta не отдал страницу с модалкой "
+            "авторизации."
+        )
+        print(
+            "⚠ Поэтому заполнить #login-form сейчас невозможно."
+        )
 
         return False
 
-    # =====================================================
-    # OTHER ERRORS
-    # =====================================================
+    # ------------------------------------------------------
+    # Другие HTTP ошибки
+    # ------------------------------------------------------
 
     if r.status_code >= 400:
-
         print(
-            f"❌ LOGIN HTTP ERROR: {r.status_code}"
+            f"❌ Ошибка открытия Dellta: HTTP {r.status_code}"
         )
-
-        print(
-            r.text[:700]
-        )
-
         return False
 
-    # =====================================================
-    # RESPONSE
-    # =====================================================
-
-    response_text = clean(
-        r.text
-    )
-
-    print(
-        "🔐 LOGIN RESPONSE:"
-    )
-
-    print(
-        response_text[:500]
-    )
-
-    # =====================================================
-    # COOKIE CHECK
-    # =====================================================
-
-    print("")
-    print(
-        "🍪 SESSION COOKIES:"
-    )
-
-    for cookie in session.cookies:
-
-        print(
-            f"   {cookie.name}"
-        )
-
-    print("")
-
-    # =====================================================
-    # LOGIN RESULT
-    # =====================================================
-
-    lower = response_text.lower()
-
-    if (
-        "error" in lower
-        or "помил" in lower
-        or "ошиб" in lower
-    ):
-
-        print(
-            "⚠️ Сервер вернул возможную ошибку авторизации"
-        )
-
-        return False
-
-    print(
-        "✅ LOGIN REQUEST OK"
-    )
-
-    return True
-
-
-# =========================================================
-# 📄 GET SOUP
-# =========================================================
-
-def get_soup(url):
-
-    r = request_page(
-        url,
-        method="GET"
-    )
-
-    if not r:
-
-        return None
-
-    return BeautifulSoup(
-        r.text,
-        "html.parser"
-    )
-
-
-# =========================================================
-# 📂 CATEGORIES
-# =========================================================
-
-def get_categories():
-
-    print("")
-    print(
-        "📂 Получаем категории..."
-    )
-
-    r = request_page(
-        BASE,
-        method="GET"
-    )
-
-    if not r:
-
-        return []
+    # ------------------------------------------------------
+    # Парсим страницу
+    # ------------------------------------------------------
 
     soup = BeautifulSoup(
         r.text,
         "html.parser"
     )
+
+    # Реальная форма из модального окна
+    form = soup.select_one("#login-form")
+
+    if not form:
+        # Дополнительный поиск по action
+        form = soup.select_one(
+            'form[action="/themes/default/ajax/login.php"]'
+        )
+
+    if not form:
+        print("❌ #login-form не найден")
+
+        title = clean(
+            soup.title.get_text()
+            if soup.title
+            else ""
+        )
+
+        if title:
+            print(f"📄 Response title: {title}")
+
+        return False
+
+    print("✅ Модалка авторизации найдена")
+
+    # ------------------------------------------------------
+    # Получаем action
+    # ------------------------------------------------------
+
+    action = form.get("action")
+
+    if not action:
+        action = "/themes/default/ajax/login.php"
+
+    action = absolute_url(action)
+
+    print(f"🔑 LOGIN URL: {action}")
+
+    # ------------------------------------------------------
+    # Собираем hidden-поля формы
+    # ------------------------------------------------------
+
+    payload = {}
+
+    for inp in form.select("input"):
+        name = inp.get("name")
+
+        if not name:
+            continue
+
+        input_type = (
+            inp.get("type", "text")
+            .lower()
+        )
+
+        # Пароли/логины зададим ниже сами
+        if name in ("email_auth", "pass_auth"):
+            continue
+
+        # Не отправляем reCAPTCHA регистрации
+        if "captcha" in name.lower():
+            continue
+
+        if input_type in (
+            "submit",
+            "button",
+            "reset",
+        ):
+            continue
+
+        payload[name] = inp.get(
+            "value",
+            ""
+        )
+
+    # ------------------------------------------------------
+    # Реальные поля Dellta
+    # ------------------------------------------------------
+
+    payload["email_auth"] = EMAIL
+    payload["pass_auth"] = PASSWORD
+
+    print("📨 Отправка формы авторизации...")
+
+    try:
+        r2 = session.post(
+            action,
+            data=payload,
+            headers={
+                "X-Requested-With": "XMLHttpRequest",
+                "Referer": r.url,
+                "Origin": BASE,
+                "Accept": "*/*",
+            },
+            timeout=(15, 60),
+            allow_redirects=True,
+        )
+
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Ошибка POST авторизации: {e}")
+        return False
+
+    print(f"🔐 LOGIN HTTP: {r2.status_code}")
+
+    if r2.status_code == 429:
+        print("❌ Dellta вернул HTTP 429 при авторизации")
+        return False
+
+    if r2.status_code >= 400:
+        print(
+            f"❌ Ошибка авторизации: HTTP {r2.status_code}"
+        )
+        return False
+
+    # ------------------------------------------------------
+    # Анализ ответа login.php
+    # ------------------------------------------------------
+
+    login_text = clean(
+        r2.text
+    )
+
+    if login_text:
+        print(
+            f"📄 LOGIN RESPONSE: "
+            f"{login_text[:500]}"
+        )
+
+    # ------------------------------------------------------
+    # Проверяем авторизацию повторным GET
+    # ------------------------------------------------------
+
+    print("🔎 Проверяем авторизацию...")
+
+    try:
+        check = session.get(
+            BASE + "/",
+            timeout=(15, 60),
+            allow_redirects=True,
+        )
+
+    except requests.exceptions.RequestException as e:
+        print(
+            f"❌ Ошибка проверки авторизации: {e}"
+        )
+        return False
+
+    print(
+        f"🔎 CHECK HTTP: {check.status_code}"
+    )
+
+    if check.status_code == 429:
+        print(
+            "❌ Проверка авторизации получила HTTP 429"
+        )
+        return False
+
+    check_soup = BeautifulSoup(
+        check.text,
+        "html.parser"
+    )
+
+    # Если форма логина всё ещё присутствует,
+    # считаем, что авторизация не прошла.
+    still_login = check_soup.select_one(
+        "#login-form"
+    )
+
+    # Ищем признаки выхода/личного кабинета
+    logout = (
+        check_soup.select_one(
+            'a[href*="logout"]'
+        )
+        or check_soup.select_one(
+            'a[href*="exit"]'
+        )
+    )
+
+    if still_login and not logout:
+        print("❌ Авторизация не подтверждена")
+        return False
+
+    print("✅ Dellta: авторизация успешна")
+
+    return True
+
+
+# ==========================================================
+# GET SOUP
+# ==========================================================
+
+def get_soup(url):
+    try:
+        r = session.get(
+            url,
+            timeout=(15, 60),
+            allow_redirects=True,
+        )
+
+        if r.status_code == 429:
+            print(
+                f"❌ HTTP 429: {url}"
+            )
+            return None
+
+        r.raise_for_status()
+
+        return BeautifulSoup(
+            r.text,
+            "html.parser"
+        )
+
+    except requests.exceptions.RequestException as e:
+        print(
+            f"❌ GET error: {url} → {e}"
+        )
+        return None
+
+
+# ==========================================================
+# CATEGORIES
+# ==========================================================
+
+def get_categories():
+    soup = get_soup(BASE)
+
+    if not soup:
+        return []
 
     categories = []
 
@@ -620,286 +442,61 @@ def get_categories():
     )
 
     if not container:
-
         print(
             "❌ div.brandsOnMain не найден"
         )
-
-        return categories
+        return []
 
     for a in container.select(
         "a.COMitem"
     ):
-
-        href = a.get(
-            "href"
-        )
+        href = a.get("href")
 
         if not href:
-
             continue
 
-        if href.startswith("/"):
-
-            href = (
-                BASE.rstrip("/")
-                + href
-            )
-
-        elif not href.startswith(
-            "http"
-        ):
-
-            href = (
-                BASE.rstrip("/")
-                + "/"
-                + href.lstrip("/")
-            )
+        href = absolute_url(href)
 
         if href not in categories:
-
-            categories.append(
-                href
-            )
+            categories.append(href)
 
     print(
-        f"📂 Найдено категорий: {len(categories)}"
+        f"📂 Найдено категорий: "
+        f"{len(categories)}"
     )
 
     return categories
 
 
-# =========================================================
-# 📄 LAST PAGE
-# =========================================================
+# ==========================================================
+# PAGINATION
+# ==========================================================
 
 def get_last_page(soup):
-
-    if not soup:
-
-        return 1
-
     pages = []
 
     for a in soup.select(
         ".pagination .page-link[pn]"
     ):
-
-        pn = a.get(
-            "pn"
-        )
+        pn = a.get("pn")
 
         if pn and pn.isdigit():
-
             pages.append(
                 int(pn)
             )
 
-    return (
-        max(pages)
-        if pages
-        else 1
-    )
+    return max(pages) if pages else 1
 
 
-# =========================================================
-# 🛒 PRODUCT CARD
-# =========================================================
-
-def parse_product_card(card):
-
-    title = ""
-    sku = ""
-    status = ""
-    price = ""
-    url = ""
-
-    # =====================================================
-    # SKU
-    # =====================================================
-
-    sku_el = card.select_one(
-        ".td_2 .gray"
-    )
-
-    if sku_el:
-
-        sku = clean(
-            sku_el.get_text(
-                " ",
-                strip=True
-            )
-        )
-
-    # =====================================================
-    # TITLE + URL
-    # =====================================================
-
-    title_el = card.select_one(
-        "td.td_2 a[href]"
-    )
-
-    if title_el:
-
-        title = clean(
-            title_el.get_text(
-                " ",
-                strip=True
-            )
-        )
-
-        href = title_el.get(
-            "href",
-            ""
-        )
-
-        if href:
-
-            if href.startswith("/"):
-
-                url = (
-                    BASE.rstrip("/")
-                    + href
-                )
-
-            elif href.startswith(
-                "http"
-            ):
-
-                url = href
-
-            else:
-
-                url = (
-                    BASE.rstrip("/")
-                    + "/"
-                    + href.lstrip("/")
-                )
-
-    # =====================================================
-    # FALLBACK URL
-    # =====================================================
-
-    if not url:
-
-        title_el = card.select_one(
-            'td.td_2 a[href*="/invertoryi-"]'
-        )
-
-        if title_el:
-
-            href = title_el.get(
-                "href",
-                ""
-            )
-
-            if href.startswith("/"):
-
-                url = (
-                    BASE.rstrip("/")
-                    + href
-                )
-
-            elif href.startswith(
-                "http"
-            ):
-
-                url = href
-
-    # =====================================================
-    # STATUS
-    # =====================================================
-
-    status_el = card.select_one(
-        "td.td_2 .are-available"
-    )
-
-    if status_el:
-
-        status = clean(
-            status_el.get_text(
-                " ",
-                strip=True
-            )
-        )
-
-    else:
-
-        status_el = card.select_one(
-            "td.td_2 div[class^='are-']"
-        )
-
-        if status_el:
-
-            status = clean(
-                status_el.get_text(
-                    " ",
-                    strip=True
-                )
-            )
-
-    # =====================================================
-    # DEALER PRICE
-    # =====================================================
-
-    price_el = card.select_one(
-        "td.td_3 "
-        ".price-table "
-        "tr.line-1 "
-        "span.active"
-    )
-
-    if price_el:
-
-        price = clean(
-            price_el.get_text(
-                " ",
-                strip=True
-            )
-        )
-
-    # =====================================================
-    # FALLBACK PRICE
-    # =====================================================
-
-    if not price:
-
-        price_el = card.select_one(
-            "td.td_3 "
-            "tr.line-1 "
-            "span.active"
-        )
-
-        if price_el:
-
-            price = clean(
-                price_el.get_text(
-                    " ",
-                    strip=True
-                )
-            )
-
-    return [
-        sku,
-        title,
-        price,
-        status,
-        url
-    ]
-
-
-# =========================================================
-# 📦 PARSE CATEGORY
-# =========================================================
+# ==========================================================
+# PRODUCT PARSER
+# ==========================================================
 
 def parse_category(cat_url):
-
     all_items = []
 
-    print("")
     print(
-        "📂 CATEGORY:",
-        cat_url
+        f"📂 CATEGORY: {cat_url}"
     )
 
     first_page = get_soup(
@@ -907,12 +504,7 @@ def parse_category(cat_url):
     )
 
     if not first_page:
-
-        print(
-            "❌ Не удалось получить категорию"
-        )
-
-        return []
+        return all_items
 
     last_page = get_last_page(
         first_page
@@ -927,16 +519,10 @@ def parse_category(cat_url):
         last_page + 1
     ):
 
-        print(
-            f"   📄 Страница {page}/{last_page}"
-        )
-
         if page == 1:
-
             soup = first_page
 
         else:
-
             page_url = (
                 cat_url.rstrip("/")
                 + f"/page={page}/"
@@ -947,11 +533,6 @@ def parse_category(cat_url):
             )
 
             if not soup:
-
-                print(
-                    "   ❌ Страница не получена"
-                )
-
                 continue
 
         cards = soup.select(
@@ -959,33 +540,145 @@ def parse_category(cat_url):
         )
 
         print(
-            f"   🛒 Товаров на странице: {len(cards)}"
+            f"   Страница {page}: "
+            f"{len(cards)} товаров"
         )
 
         for card in cards:
 
-            item = parse_product_card(
-                card
+            sku = ""
+            title = ""
+            price = ""
+            status = ""
+            url = ""
+
+            # ------------------------------------------------
+            # SKU
+            # ------------------------------------------------
+
+            sku_el = card.select_one(
+                "td.td_2 .gray"
             )
 
-            sku, title, price, status, url = item
+            if sku_el:
+                sku = clean(
+                    sku_el.get_text()
+                )
+
+            # ------------------------------------------------
+            # TITLE + URL
+            # ------------------------------------------------
+
+            title_el = card.select_one(
+                "td.td_2 a[href]"
+            )
+
+            if not title_el:
+
+                title_el = card.select_one(
+                    'td.td_2 a[href*="/invertoryi-"]'
+                )
+
+            if title_el:
+
+                title = clean(
+                    title_el.get_text()
+                )
+
+                url = absolute_url(
+                    title_el.get(
+                        "href",
+                        ""
+                    )
+                )
+
+            # ------------------------------------------------
+            # STATUS
+            # ------------------------------------------------
+
+            status_el = card.select_one(
+                "td.td_2 .are-available"
+            )
+
+            if not status_el:
+
+                status_el = card.select_one(
+                    "td.td_2 div[class^='are-']"
+                )
+
+            if status_el:
+
+                status = clean(
+                    status_el.get_text(
+                        " ",
+                        strip=True
+                    )
+                )
+
+            # ------------------------------------------------
+            # PRICE
+            #
+            # Берём именно:
+            #
+            # Комп. ДИЛЕР
+            #
+            # <tr class="line-1">
+            #     <span class="active">
+            #         12.80 $
+            #     </span>
+            #
+            # НЕ берём:
+            # ОПТ
+            # 13.50 $
+            # 576.00 ₴
+            # ------------------------------------------------
+
+            price_el = card.select_one(
+                "td.td_3 "
+                ".price-table "
+                "tr.line-1 "
+                "span.active"
+            )
+
+            if not price_el:
+
+                price_el = card.select_one(
+                    "td.td_3 "
+                    "tr.line-1 "
+                    "span.active"
+                )
+
+            if price_el:
+
+                price = clean(
+                    price_el.get_text()
+                )
+
+            # ------------------------------------------------
+            # Добавляем только товар с названием
+            # ------------------------------------------------
 
             if not title:
-
                 continue
 
-            all_items.append(
-                item
-            )
+            all_items.append([
+                sku,
+                title,
+                price,
+                status,
+                url,
+            ])
 
     return all_items
 
 
-# =========================================================
-# 🚀 MAIN
-# =========================================================
+# ==========================================================
+# MAIN PARSER
+# ==========================================================
 
 def run_parser():
+
+    print("🚀 Запуск парсера Dellta")
 
     save_status(
         True,
@@ -994,39 +687,70 @@ def run_parser():
         FILE_PATH
     )
 
-    print("")
-    print(
-        "🚀 Запуск парсера Dellta"
-    )
-
-    # =====================================================
+    # ------------------------------------------------------
     # LOGIN
-    # =====================================================
+    # ------------------------------------------------------
 
     if not login():
+
+        print("❌ LOGIN FAILED")
 
         save_status(
             False,
             0,
             USER,
-            ""
-        )
-
-        print("")
-        print(
-            "❌ LOGIN FAILED"
+            FILE_PATH
         )
 
         return
 
-    # =====================================================
+    # ------------------------------------------------------
+    # CATEGORIES
+    # ------------------------------------------------------
+
+    cats = get_categories()
+
+    if not cats:
+
+        print(
+            "❌ Категории не найдены"
+        )
+
+        save_status(
+            False,
+            0,
+            USER,
+            FILE_PATH
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # LIMIT
+    # ------------------------------------------------------
+
+    if CATEGORY_LIMIT:
+        cats = cats[:CATEGORY_LIMIT]
+
+        print(
+            f"⚠ Тестовый лимит категорий: "
+            f"{CATEGORY_LIMIT}"
+        )
+
+    total = len(cats)
+
+    print(
+        f"🚀 Будет обработано категорий: "
+        f"{total}"
+    )
+
+    # ------------------------------------------------------
     # EXCEL
-    # =====================================================
+    # ------------------------------------------------------
 
     wb = Workbook()
 
     ws = wb.active
-
     ws.title = "Dellta"
 
     ws.append([
@@ -1034,51 +758,12 @@ def run_parser():
         "TITLE",
         "PRICE",
         "STATUS",
-        "URL"
+        "URL",
     ])
 
-    # =====================================================
-    # CATEGORIES
-    # =====================================================
-
-    cats = get_categories()
-
-    if not cats:
-
-        print("")
-        print(
-            "❌ CATEGORIES NOT FOUND"
-        )
-
-        save_status(
-            False,
-            0,
-            USER,
-            ""
-        )
-
-        return
-
-    if CATEGORY_LIMIT:
-
-        cats = cats[
-            :CATEGORY_LIMIT
-        ]
-
-        print(
-            f"⚙️ Тестовый лимит категорий: {CATEGORY_LIMIT}"
-        )
-
-    total = len(cats)
-
-    print("")
-    print(
-        f"📂 Будет обработано категорий: {total}"
-    )
-
-    # =====================================================
+    # ------------------------------------------------------
     # PARSE
-    # =====================================================
+    # ------------------------------------------------------
 
     for i, cat in enumerate(
         cats,
@@ -1096,9 +781,10 @@ def run_parser():
             FILE_PATH
         )
 
-        print("")
+        print()
         print(
-            f"🔥 CATEGORY {i}/{total}"
+            f"🔥 [{i}/{total}] "
+            f"{progress}%"
         )
 
         items = parse_category(
@@ -1106,28 +792,19 @@ def run_parser():
         )
 
         print(
-            f"✅ Получено товаров: {len(items)}"
+            f"   Получено товаров: "
+            f"{len(items)}"
         )
 
         for item in items:
+            ws.append(item)
 
-            sku, title, price, status, url = item
+        # Небольшая пауза между категориями
+        time.sleep(0.3)
 
-            ws.append([
-                sku,
-                title,
-                price,
-                status,
-                url
-            ])
-
-        time.sleep(
-            0.3
-        )
-
-    # =====================================================
+    # ------------------------------------------------------
     # SAVE
-    # =====================================================
+    # ------------------------------------------------------
 
     os.makedirs(
         OUTPUT_DIR,
@@ -1136,18 +813,40 @@ def run_parser():
 
     tmp = FILE_PATH + ".tmp"
 
-    wb.save(
-        tmp
-    )
+    try:
 
-    os.replace(
-        tmp,
-        FILE_PATH
-    )
+        wb.save(tmp)
 
-    # =====================================================
+        os.replace(
+            tmp,
+            FILE_PATH
+        )
+
+    except Exception as e:
+
+        print(
+            f"❌ Ошибка сохранения Excel: "
+            f"{e}"
+        )
+
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except Exception:
+            pass
+
+        save_status(
+            False,
+            0,
+            USER,
+            FILE_PATH
+        )
+
+        return
+
+    # ------------------------------------------------------
     # DONE
-    # =====================================================
+    # ------------------------------------------------------
 
     save_status(
         False,
@@ -1156,29 +855,18 @@ def run_parser():
         FILE_PATH
     )
 
-    print("")
+    print()
+    print("================================")
+    print("✅ DELLTA DONE")
     print(
-        "===================================="
+        f"📄 FILE: {FILE_PATH}"
     )
-
-    print(
-        "✅ DELLTA PARSER DONE"
-    )
-
-    print(
-        "📄 FILE:",
-        FILE_PATH
-    )
-
-    print(
-        "===================================="
-    )
+    print("================================")
 
 
-# =========================================================
+# ==========================================================
 # START
-# =========================================================
+# ==========================================================
 
 if __name__ == "__main__":
-
     run_parser()
