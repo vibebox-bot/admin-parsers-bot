@@ -20,7 +20,8 @@ print("🔥 Харьковская КМТ — XML + SITE PRICE PARSER")
 
 FEED_URL = "https://kmt5.com.ua/feed/alsj9tvf74xcmfavjl7rhkljz3os3kwy"
 
-PRODUCT_LIMIT = None
+#PRODUCT_LIMIT = None
+PRODUCT_LIMIT = 5
 
 OUTPUT_DIR = os.path.abspath("output/КМТ")
 FILE_PATH = os.path.join(OUTPUT_DIR, "КМТ_LIVE.xlsx")
