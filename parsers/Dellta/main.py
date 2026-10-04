@@ -43,145 +43,126 @@ session.headers.update(HEADERS)
 # =========================
 def login():
 
-    login_url = BASE + "/login"
+    # Авторизация теперь находится
+    # в модальном окне на главной странице
+    main_url = BASE + "/"
 
-    for attempt in range(1, 4):
+    try:
 
-        try:
+        print("🔐 Открываем главную страницу Dellta...")
 
-            # Небольшая пауза перед обращением к login
-            if attempt > 1:
-                time.sleep(30)
+        r = session.get(
+            main_url,
+            headers={
+                "User-Agent": HEADERS["User-Agent"],
+                "Accept": (
+                    "text/html,application/xhtml+xml,"
+                    "application/xml;q=0.9,image/avif,"
+                    "image/webp,*/*;q=0.8"
+                ),
+                "Accept-Language": (
+                    "uk-UA,uk;q=0.9,ru;q=0.8,"
+                    "en-US;q=0.7,en;q=0.6"
+                ),
+                "Referer": BASE + "/"
+            },
+            timeout=(15, 60)
+        )
 
-            r = session.get(
-                login_url,
-                headers={
-                    "User-Agent": HEADERS["User-Agent"],
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-                    "Accept-Language": "uk-UA,uk;q=0.9,ru;q=0.8,en-US;q=0.7,en;q=0.6",
-                    "Cache-Control": "no-cache",
-                    "Pragma": "no-cache",
-                    "Referer": BASE + "/"
-                },
-                timeout=(15, 60)
-            )
+        r.raise_for_status()
 
-            # =========================
-            # 429 — TOO MANY REQUESTS
-            # =========================
-            if r.status_code == 429:
+    except requests.exceptions.RequestException as e:
 
-                retry_after = r.headers.get("Retry-After")
+        print(f"❌ DELLTA MAIN PAGE ERROR: {e}")
 
-                try:
-                    wait_time = int(retry_after)
-                except (TypeError, ValueError):
-                    wait_time = 30
+        return False
 
-                # Не ждём бесконечно
-                wait_time = max(30, min(wait_time, 120))
+    # =========================
+    # LOGIN FORM
+    # =========================
 
-                print(
-                    f"⚠️ DELLTA LOGIN 429. "
-                    f"Ждём {wait_time} сек. "
-                    f"Попытка {attempt}/3"
-                )
+    login_action = (
+        BASE
+        + "/themes/default/ajax/login.php"
+    )
 
-                if attempt < 3:
-                    time.sleep(wait_time)
-                    continue
+    payload = {
+        "email_auth": EMAIL,
+        "pass_auth": PASSWORD
+    }
 
-                print("❌ DELLTA LOGIN: сервер продолжает отдавать 429")
-                return False
+    try:
 
-            r.raise_for_status()
+        print("🔐 Отправляем данные авторизации...")
 
-            soup = BeautifulSoup(
-                r.text,
-                "html.parser"
-            )
+        r2 = session.post(
+            login_action,
+            data=payload,
+            headers={
+                "User-Agent": HEADERS["User-Agent"],
+                "X-Requested-With": "XMLHttpRequest",
+                "Accept": "*/*",
+                "Referer": main_url,
+                "Origin": BASE
+            },
+            timeout=(15, 60)
+        )
 
-            # =========================
-            # FORM DATA
-            # =========================
-            payload = {}
+        # =========================
+        # 429
+        # =========================
 
-            for inp in soup.select("form input"):
-
-                name = inp.get("name")
-
-                if name:
-                    payload[name] = inp.get(
-                        "value",
-                        ""
-                    )
-
-            # =========================
-            # LOGIN DATA
-            # =========================
-            payload["email_auth"] = EMAIL
-            payload["pass_auth"] = PASSWORD
-            payload["remember"] = "on"
-
-            login_action = (
-                BASE
-                + "/themes/default/ajax/login.php"
-            )
-
-            r2 = session.post(
-                login_action,
-                data=payload,
-                headers={
-                    "User-Agent": HEADERS["User-Agent"],
-                    "X-Requested-With": "XMLHttpRequest",
-                    "Accept": "*/*",
-                    "Referer": login_url
-                },
-                timeout=(15, 60)
-            )
-
-            # =========================
-            # LOGIN 429
-            # =========================
-            if r2.status_code == 429:
-
-                print(
-                    "⚠️ DELLTA LOGIN POST: 429"
-                )
-
-                if attempt < 3:
-                    time.sleep(30)
-                    continue
-
-                return False
-
-            r2.raise_for_status()
-
-            # Авторизация прошла
-            return True
-
-        except requests.exceptions.RequestException as e:
+        if r2.status_code == 429:
 
             print(
-                f"❌ LOGIN ERROR "
-                f"(попытка {attempt}/3): {e}"
+                "❌ DELLTA LOGIN: сервер вернул 429"
             )
-
-            if attempt < 3:
-                time.sleep(30)
-                continue
 
             return False
 
-    return False
+        r2.raise_for_status()
 
+    except requests.exceptions.RequestException as e:
 
+        print(f"❌ LOGIN ERROR: {e}")
 
+        return False
 
+    # =========================
+    # RESPONSE
+    # =========================
 
+    response_text = r2.text.strip()
 
+    print(
+        f"🔐 LOGIN RESPONSE: {response_text[:300]}"
+    )
 
+    # Если сервер явно сообщает ошибку
+    lower_response = response_text.lower()
 
+    error_words = [
+        "помилка",
+        "ошибка",
+        "error",
+        "невірн",
+        "неверн",
+        "парол"
+    ]
+
+    for word in error_words:
+
+        if word in lower_response:
+
+            print(
+                "❌ DELLTA: авторизация отклонена"
+            )
+
+            return False
+
+    print("✅ DELLTA LOGIN OK")
+
+    return True
 
 
 # =========================
