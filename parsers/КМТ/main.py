@@ -443,9 +443,10 @@ def parse_feed(xml_content):
         # PRICE
         # ==================================================
 
+
         price = clean(
             offer.findtext(
-                "price",
+                "oldprice",
                 default=""
             )
         )
