@@ -37,49 +37,10 @@ HEADERS = {
 session = requests.Session()
 session.headers.update(HEADERS)
 
-
 # =========================
 # LOGIN
 # =========================
 def login():
-
-    # Авторизация теперь находится
-    # в модальном окне на главной странице
-    main_url = BASE + "/"
-
-    try:
-
-        print("🔐 Открываем главную страницу Dellta...")
-
-        r = session.get(
-            main_url,
-            headers={
-                "User-Agent": HEADERS["User-Agent"],
-                "Accept": (
-                    "text/html,application/xhtml+xml,"
-                    "application/xml;q=0.9,image/avif,"
-                    "image/webp,*/*;q=0.8"
-                ),
-                "Accept-Language": (
-                    "uk-UA,uk;q=0.9,ru;q=0.8,"
-                    "en-US;q=0.7,en;q=0.6"
-                ),
-                "Referer": BASE + "/"
-            },
-            timeout=(15, 60)
-        )
-
-        r.raise_for_status()
-
-    except requests.exceptions.RequestException as e:
-
-        print(f"❌ DELLTA MAIN PAGE ERROR: {e}")
-
-        return False
-
-    # =========================
-    # LOGIN FORM
-    # =========================
 
     login_action = (
         BASE
@@ -91,76 +52,59 @@ def login():
         "pass_auth": PASSWORD
     }
 
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/140.0.0.0 Safari/537.36"
+        ),
+        "Accept": "*/*",
+        "Accept-Language": "uk-UA,uk;q=0.9,ru;q=0.8,en;q=0.7",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-Requested-With": "XMLHttpRequest",
+        "Origin": BASE,
+        "Referer": BASE + "/",
+        "Connection": "keep-alive"
+    }
+
+    print("🔐 Отправляем запрос авторизации Dellta...")
+
     try:
 
-        print("🔐 Отправляем данные авторизации...")
-
-        r2 = session.post(
+        r = session.post(
             login_action,
             data=payload,
-            headers={
-                "User-Agent": HEADERS["User-Agent"],
-                "X-Requested-With": "XMLHttpRequest",
-                "Accept": "*/*",
-                "Referer": main_url,
-                "Origin": BASE
-            },
+            headers=headers,
             timeout=(15, 60)
         )
 
-        # =========================
-        # 429
-        # =========================
+        print(
+            f"🔐 LOGIN HTTP: {r.status_code}"
+        )
 
-        if r2.status_code == 429:
+        print(
+            f"🔐 LOGIN RESPONSE: {r.text[:500]}"
+        )
+
+        if r.status_code == 429:
 
             print(
-                "❌ DELLTA LOGIN: сервер вернул 429"
+                "❌ Dellta вернул 429 на login.php"
             )
 
             return False
 
-        r2.raise_for_status()
+        r.raise_for_status()
 
     except requests.exceptions.RequestException as e:
 
-        print(f"❌ LOGIN ERROR: {e}")
+        print(
+            f"❌ LOGIN ERROR: {e}"
+        )
 
         return False
 
-    # =========================
-    # RESPONSE
-    # =========================
-
-    response_text = r2.text.strip()
-
-    print(
-        f"🔐 LOGIN RESPONSE: {response_text[:300]}"
-    )
-
-    # Если сервер явно сообщает ошибку
-    lower_response = response_text.lower()
-
-    error_words = [
-        "помилка",
-        "ошибка",
-        "error",
-        "невірн",
-        "неверн",
-        "парол"
-    ]
-
-    for word in error_words:
-
-        if word in lower_response:
-
-            print(
-                "❌ DELLTA: авторизация отклонена"
-            )
-
-            return False
-
-    print("✅ DELLTA LOGIN OK")
+    print("✅ LOGIN REQUEST OK")
 
     return True
 
