@@ -1,4 +1,3 @@
-import os
 import sys
 import json
 import time
@@ -26,61 +25,26 @@ OUTPUT_FILE = OUTPUT_DIR / "Dellta_LIVE.xlsx"
 STATUS_FILE = OUTPUT_DIR / "status.json"
 LOCK_FILE = OUTPUT_DIR / "lock.txt"
 
+SHEET_NAME = "Dellta"
+
 
 # ==========================================================
-# СЛУЖЕБНЫЕ ФУНКЦИИ
+# LOG
 # ==========================================================
 
 def log(message):
     print(message, flush=True)
 
 
-def save_status(status, **extra):
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    data = {
-        "status": status,
-        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
-    }
-
-    data.update(extra)
-
-    try:
-        with open(STATUS_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
-
-
-def create_lock():
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    try:
-        LOCK_FILE.write_text(
-            str(os.getpid()),
-            encoding="utf-8"
-        )
-    except Exception:
-        pass
-
-
-def remove_lock():
-    try:
-        if LOCK_FILE.exists():
-            LOCK_FILE.unlink()
-    except Exception:
-        pass
-
+# ==========================================================
+# СЛУЖЕБНОЕ
+# ==========================================================
 
 def clean_text(value):
-    if value is None:
+    if not value:
         return ""
 
-    return re.sub(
-        r"\s+",
-        " ",
-        str(value)
-    ).strip()
+    return re.sub(r"\s+", " ", str(value)).strip()
 
 
 def clean_price(value):
@@ -92,18 +56,12 @@ def clean_price(value):
     value = value.replace(",", ".")
     value = clean_text(value)
 
-    match = re.search(
-        r"\d+(?:\.\d+)?",
-        value
-    )
+    match = re.search(r"\d+(?:\.\d+)?", value)
 
     if not match:
         return ""
 
-    try:
-        return float(match.group(0))
-    except Exception:
-        return ""
+    return float(match.group())
 
 
 def normalize_url(url):
@@ -113,10 +71,40 @@ def normalize_url(url):
     if url.startswith("http://") or url.startswith("https://"):
         return url
 
-    if not url.startswith("/"):
-        url = "/" + url
+    if url.startswith("/"):
+        return BASE_URL + url
 
-    return BASE_URL + url
+    return BASE_URL + "/" + url
+
+
+# ==========================================================
+# STATUS
+# ==========================================================
+
+def save_status(status, **extra):
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    data = {
+        "status": status,
+        **extra
+    }
+
+    STATUS_FILE.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2),
+        encoding="utf-8"
+    )
+
+
+def create_lock():
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    LOCK_FILE.write_text("running", encoding="utf-8")
+
+
+def remove_lock():
+    try:
+        LOCK_FILE.unlink()
+    except FileNotFoundError:
+        pass
 
 
 # ==========================================================
@@ -128,7 +116,7 @@ def create_excel():
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Dellta"
+    ws.title = SHEET_NAME
 
     ws.append([
         "SKU",
@@ -145,66 +133,22 @@ def append_products(products):
     if not products:
         return
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    if not OUTPUT_FILE.exists():
+        create_excel()
 
-    if OUTPUT_FILE.exists():
-        wb = load_workbook(OUTPUT_FILE)
-        ws = wb["Dellta"]
-    else:
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Dellta"
-
-        ws.append([
-            "SKU",
-            "TITLE",
-            "PRICE",
-            "STATUS",
-            "URL"
-        ])
-
-    existing_sku = set()
-
-    for row in ws.iter_rows(
-        min_row=2,
-        values_only=True
-    ):
-        sku = row[0]
-
-        if sku:
-            existing_sku.add(
-                str(sku).strip()
-            )
-
-    added = 0
+    wb = load_workbook(OUTPUT_FILE)
+    ws = wb[SHEET_NAME]
 
     for product in products:
-        sku = str(
-            product.get("SKU", "")
-        ).strip()
-
-        if not sku:
-            continue
-
-        if sku in existing_sku:
-            continue
-
         ws.append([
-            product.get("SKU", ""),
-            product.get("TITLE", ""),
-            product.get("PRICE", ""),
-            product.get("STATUS", ""),
-            product.get("URL", ""),
+            product["SKU"],
+            product["TITLE"],
+            product["PRICE"],
+            product["STATUS"],
+            product["URL"]
         ])
 
-        existing_sku.add(sku)
-        added += 1
-
     wb.save(OUTPUT_FILE)
-
-    log(
-        f"💾 Добавлено в Excel: {added}"
-    )
 
 
 # ==========================================================
@@ -212,20 +156,11 @@ def append_products(products):
 # ==========================================================
 
 def parse_products(html):
-    soup = BeautifulSoup(
-        html,
-        "html.parser"
-    )
+    soup = BeautifulSoup(html, "html.parser")
+
+    rows = soup.select("tr.itemPosition.simple")
 
     products = []
-
-    rows = soup.select(
-        "tr.itemPosition.simple"
-    )
-
-    log(
-        f"📦 Найдено строк товаров: {len(rows)}"
-    )
 
     for row in rows:
 
@@ -233,9 +168,7 @@ def parse_products(html):
         # SKU
         # --------------------------------------------------
 
-        sku_el = row.select_one(
-            "td.td_2 .gray"
-        )
+        sku_el = row.select_one("td.td_2 .gray")
 
         sku = clean_text(
             sku_el.get_text(" ", strip=True)
@@ -248,26 +181,24 @@ def parse_products(html):
         # --------------------------------------------------
 
         title_el = row.select_one(
-            "td.td_2 a[href]"
+            "td.td_2 a[href*='/invertoryi-']"
         )
 
         if not title_el:
             title_el = row.select_one(
-                'td.td_2 a[href*="/invertoryi-"]'
+                "td.td_2 a[href]"
             )
-
-        if not title_el:
-            continue
 
         title = clean_text(
-            title_el.get_text(
-                " ",
-                strip=True
-            )
+            title_el.get_text(" ", strip=True)
+            if title_el
+            else ""
         )
 
         url = normalize_url(
             title_el.get("href", "")
+            if title_el
+            else ""
         )
 
         # --------------------------------------------------
@@ -275,38 +206,19 @@ def parse_products(html):
         # --------------------------------------------------
 
         status_el = row.select_one(
-            "td.td_2 .are-available"
+            "td.td_2 .are-available, "
+            "td.td_2 .not-available, "
+            "td.td_2 div[class^='are-']"
         )
 
-        if not status_el:
-            status_el = row.select_one(
-                "td.td_2 div[class^='are-']"
-            )
-
         status = clean_text(
-            status_el.get_text(
-                " ",
-                strip=True
-            )
+            status_el.get_text(" ", strip=True)
             if status_el
             else ""
         )
 
         # --------------------------------------------------
-        # ЦЕНА ДИЛЕР
-        #
-        # Комп. ДИЛЕР = line-1
-        # Берём только span.active
-        #
-        # Например:
-        #
-        # <tr class="line-1">
-        #   <td>Комп. ДИЛЕР</td>
-        #   <td>
-        #       <span class="active">12.80 $</span>
-        #       <span>576.00 ₴</span>
-        #   </td>
-        # </tr>
+        # ЦЕНА КОМП. ДИЛЕР
         # --------------------------------------------------
 
         price_el = row.select_one(
@@ -319,99 +231,67 @@ def parse_products(html):
             )
 
         price = clean_price(
-            price_el.get_text(
-                " ",
-                strip=True
-            )
+            price_el.get_text(" ", strip=True)
             if price_el
             else ""
         )
 
-        product = {
+        # --------------------------------------------------
+        # ПРОПУСК ПУСТЫХ СТРОК
+        # --------------------------------------------------
+
+        if not sku and not title:
+            continue
+
+        products.append({
             "SKU": sku,
             "TITLE": title,
             "PRICE": price,
             "STATUS": status,
-            "URL": url,
-        }
-
-        products.append(product)
+            "URL": url
+        })
 
     return products
 
 
 # ==========================================================
-# ПОЛУЧЕНИЕ КАТЕГОРИЙ
+# КАТЕГОРИИ
 # ==========================================================
 
 def get_categories(page):
-    log("📂 Получаем категории...")
+
+    page.goto(
+        BASE_URL + "/",
+        wait_until="domcontentloaded",
+        timeout=60000
+    )
+
+    time.sleep(5)
 
     html = page.content()
-
-    soup = BeautifulSoup(
-        html,
-        "html.parser"
-    )
+    soup = BeautifulSoup(html, "html.parser")
 
     categories = []
 
-    # Основной вариант
-    for a in soup.select(
-        'a[href*="/invertoryi-"]'
-    ):
-        href = a.get("href", "")
-        title = clean_text(
-            a.get_text(
-                " ",
-                strip=True
-            )
+    for link in soup.select("a[href*='/invertoryi-']"):
+
+        href = link.get("href", "")
+        name = clean_text(
+            link.get_text(" ", strip=True)
         )
 
-        if not href or not title:
+        if not href or not name:
             continue
 
         url = normalize_url(href)
 
         item = {
-            "title": title,
-            "url": url,
+            "name": name,
+            "url": url
         }
 
         if item not in categories:
             categories.append(item)
-
-    # Убираем ссылки, которые являются товарами
-    # если они явно выглядят как товарные карточки.
-    #
-    # Оставляем уникальные ссылки.
-
-    unique = []
-    seen = set()
-
-    for category in categories:
-
-        url = category["url"]
-
-        if url in seen:
-            continue
-
-        seen.add(url)
-        unique.append(category)
-
-    categories = unique
-
-    log(
-        f"📂 Найдено категорий/ссылок: {len(categories)}"
-    )
-
-    if CATEGORY_LIMIT:
-        categories = categories[:CATEGORY_LIMIT]
-
-        log(
-            f"🧪 Тестовый лимит категорий: "
-            f"{CATEGORY_LIMIT}"
-        )
 
     return categories
 
@@ -421,45 +301,16 @@ def get_categories(page):
 # ==========================================================
 
 def open_category(page, category):
-    title = category["title"]
-    url = category["url"]
 
-    log("")
-    log(
-        f"📂 Категория: {title}"
+    page.goto(
+        category["url"],
+        wait_until="domcontentloaded",
+        timeout=60000
     )
 
-    log(
-        f"🌐 URL: {url}"
-    )
+    time.sleep(3)
 
-    try:
-        response = page.goto(
-            url,
-            wait_until="domcontentloaded",
-            timeout=60000
-        )
-
-        status = (
-            response.status
-            if response
-            else "UNKNOWN"
-        )
-
-        log(
-            f"🌐 HTTP: {status}"
-        )
-
-        page.wait_for_timeout(2000)
-
-        return True
-
-    except Exception as e:
-        log(
-            f"❌ Ошибка открытия категории: {e}"
-        )
-
-        return False
+    return page.content()
 
 
 # ==========================================================
@@ -467,262 +318,60 @@ def open_category(page, category):
 # ==========================================================
 
 def login(page):
-    log("🔐 Авторизация Dellta...")
 
-    log(
-        f"🌐 GET {BASE_URL}/"
+    page.goto(
+        BASE_URL + "/",
+        wait_until="domcontentloaded",
+        timeout=60000
     )
+
+    time.sleep(5)
+
+    enter_button = page.locator("#a-enter")
+
+    if not enter_button.count():
+        log("❌ Кнопка авторизации не найдена")
+        return False
+
+    enter_button.click()
 
     try:
-        response = page.goto(
-            BASE_URL + "/",
-            wait_until="domcontentloaded",
-            timeout=60000
-        )
-
-        http_status = (
-            response.status
-            if response
-            else "UNKNOWN"
-        )
-
-        log(
-            f"🌐 HTTP: {http_status}"
-        )
-
-        log(
-            f"🌐 URL: {page.url}"
-        )
-
-    except Exception as e:
-        log(
-            f"⚠ Ошибка GET: {e}"
-        )
-
-    log(
-        "⏳ Ждём выполнение JavaScript..."
-    )
-
-    page.wait_for_timeout(5000)
-
-    # ------------------------------------------------------
-    # ПРОВЕРЯЕМ КНОПКУ ВХОДА
-    # ------------------------------------------------------
-
-    login_link = page.locator(
-        "#a-enter"
-    )
-
-    try:
-        login_link.wait_for(
+        page.locator("#login-form").wait_for(
             state="visible",
-            timeout=30000
+            timeout=15000
         )
-
-        log(
-            "✅ Кнопка «Вхід/Реєстрація» найдена"
-        )
-
     except PlaywrightTimeoutError:
-        log(
-            "❌ Кнопка #a-enter не появилась"
-        )
-
-        # Диагностика
-        try:
-            log(
-                f"📄 Текущий title: {page.title()}"
-            )
-
-            log(
-                f"🌐 Текущий URL: {page.url}"
-            )
-        except Exception:
-            pass
-
+        log("❌ Форма авторизации не открылась")
         return False
 
-    # ------------------------------------------------------
-    # ОТКРЫВАЕМ MODAL
-    # ------------------------------------------------------
+    page.locator(
+        "input[name='email_auth']"
+    ).fill(EMAIL)
 
-    log(
-        "🔑 Открываем «Вхід/Реєстрація»..."
+    page.locator(
+        "input[name='pass_auth']"
+    ).fill(PASSWORD)
+
+    login_button = page.locator(
+        "#login-form button.modalButton"
     )
 
-    try:
-        login_link.click(
-            timeout=30000
-        )
-
-        log(
-            "✅ Кнопка нажата"
-        )
-
-    except Exception as e:
-        log(
-            f"❌ Не удалось нажать кнопку входа: {e}"
-        )
-
+    if not login_button.count():
+        log("❌ Кнопка входа не найдена")
         return False
 
-    # ------------------------------------------------------
-    # ЖДЁМ ФОРМУ
-    # ------------------------------------------------------
+    login_button.click()
 
-    login_form = page.locator(
-        "#login-form"
-    )
+    time.sleep(5)
 
     try:
-        login_form.wait_for(
-            state="visible",
-            timeout=30000
-        )
-
-        log(
-            "✅ Форма авторизации открыта"
-        )
-
-    except PlaywrightTimeoutError:
-
-        log(
-            "❌ #login-form не стала видимой"
-        )
-
-        # Проверяем существование
-        try:
-            count = login_form.count()
-
-            log(
-                f"🔎 #login-form элементов в DOM: {count}"
-            )
-        except Exception:
-            pass
-
-        return False
-
-    # ------------------------------------------------------
-    # EMAIL
-    # ------------------------------------------------------
-
-    email_input = login_form.locator(
-        'input[name="email_auth"]'
-    )
-
-    log(
-        "✏ Заполняем email..."
-    )
-
-    try:
-        email_input.fill(
-            EMAIL,
-            timeout=30000
-        )
-
-    except Exception as e:
-        log(
-            f"❌ Ошибка email: {e}"
-        )
-
-        return False
-
-    # ------------------------------------------------------
-    # PASSWORD
-    # ------------------------------------------------------
-
-    password_input = login_form.locator(
-        'input[name="pass_auth"]'
-    )
-
-    log(
-        "✏ Заполняем пароль..."
-    )
-
-    try:
-        password_input.fill(
-            PASSWORD,
-            timeout=30000
-        )
-
-    except Exception as e:
-        log(
-            f"❌ Ошибка password: {e}"
-        )
-
-        return False
-
-    # ------------------------------------------------------
-    # SUBMIT
-    # ------------------------------------------------------
-
-    login_button = login_form.locator(
-        "button.modalButton"
-    )
-
-    log(
-        "🔐 Нажимаем «Увійти»..."
-    )
-
-    try:
-        login_button.click(
-            timeout=30000
-        )
-
-    except Exception as e:
-        log(
-            f"❌ Ошибка кнопки входа: {e}"
-        )
-
-        return False
-
-    # ------------------------------------------------------
-    # ЖДЁМ AJAX
-    # ------------------------------------------------------
-
-    log(
-        "⏳ Ждём завершения авторизации..."
-    )
-
-    page.wait_for_timeout(5000)
-
-    # ------------------------------------------------------
-    # ПРОВЕРКА
-    # ------------------------------------------------------
-
-    try:
-        form_visible = login_form.is_visible()
-
+        if page.locator("#login-form").is_visible():
+            log("❌ Авторизация не выполнена")
+            return False
     except Exception:
-        form_visible = False
+        pass
 
-    if form_visible:
-        log(
-            "⚠ Форма входа всё ещё открыта"
-        )
-
-        # Иногда сервер отвечает ошибкой внутри modal.
-        try:
-            modal_text = clean_text(
-                page.locator(
-                    "#login-form"
-                ).locator(
-                    ".."
-                ).inner_text()
-            )
-
-            if modal_text:
-                log(
-                    f"⚠ Ответ формы: {modal_text[:500]}"
-                )
-        except Exception:
-            pass
-
-        return False
-
-    log(
-        "✅ Авторизация завершена"
-    )
+    log("✅ Авторизация завершена")
 
     return True
 
@@ -732,38 +381,25 @@ def login(page):
 # ==========================================================
 
 def run_parser():
+
     create_lock()
 
     save_status(
-        "running"
+        "running",
+        products=0,
+        categories=0
     )
 
-    log(
-        "🔥 DELLTA LIFE PARSER"
-    )
-
-    log(
-        "🚀 Запуск парсера Dellta"
-    )
-
-    if not PASSWORD:
-        log(
-            "⚠ ВНИМАНИЕ: DELLTA_PASSWORD не задан"
-        )
-
-    create_excel()
+    log("🔥 DELLTA LIFE PARSER")
+    log("🚀 Запуск парсера Dellta")
 
     try:
 
         with sync_playwright() as p:
 
-            log(
-                "🦊 Firefox Playwright найден"
-            )
-
-            log(
-                "🦊 Запускаем Firefox..."
-            )
+            # ------------------------------------------------
+            # FIREFOX
+            # ------------------------------------------------
 
             browser = p.firefox.launch(
                 headless=True
@@ -772,7 +408,7 @@ def run_parser():
             context = browser.new_context(
                 viewport={
                     "width": 1440,
-                    "height": 900,
+                    "height": 900
                 },
                 locale="uk-UA",
                 timezone_id="Europe/Kyiv",
@@ -780,131 +416,148 @@ def run_parser():
                     "Mozilla/5.0 "
                     "(X11; Linux x86_64; rv:128.0) "
                     "Gecko/20100101 Firefox/128.0"
-                ),
+                )
             )
 
             page = context.new_page()
 
-            # --------------------------------------------------
-            # LOGIN
-            # --------------------------------------------------
+            # ------------------------------------------------
+            # EXCEL
+            # ------------------------------------------------
 
-            if not login(page):
+            if OUTPUT_FILE.exists():
+                OUTPUT_FILE.unlink()
 
-                save_status(
-                    "error",
-                    message="Авторизация Dellta не выполнена"
-                )
+            create_excel()
 
-                browser.close()
-
-                return
-
-            # --------------------------------------------------
+            # ------------------------------------------------
             # КАТЕГОРИИ
-            # --------------------------------------------------
+            # ------------------------------------------------
 
-            categories = get_categories(
-                page
+            log("📂 Получаем категории...")
+
+            categories = get_categories(page)
+
+            log(
+                f"📂 Найдено категорий/ссылок: "
+                f"{len(categories)}"
             )
 
             if not categories:
-
-                log(
-                    "❌ Категории не найдены"
-                )
-
-                save_status(
-                    "error",
-                    message="Категории не найдены"
-                )
-
-                browser.close()
-
+                log("❌ Категории не найдены")
                 return
 
-            total_products = 0
+            if CATEGORY_LIMIT:
+                categories = categories[:CATEGORY_LIMIT]
 
-            # --------------------------------------------------
-            # ПАРСИМ КАТЕГОРИИ
-            # --------------------------------------------------
+                log(
+                    f"🧪 Тестовый лимит категорий: "
+                    f"{CATEGORY_LIMIT}"
+                )
+
+            # ------------------------------------------------
+            # АВТОРИЗАЦИЯ
+            # ------------------------------------------------
+
+            log("🔐 Авторизация Dellta...")
+
+            if not login(page):
+                save_status(
+                    "error",
+                    error="Authorization failed"
+                )
+                return
+
+            # ------------------------------------------------
+            # ПАРСИНГ
+            # ------------------------------------------------
+
+            total_products = 0
 
             for index, category in enumerate(
                 categories,
                 start=1
             ):
 
-                log("")
                 log(
                     f"📂 КАТЕГОРИЯ "
                     f"{index}/{len(categories)}"
                 )
 
-                if not open_category(
-                    page,
-                    category
-                ):
-                    continue
-
-                html = page.content()
-
-                products = parse_products(
-                    html
+                log(
+                    f"📂 {category['name']}"
                 )
 
-                if products:
+                try:
 
-                    append_products(
-                        products
+                    html = open_category(
+                        page,
+                        category
                     )
 
-                    total_products += len(
-                        products
+                    products = parse_products(
+                        html
                     )
+
+                    if products:
+
+                        append_products(
+                            products
+                        )
+
+                        total_products += len(
+                            products
+                        )
+
+                        log(
+                            f"📦 Товаров: "
+                            f"{len(products)}"
+                        )
+
+                    else:
+
+                        log(
+                            "📦 Товаров: 0"
+                        )
+
+                    save_status(
+                        "running",
+                        products=total_products,
+                        categories=index
+                    )
+
+                except Exception as e:
 
                     log(
-                        f"✅ Товаров: "
-                        f"{len(products)}"
+                        f"⚠ Ошибка категории: "
+                        f"{e}"
                     )
 
-                else:
-                    log(
-                        "⚠ Товары не найдены"
-                    )
-
-            # --------------------------------------------------
+            # ------------------------------------------------
             # ЗАВЕРШЕНИЕ
-            # --------------------------------------------------
+            # ------------------------------------------------
+
+            browser.close()
+
+            save_status(
+                "completed",
+                products=total_products,
+                categories=len(categories),
+                file=str(OUTPUT_FILE)
+            )
 
             log("")
-            log(
-                "================================"
-            )
-
-            log(
-                "🎉 DELLTA ЗАВЕРШЕН"
-            )
-
+            log("================================")
+            log("")
+            log("🎉 DELLTA ЗАВЕРШЕН")
             log(
                 f"📦 Всего товаров: "
                 f"{total_products}"
             )
-
             log(
                 f"📄 Excel: "
                 f"{OUTPUT_FILE}"
             )
-
-            log(
-                "================================"
-            )
-
-            save_status(
-                "done",
-                products=total_products
-            )
-
-            browser.close()
 
     except Exception as e:
 
@@ -914,7 +567,7 @@ def run_parser():
 
         save_status(
             "error",
-            message=str(e)
+            error=str(e)
         )
 
     finally:
