@@ -7,47 +7,25 @@ import xml.etree.ElementTree as ET
 
 from datetime import datetime
 from openpyxl import Workbook
-
-
-# ==========================================================
-# 👤 USER
-# ==========================================================
+from bs4 import BeautifulSoup
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-
-print("🔥 Харьковская КМТ — XML PARSER")
+print("🔥 Харьковская КМТ — XML + SITE PRICE PARSER")
 
 
 # ==========================================================
-# ⚙️ CONFIG
+# НАСТРОЙКИ
 # ==========================================================
 
 FEED_URL = "https://kmt5.com.ua/feed/alsj9tvf74xcmfavjl7rhkljz3os3kwy"
 
-
-# None = все товары
-# Например 100 = только первые 100 товаров для теста
 PRODUCT_LIMIT = None
-# PRODUCT_LIMIT = 100
-
 
 OUTPUT_DIR = os.path.abspath("output/КМТ")
-
-FILE_PATH = os.path.join(
-    OUTPUT_DIR,
-    "КМТ_LIVE.xlsx"
-)
-
-STATUS_PATH = os.path.join(
-    OUTPUT_DIR,
-    "status.json"
-)
-
-LOCK_FILE = os.path.join(
-    OUTPUT_DIR,
-    "lock.txt"
-)
+FILE_PATH = os.path.join(OUTPUT_DIR, "КМТ_LIVE.xlsx")
+STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
+LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
 
 HEADERS = {
@@ -59,105 +37,61 @@ HEADERS = {
         "Chrome/120.0 Safari/537.36"
     ),
     "Accept": (
+        "text/html,"
+        "application/xhtml+xml,"
         "application/xml,"
         "text/xml,"
-        "application/xhtml+xml,"
-        "text/html;q=0.9,"
         "*/*;q=0.8"
     )
 }
 
 
 session = requests.Session()
-
-session.headers.update(
-    HEADERS
-)
+session.headers.update(HEADERS)
 
 
 # ==========================================================
-# 🔒 LOCK
+# LOCK
 # ==========================================================
 
 def is_locked():
-
     if not os.path.exists(LOCK_FILE):
-
         return False
 
-
     try:
-
-        age = (
-            time.time()
-            - os.path.getmtime(LOCK_FILE)
-        )
-
-
-        # Если lock старше часа —
-        # считаем его зависшим
+        age = time.time() - os.path.getmtime(LOCK_FILE)
 
         if age > 3600:
-
-            os.remove(
-                LOCK_FILE
-            )
-
+            os.remove(LOCK_FILE)
             return False
-
 
         return True
 
-
     except Exception:
-
         return False
 
-
-# ==========================================================
-# 🔒 SET LOCK
-# ==========================================================
 
 def set_lock(state):
 
     if state:
 
-        os.makedirs(
-            OUTPUT_DIR,
-            exist_ok=True
-        )
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-
-        with open(
-            LOCK_FILE,
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            f.write(
-                str(time.time())
-            )
-
+        with open(LOCK_FILE, "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
 
     else:
 
-        if os.path.exists(
-            LOCK_FILE
-        ):
+        if os.path.exists(LOCK_FILE):
 
             try:
-
-                os.remove(
-                    LOCK_FILE
-                )
-
+                os.remove(LOCK_FILE)
             except Exception:
-
                 pass
 
 
 # ==========================================================
-# 📊 STATUS
+# STATUS
 # ==========================================================
 
 def save_status(
@@ -169,41 +103,21 @@ def save_status(
     error_message=""
 ):
 
-    os.makedirs(
-        OUTPUT_DIR,
-        exist_ok=True
-    )
-
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     data = {
-
         "running": running,
-
         "progress": progress,
-
         "user": user,
-
-        "time": datetime.now().strftime(
-            "%Y-%m-%d %H:%M:%S"
-        ),
-
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "file_path": file_path,
-
         "error": error,
-
         "error_message": error_message
     }
 
-
     tmp = STATUS_PATH + ".tmp"
 
-
-    with open(
-        tmp,
-        "w",
-        encoding="utf-8"
-    ) as f:
-
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(
             data,
             f,
@@ -211,23 +125,17 @@ def save_status(
             indent=2
         )
 
-
-    os.replace(
-        tmp,
-        STATUS_PATH
-    )
+    os.replace(tmp, STATUS_PATH)
 
 
 # ==========================================================
-# 🧹 CLEAN TEXT
+# CLEAN
 # ==========================================================
 
 def clean(value):
 
     if value is None:
-
         return ""
-
 
     return " ".join(
         str(value).split()
@@ -235,13 +143,12 @@ def clean(value):
 
 
 # ==========================================================
-# 🌐 DOWNLOAD XML
+# XML
 # ==========================================================
 
 def download_feed():
 
     last_error = ""
-
 
     for attempt in range(3):
 
@@ -252,17 +159,14 @@ def download_feed():
                 f"попытка {attempt + 1}/3"
             )
 
-
             response = session.get(
                 FEED_URL,
                 timeout=60
             )
 
-
             print(
                 f"   HTTP: {response.status_code}"
             )
-
 
             if response.status_code != 200:
 
@@ -271,32 +175,23 @@ def download_feed():
                 )
 
                 time.sleep(2)
-
                 continue
-
 
             content = response.content
 
-
             if not content:
 
-                last_error = (
-                    "XML feed пустой"
-                )
+                last_error = "XML feed пустой"
 
                 time.sleep(2)
-
                 continue
-
 
             print(
                 f"   Получено: "
                 f"{len(content):,} байт"
             )
 
-
             return content
-
 
         except Exception as e:
 
@@ -308,15 +203,152 @@ def download_feed():
 
             time.sleep(2)
 
-
     raise RuntimeError(
-        f"Не удалось загрузить XML: "
-        f"{last_error}"
+        f"Не удалось загрузить XML: {last_error}"
     )
 
 
 # ==========================================================
-# 📦 XML PARSE
+# XML HELPERS
+# ==========================================================
+
+def local_name(tag):
+
+    if not isinstance(tag, str):
+        return ""
+
+    if "}" in tag:
+        return tag.split("}", 1)[1]
+
+    return tag
+
+
+def get_child_text(element, wanted_name):
+
+    wanted_name = wanted_name.lower()
+
+    for child in element:
+
+        if local_name(child.tag).lower() == wanted_name:
+
+            return clean(child.text)
+
+    return ""
+
+
+def get_params(offer):
+
+    result = {}
+
+    for child in offer:
+
+        if local_name(child.tag).lower() != "param":
+            continue
+
+        name = clean(
+            child.attrib.get("name", "")
+        )
+
+        value = clean(child.text)
+
+        if name:
+            result[name.lower()] = value
+
+    return result
+
+
+# ==========================================================
+# PRICE FROM PRODUCT PAGE
+# ==========================================================
+
+def get_site_price(url):
+
+    if not url:
+        return ""
+
+    try:
+
+        response = session.get(
+            url,
+            timeout=30
+        )
+
+        if response.status_code != 200:
+
+            print(
+                f"   ⚠ Цена: HTTP "
+                f"{response.status_code}"
+            )
+
+            return ""
+
+        soup = BeautifulSoup(
+            response.content,
+            "html.parser"
+        )
+
+        # ==================================================
+        # ОСНОВНАЯ ЦЕНА КМТ
+        #
+        # <span class="opt"
+        #       data-pdprice=""
+        #       data-baseprice="1.10">
+        #       $1.10
+        # </span>
+        #
+        # Берём именно data-baseprice
+        # ==================================================
+
+        price_element = soup.select_one(
+            ".bb-price .opt[data-baseprice]"
+        )
+
+        if price_element:
+
+            price = clean(
+                price_element.get(
+                    "data-baseprice",
+                    ""
+                )
+            )
+
+            if price:
+                return price
+
+        # ==================================================
+        # ДОПОЛНИТЕЛЬНЫЙ ПОИСК
+        # если немного изменится HTML
+        # ==================================================
+
+        price_element = soup.select_one(
+            ".opt[data-baseprice]"
+        )
+
+        if price_element:
+
+            price = clean(
+                price_element.get(
+                    "data-baseprice",
+                    ""
+                )
+            )
+
+            if price:
+                return price
+
+        return ""
+
+    except Exception as e:
+
+        print(
+            f"   ⚠ Ошибка получения цены: {e}"
+        )
+
+        return ""
+
+
+# ==========================================================
+# PARSE XML
 # ==========================================================
 
 def parse_feed(xml_content):
@@ -327,13 +359,11 @@ def parse_feed(xml_content):
             xml_content
         )
 
-
     except ET.ParseError as e:
 
         raise RuntimeError(
             f"XML повреждён: {e}"
         )
-
 
     except Exception as e:
 
@@ -342,13 +372,13 @@ def parse_feed(xml_content):
         )
 
 
-    # ------------------------------------------------------
-    # Ищем offer независимо от структуры YML
-    # ------------------------------------------------------
+    # Ищем offer независимо от namespace
 
-    offers = root.findall(
-        ".//offer"
-    )
+    offers = [
+        element
+        for element in root.iter()
+        if local_name(element.tag).lower() == "offer"
+    ]
 
 
     if not offers:
@@ -366,9 +396,7 @@ def parse_feed(xml_content):
 
     if PRODUCT_LIMIT:
 
-        offers = offers[
-            :PRODUCT_LIMIT
-        ]
+        offers = offers[:PRODUCT_LIMIT]
 
         print(
             f"🧪 Тестовый лимит: "
@@ -377,7 +405,6 @@ def parse_feed(xml_content):
 
 
     result = []
-
 
     total = len(offers)
 
@@ -391,64 +418,42 @@ def parse_feed(xml_content):
         # CODE
         # ==================================================
 
-        vendor_code = clean(
-            offer.findtext(
-                "vendorCode",
-                default=""
-            )
+        vendor_code = get_child_text(
+            offer,
+            "vendorCode"
         )
 
 
         # ==================================================
-        # PRODUCT CODE
+        # PRODUCT_CODE
+        # <param name="Код">792278</param>
         # ==================================================
 
-        product_code = ""
+        params = get_params(offer)
 
-
-        for param in offer.findall(
-            "param"
-        ):
-
-            name = clean(
-                param.get(
-                    "name",
-                    ""
-                )
-            )
-
-
-            if name.lower() == "код":
-
-                product_code = clean(
-                    param.text
-                )
-
-                break
+        product_code = params.get(
+            "код",
+            ""
+        )
 
 
         # ==================================================
         # TITLE
         # ==================================================
 
-        title = clean(
-            offer.findtext(
-                "name",
-                default=""
-            )
+        title = get_child_text(
+            offer,
+            "name"
         )
 
 
         # ==================================================
-        # PRICE
+        # URL
         # ==================================================
 
-
-        price = clean(
-            offer.findtext(
-                "oldprice",
-                default=""
-            )
+        url = get_child_text(
+            offer,
+            "url"
         )
 
 
@@ -457,7 +462,7 @@ def parse_feed(xml_content):
         # ==================================================
 
         available = clean(
-            offer.get(
+            offer.attrib.get(
                 "available",
                 ""
             )
@@ -477,28 +482,36 @@ def parse_feed(xml_content):
             status = available
 
 
-        # ==================================================
-        # URL
-        # ==================================================
-
-        url = clean(
-            offer.findtext(
-                "url",
-                default=""
-            )
-        )
-
-
-        # ==================================================
-        # ПРОВЕРКА
-        # ==================================================
-
-        # Если товар вообще не имеет названия,
-        # не добавляем его в результат.
-
         if not title:
 
             continue
+
+
+        # ==================================================
+        # PRICE FROM SITE
+        # ==================================================
+
+        print(
+            f"💰 {index}/{total} "
+            f"| {title[:60]}"
+        )
+
+        price = get_site_price(
+            url
+        )
+
+
+        if price:
+
+            print(
+                f"   💵 Цена КМТ: ${price}"
+            )
+
+        else:
+
+            print(
+                "   ⚠ Цена на странице не найдена"
+            )
 
 
         result.append([
@@ -522,7 +535,7 @@ def parse_feed(xml_content):
 
         if (
             index == 1
-            or index % 100 == 0
+            or index % 10 == 0
             or index == total
         ):
 
@@ -531,12 +544,6 @@ def parse_feed(xml_content):
                 progress,
                 USER,
                 FILE_PATH
-            )
-
-
-            print(
-                f"📦 {index}/{total} "
-                f"({progress}%)"
             )
 
 
@@ -552,7 +559,7 @@ def parse_feed(xml_content):
 
 
 # ==========================================================
-# 📄 CREATE EMPTY EXCEL
+# EMPTY EXCEL
 # ==========================================================
 
 def create_empty_excel():
@@ -582,11 +589,7 @@ def create_empty_excel():
 
     tmp = FILE_PATH + ".tmp"
 
-
-    wb.save(
-        tmp
-    )
-
+    wb.save(tmp)
 
     os.replace(
         tmp,
@@ -600,7 +603,7 @@ def create_empty_excel():
 
 
 # ==========================================================
-# 📄 SAVE EXCEL
+# SAVE EXCEL
 # ==========================================================
 
 def save_excel(items):
@@ -619,10 +622,6 @@ def save_excel(items):
     ws.title = "КМТ"
 
 
-    # ======================================================
-    # HEADERS
-    # ======================================================
-
     ws.append([
         "CODE",
         "PRODUCT_CODE",
@@ -633,20 +632,10 @@ def save_excel(items):
     ])
 
 
-    # ======================================================
-    # DATA
-    # ======================================================
-
     for item in items:
 
-        ws.append(
-            item
-        )
+        ws.append(item)
 
-
-    # ======================================================
-    # SAVE
-    # ======================================================
 
     os.makedirs(
         OUTPUT_DIR,
@@ -656,11 +645,7 @@ def save_excel(items):
 
     tmp = FILE_PATH + ".tmp"
 
-
-    wb.save(
-        tmp
-    )
-
+    wb.save(tmp)
 
     os.replace(
         tmp,
@@ -675,7 +660,7 @@ def save_excel(items):
 
 
 # ==========================================================
-# 🚀 MAIN
+# RUN
 # ==========================================================
 
 def run_parser():
@@ -694,10 +679,6 @@ def run_parser():
 
     try:
 
-        # ==================================================
-        # START STATUS
-        # ==================================================
-
         save_status(
             True,
             0,
@@ -714,13 +695,12 @@ def run_parser():
 
 
         # ==================================================
-        # DOWNLOAD
+        # XML
         # ==================================================
 
         try:
 
             xml_content = download_feed()
-
 
         except Exception as e:
 
@@ -758,7 +738,6 @@ def run_parser():
                 xml_content
             )
 
-
         except Exception as e:
 
             error_message = str(e)
@@ -786,7 +765,7 @@ def run_parser():
 
 
         # ==================================================
-        # FINAL CHECK
+        # EMPTY RESULT
         # ==================================================
 
         if not items:
@@ -825,10 +804,7 @@ def run_parser():
 
         try:
 
-            save_excel(
-                items
-            )
-
+            save_excel(items)
 
         except Exception as e:
 
@@ -842,9 +818,6 @@ def run_parser():
                 f"{error_message}"
             )
 
-
-            # При ошибке сохранения тоже
-            # создаём пустой Excel
 
             try:
 
@@ -869,7 +842,7 @@ def run_parser():
 
 
         # ==================================================
-        # SUCCESS
+        # DONE
         # ==================================================
 
         save_status(
@@ -909,7 +882,7 @@ def run_parser():
 
 
 # ==========================================================
-# START
+# MAIN
 # ==========================================================
 
 if __name__ == "__main__":
