@@ -6,8 +6,8 @@ import requests
 from datetime import datetime
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
-
 import sys
+
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
@@ -18,8 +18,8 @@ BASE = "https://b2b.delltalife.com"
 # =========================
 # ⚙️ SWITCH
 # =========================
-#CATEGORY_LIMIT = 2
-CATEGORY_LIMIT = None
+CATEGORY_LIMIT = 2
+# CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "123456"
@@ -29,61 +29,70 @@ FILE_PATH = os.path.join(OUTPUT_DIR, "Dellta_LIVE.xlsx")
 STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/140.0.0.0 Safari/537.36"
 }
 
 session = requests.Session()
 session.headers.update(HEADERS)
 
+
 # =========================
 # LOGIN
 # =========================
 def login():
-    #print("LOGIN...")
-
     login_url = BASE + "/login"
 
-    # 1. GET страницу (ВАЖНО для cookies + возможных токенов)
-    #r = session.get(login_url)
-    r = session.get(login_url, timeout=(15, 60))
+    try:
+        r = session.get(
+            login_url,
+            timeout=(15, 60)
+        )
+
+        r.raise_for_status()
+
+    except requests.exceptions.RequestException as e:
+        print(f"❌ LOGIN PAGE ERROR: {e}")
+        return False
+
     soup = BeautifulSoup(r.text, "html.parser")
 
-    # 2. собираем hidden поля (если есть csrf / token)
     payload = {}
 
+    # Забираем hidden-поля формы
     for inp in soup.select("form input"):
         name = inp.get("name")
+
         if name:
             payload[name] = inp.get("value", "")
 
-    # 3. подставляем логин/пароль (ВАЖНО: правильные name из HTML)
+    # Данные авторизации
     payload["email_auth"] = EMAIL
     payload["pass_auth"] = PASSWORD
-
-    # иногда нужно:
     payload["remember"] = "on"
 
-    # 4. отправляем именно AJAX endpoint (как в форме)
     login_action = BASE + "/themes/default/ajax/login.php"
 
-    r2 = session.post(
-        login_action,
-        data=payload,
-        headers={
-            "X-Requested-With": "XMLHttpRequest",
-            "Referer": login_url
-        },
-        timeout=(15, 60)
-    )
+    try:
+        r2 = session.post(
+            login_action,
+            data=payload,
+            headers={
+                "X-Requested-With": "XMLHttpRequest",
+                "Referer": login_url
+            },
+            timeout=(15, 60)
+        )
 
-    #print("STATUS:", r2.status_code)
-    #print("RESPONSE:", r2.text[:300])
+        r2.raise_for_status()
 
-    # 5. проверка успеха (очень важно)
-    #if "error" not in r2.text.lower():
-        #print("LOGIN OK")
-    #else:
-        #print("LOGIN FAILED")
+    except requests.exceptions.RequestException as e:
+        print(f"❌ LOGIN ERROR: {e}")
+        return False
+
+    return True
+
 
 # =========================
 # STATUS
@@ -102,7 +111,12 @@ def save_status(running=False, progress=0, user="", file_path=""):
     tmp = STATUS_PATH + ".tmp"
 
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        json.dump(
+            data,
+            f,
+            ensure_ascii=False,
+            indent=2
+        )
 
     os.replace(tmp, STATUS_PATH)
 
@@ -111,9 +125,10 @@ def save_status(running=False, progress=0, user="", file_path=""):
 # HTTP
 # =========================
 def get_soup(url):
+
     while True:
+
         try:
-            #print(f"🌐 Dellta: загрузка {url}")
 
             r = session.get(
                 url,
@@ -122,67 +137,275 @@ def get_soup(url):
 
             r.raise_for_status()
 
-            return BeautifulSoup(r.text, "html.parser")
+            return BeautifulSoup(
+                r.text,
+                "html.parser"
+            )
 
         except requests.exceptions.Timeout:
-            #print(f"⏱️ Dellta: сервер долго отвечает")
-            #print(f"🔄 Повторяем через 5 секунд: {url}")
+
             time.sleep(5)
 
-        except requests.exceptions.RequestException as e:
-            #print(f"❌ Dellta: ошибка запроса: {e}")
-            #print(f"🔄 Повторяем через 5 секунд: {url}")
+        except requests.exceptions.RequestException:
+
             time.sleep(5)
 
-def clean(t):
-    return re.sub(r"\s+", " ", t).strip() if t else ""
+
+# =========================
+# CLEAN
+# =========================
+def clean(text):
+
+    if not text:
+        return ""
+
+    return re.sub(
+        r"\s+",
+        " ",
+        text
+    ).strip()
 
 
 # =========================
 # CATEGORIES
 # =========================
 def get_categories():
-    r = session.get(BASE, timeout=(15, 60))
-    #r = session.get(BASE)
-    soup = BeautifulSoup(r.text, "html.parser")
+
+    try:
+
+        r = session.get(
+            BASE,
+            timeout=(15, 60)
+        )
+
+        r.raise_for_status()
+
+    except requests.exceptions.RequestException:
+
+        return []
+
+    soup = BeautifulSoup(
+        r.text,
+        "html.parser"
+    )
 
     categories = []
 
-    container = soup.select_one("div.brandsOnMain")
+    container = soup.select_one(
+        "div.brandsOnMain"
+    )
 
     if not container:
         return categories
 
-    for a in container.select("a.COMitem"):
+    for a in container.select(
+        "a.COMitem"
+    ):
+
         href = a.get("href")
 
         if not href:
             continue
 
         if href.startswith("/"):
+
             href = BASE.rstrip("/") + href
 
-        categories.append(href)
+        elif not href.startswith("http"):
 
-    #print("CATEGORIES:", len(categories))
+            href = BASE.rstrip("/") + "/" + href.lstrip("/")
 
-    #for c in categories:
-        #print(c)
+        if href not in categories:
+
+            categories.append(href)
 
     return categories
+
 
 # =========================
 # LAST PAGE DETECTION
 # =========================
 def get_last_page(soup):
+
     pages = []
 
-    for a in soup.select(".pagination .page-link[pn]"):
+    for a in soup.select(
+        ".pagination .page-link[pn]"
+    ):
+
         pn = a.get("pn")
+
         if pn and pn.isdigit():
-            pages.append(int(pn))
+
+            pages.append(
+                int(pn)
+            )
 
     return max(pages) if pages else 1
+
+
+# =========================
+# PARSE PRODUCT CARD
+# =========================
+def parse_product_card(card):
+
+    title = ""
+    sku = ""
+    status = ""
+    price = ""
+    url = ""
+
+    # =========================
+    # SKU
+    # =========================
+    sku_el = card.select_one(
+        ".td_2 .gray"
+    )
+
+    if sku_el:
+
+        sku = clean(
+            sku_el.get_text(
+                " ",
+                strip=True
+            )
+        )
+
+    # =========================
+    # TITLE + URL
+    # =========================
+    title_el = card.select_one(
+        "td.td_2 a[href]"
+    )
+
+    if title_el:
+
+        title = clean(
+            title_el.get_text(
+                " ",
+                strip=True
+            )
+        )
+
+        href = title_el.get(
+            "href",
+            ""
+        )
+
+        if href:
+
+            if href.startswith("/"):
+
+                url = BASE.rstrip("/") + href
+
+            elif href.startswith("http"):
+
+                url = href
+
+            else:
+
+                url = BASE.rstrip("/") + "/" + href.lstrip("/")
+
+    # =========================
+    # FALLBACK URL
+    # =========================
+    if not url:
+
+        title_el = card.select_one(
+            'td.td_2 a[href*="/invertoryi-"]'
+        )
+
+        if title_el:
+
+            href = title_el.get(
+                "href",
+                ""
+            )
+
+            if href.startswith("/"):
+
+                url = BASE.rstrip("/") + href
+
+            elif href.startswith("http"):
+
+                url = href
+
+    # =========================
+    # STATUS
+    # =========================
+    status_el = card.select_one(
+        "td.td_2 .are-available"
+    )
+
+    if status_el:
+
+        status = clean(
+            status_el.get_text(
+                " ",
+                strip=True
+            )
+        )
+
+    else:
+
+        # Более универсальный fallback
+        status_el = card.select_one(
+            "td.td_2 div[class^='are-']"
+        )
+
+        if status_el:
+
+            status = clean(
+                status_el.get_text(
+                    " ",
+                    strip=True
+                )
+            )
+
+    # =========================
+    # DEALER PRICE
+    # =========================
+    price_el = card.select_one(
+        "td.td_3 .price-table tr.line-1 span.active"
+    )
+
+    if price_el:
+
+        price = clean(
+            price_el.get_text(
+                " ",
+                strip=True
+            )
+        )
+
+    # =========================
+    # FALLBACK PRICE
+    # =========================
+    if not price:
+
+        price_el = card.select_one(
+            "td.td_3 tr.line-1 span.active"
+        )
+
+        if price_el:
+
+            price = clean(
+                price_el.get_text(
+                    " ",
+                    strip=True
+                )
+            )
+
+    # =========================
+    # RETURN
+    # =========================
+    return [
+        sku,
+        title,
+        price,
+        status,
+        url
+    ]
 
 
 # =========================
@@ -190,87 +413,161 @@ def get_last_page(soup):
 # =========================
 def parse_category(cat_url):
 
-    #print("CATEGORY:", cat_url)
-
     all_items = []
 
-    first_page = get_soup(cat_url)
+    first_page = get_soup(
+        cat_url
+    )
 
-    last_page = get_last_page(first_page)
+    last_page = get_last_page(
+        first_page
+    )
 
-    #print("PAGES:", last_page)
-
-    for page in range(1, last_page + 1):
+    for page in range(
+        1,
+        last_page + 1
+    ):
 
         if page == 1:
+
             soup = first_page
+
         else:
-            page_url = cat_url.rstrip("/") + f"/page={page}/"
-            soup = get_soup(page_url)
 
+            page_url = (
+                cat_url.rstrip("/")
+                + f"/page={page}/"
+            )
 
-        # Карточки товаров
-        cards = soup.select("tr.itemPosition")
+            soup = get_soup(
+                page_url
+            )
 
-        #print("FOUND CARDS:", len(cards))
+        # =========================
+        # PRODUCT CARDS
+        # =========================
+        cards = soup.select(
+            "tr.itemPosition"
+        )
 
         for card in cards:
 
-            title = ""
-            sku = ""
-            status = ""
-            price = ""
-            url = ""
-
-            # =========================
-            # Название + ссылка
-            # =========================
-
-            title_el = card.select_one("td.td_2 a[href]")
-
-            if title_el:
-
-                title = clean(title_el.get_text())
-
-                href = title_el.get("href", "")
-
-                if href.startswith("/"):
-                    href = BASE + href
-
-                url = href
-
-            # =========================
-            # Артикул
-            # =========================
-
-            sku_el = card.select_one(".gray")
-
-            if sku_el:
-                sku = clean(sku_el.get_text())
-
-            # =========================
-            # Наличие
-            # =========================
-            
-            status = ""
-            
-            status_el = card.select_one(
-                "td.td_2 .font-12 div[class^='are-']"
+            item = parse_product_card(
+                card
             )
-            
-            if status_el:
-                status = status_el.get_text(" ", strip=True)
 
-            # =========================
-            # Цена дилера
-            # =========================
+            sku, title, price, status, url = item
 
-            price_el = card.select_one("tr.line-1 span.active")
+            # Без названия товар пропускаем
+            if not title:
+                continue
 
-            if price_el:
-                price = clean(price_el.get_text())
+            all_items.append(
+                item
+            )
 
-            all_items.append([
+    return all_items
+
+
+# =========================
+# MAIN
+# =========================
+def run_parser():
+
+    save_status(
+        True,
+        0,
+        USER,
+        FILE_PATH
+    )
+
+    # =========================
+    # LOGIN
+    # =========================
+    if not login():
+
+        save_status(
+            False,
+            0,
+            USER,
+            ""
+        )
+
+        print("❌ LOGIN FAILED")
+
+        return
+
+    # =========================
+    # EXCEL
+    # =========================
+    wb = Workbook()
+
+    ws = wb.active
+
+    ws.title = "Dellta"
+
+    ws.append([
+        "SKU",
+        "TITLE",
+        "PRICE",
+        "STATUS",
+        "URL"
+    ])
+
+    # =========================
+    # CATEGORIES
+    # =========================
+    cats = get_categories()
+
+    if not cats:
+
+        print("❌ CATEGORIES NOT FOUND")
+
+        save_status(
+            False,
+            0,
+            USER,
+            ""
+        )
+
+        return
+
+    if CATEGORY_LIMIT:
+
+        cats = cats[
+            :CATEGORY_LIMIT
+        ]
+
+    total = len(cats)
+
+    # =========================
+    # PARSE
+    # =========================
+    for i, cat in enumerate(
+        cats,
+        1
+    ):
+
+        progress = int(
+            i / total * 100
+        )
+
+        save_status(
+            True,
+            progress,
+            USER,
+            FILE_PATH
+        )
+
+        items = parse_category(
+            cat
+        )
+
+        for item in items:
+
+            sku, title, price, status, url = item
+
+            ws.append([
                 sku,
                 title,
                 price,
@@ -278,66 +575,38 @@ def parse_category(cat_url):
                 url
             ])
 
-    return all_items
-    
-# =========================
-# MAIN
-# =========================
-def run_parser():
-
-    save_status(True, 0, USER, FILE_PATH)
-
-    login()
-
-    wb = Workbook()
-    ws = wb.active
-    ws.append(["SKU", "TITLE", "PRICE", "STATUS", "URL"])
-
-    seen = set()
-
-    cats = get_categories()
-
-    #print("CATEGORIES:", len(cats))
-
-    if CATEGORY_LIMIT:
-        cats = cats[:CATEGORY_LIMIT]
-
-    total = len(cats)
-
-    for i, cat in enumerate(cats, 1):
-
-        save_status(True, int(i / total * 100), USER, FILE_PATH)
-
-        items = parse_category(cat)
-
-        for sku, title, price, status, url in items:
-
-            key = sku if sku else url
-
-            #if key in seen:
-                #continue
-
-            #seen.add(key)
-
-            if not title:
-                continue
-
-            ws.append([sku, title, price, status, url])
-
-        #print(f"DONE CATEGORY {i}/{total} -> {len(items)} items")
-
         time.sleep(0.3)
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    # =========================
+    # SAVE
+    # =========================
+    os.makedirs(
+        OUTPUT_DIR,
+        exist_ok=True
+    )
 
     tmp = FILE_PATH + ".tmp"
-    wb.save(tmp)
-    os.replace(tmp, FILE_PATH)
 
-    save_status(False, 100, USER, FILE_PATH)
+    wb.save(tmp)
+
+    os.replace(
+        tmp,
+        FILE_PATH
+    )
+
+    save_status(
+        False,
+        100,
+        USER,
+        FILE_PATH
+    )
 
     print("DONE")
 
 
+# =========================
+# START
+# =========================
 if __name__ == "__main__":
+
     run_parser()
