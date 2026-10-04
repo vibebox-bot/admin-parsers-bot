@@ -7,27 +7,57 @@ import xml.etree.ElementTree as ET
 
 from datetime import datetime
 from openpyxl import Workbook
-from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
+
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 Харьковская КМТ — XML + SITE PRICE PARSER")
+print("🔥 Харьковская КМТ — XML + AUTH + SITE PRICE PARSER")
 
 
 # ==========================================================
 # НАСТРОЙКИ
 # ==========================================================
 
-FEED_URL = "https://kmt5.com.ua/feed/alsj9tvf74xcmfavjl7rhkljz3os3kwy"
+FEED_URL = (
+    "https://kmt5.com.ua/feed/"
+    "alsj9tvf74xcmfavjl7rhkljz3os3kwy"
+)
+
+LOGIN_URL = "https://kmt5.com.ua/login/"
+
+KMT_LOGIN = "finik257@gmail.com"
+KMT_PASSWORD = "18022021"
 
 #PRODUCT_LIMIT = None
 PRODUCT_LIMIT = 5
 
 OUTPUT_DIR = os.path.abspath("output/КМТ")
-FILE_PATH = os.path.join(OUTPUT_DIR, "КМТ_LIVE.xlsx")
-STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
-LOCK_FILE = os.path.join(OUTPUT_DIR, "lock.txt")
 
+FILE_PATH = os.path.join(
+    OUTPUT_DIR,
+    "КМТ_LIVE.xlsx"
+)
+
+STATUS_PATH = os.path.join(
+    OUTPUT_DIR,
+    "status.json"
+)
+
+LOCK_FILE = os.path.join(
+    OUTPUT_DIR,
+    "lock.txt"
+)
+
+STORAGE_STATE = os.path.join(
+    OUTPUT_DIR,
+    "kmt_auth.json"
+)
+
+
+# ==========================================================
+# HTTP SESSION
+# ==========================================================
 
 HEADERS = {
     "User-Agent": (
@@ -38,14 +68,13 @@ HEADERS = {
         "Chrome/120.0 Safari/537.36"
     ),
     "Accept": (
-        "text/html,"
-        "application/xhtml+xml,"
         "application/xml,"
         "text/xml,"
+        "application/xhtml+xml,"
+        "text/html;q=0.9,"
         "*/*;q=0.8"
     )
 }
-
 
 session = requests.Session()
 session.headers.update(HEADERS)
@@ -56,19 +85,26 @@ session.headers.update(HEADERS)
 # ==========================================================
 
 def is_locked():
+
     if not os.path.exists(LOCK_FILE):
         return False
 
     try:
-        age = time.time() - os.path.getmtime(LOCK_FILE)
+
+        age = time.time() - os.path.getmtime(
+            LOCK_FILE
+        )
 
         if age > 3600:
+
             os.remove(LOCK_FILE)
+
             return False
 
         return True
 
     except Exception:
+
         return False
 
 
@@ -76,9 +112,17 @@ def set_lock(state):
 
     if state:
 
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        os.makedirs(
+            OUTPUT_DIR,
+            exist_ok=True
+        )
 
-        with open(LOCK_FILE, "w", encoding="utf-8") as f:
+        with open(
+            LOCK_FILE,
+            "w",
+            encoding="utf-8"
+        ) as f:
+
             f.write(str(time.time()))
 
     else:
@@ -86,8 +130,11 @@ def set_lock(state):
         if os.path.exists(LOCK_FILE):
 
             try:
+
                 os.remove(LOCK_FILE)
+
             except Exception:
+
                 pass
 
 
@@ -104,13 +151,18 @@ def save_status(
     error_message=""
 ):
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(
+        OUTPUT_DIR,
+        exist_ok=True
+    )
 
     data = {
         "running": running,
         "progress": progress,
         "user": user,
-        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "time": datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
         "file_path": file_path,
         "error": error,
         "error_message": error_message
@@ -118,7 +170,12 @@ def save_status(
 
     tmp = STATUS_PATH + ".tmp"
 
-    with open(tmp, "w", encoding="utf-8") as f:
+    with open(
+        tmp,
+        "w",
+        encoding="utf-8"
+    ) as f:
+
         json.dump(
             data,
             f,
@@ -126,7 +183,10 @@ def save_status(
             indent=2
         )
 
-    os.replace(tmp, STATUS_PATH)
+    os.replace(
+        tmp,
+        STATUS_PATH
+    )
 
 
 # ==========================================================
@@ -157,7 +217,7 @@ def download_feed():
 
             print(
                 f"🌐 Загрузка XML... "
-                f"попытка {attempt + 1}/3"
+                f"{attempt + 1}/3"
             )
 
             response = session.get(
@@ -176,6 +236,7 @@ def download_feed():
                 )
 
                 time.sleep(2)
+
                 continue
 
             content = response.content
@@ -185,6 +246,7 @@ def download_feed():
                 last_error = "XML feed пустой"
 
                 time.sleep(2)
+
                 continue
 
             print(
@@ -199,7 +261,7 @@ def download_feed():
             last_error = str(e)
 
             print(
-                f"⚠ Ошибка загрузки: {e}"
+                f"⚠ Ошибка XML: {e}"
             )
 
             time.sleep(2)
@@ -219,20 +281,33 @@ def local_name(tag):
         return ""
 
     if "}" in tag:
-        return tag.split("}", 1)[1]
+        return tag.split(
+            "}",
+            1
+        )[1]
 
     return tag
 
 
-def get_child_text(element, wanted_name):
+def get_child_text(
+    element,
+    wanted_name
+):
 
     wanted_name = wanted_name.lower()
 
     for child in element:
 
-        if local_name(child.tag).lower() == wanted_name:
+        if (
+            local_name(
+                child.tag
+            ).lower()
+            == wanted_name
+        ):
 
-            return clean(child.text)
+            return clean(
+                child.text
+            )
 
     return ""
 
@@ -243,116 +318,39 @@ def get_params(offer):
 
     for child in offer:
 
-        if local_name(child.tag).lower() != "param":
+        if (
+            local_name(
+                child.tag
+            ).lower()
+            != "param"
+        ):
             continue
 
         name = clean(
-            child.attrib.get("name", "")
+            child.attrib.get(
+                "name",
+                ""
+            )
         )
 
-        value = clean(child.text)
+        value = clean(
+            child.text
+        )
 
         if name:
-            result[name.lower()] = value
+
+            result[
+                name.lower()
+            ] = value
 
     return result
-
-
-# ==========================================================
-# PRICE FROM PRODUCT PAGE
-# ==========================================================
-
-def get_site_price(url):
-
-    if not url:
-        return ""
-
-    try:
-
-        response = session.get(
-            url,
-            timeout=30
-        )
-
-        if response.status_code != 200:
-
-            print(
-                f"   ⚠ Цена: HTTP "
-                f"{response.status_code}"
-            )
-
-            return ""
-
-        soup = BeautifulSoup(
-            response.content,
-            "html.parser"
-        )
-
-        # ==================================================
-        # ОСНОВНАЯ ЦЕНА КМТ
-        #
-        # <span class="opt"
-        #       data-pdprice=""
-        #       data-baseprice="1.10">
-        #       $1.10
-        # </span>
-        #
-        # Берём именно data-baseprice
-        # ==================================================
-
-        price_element = soup.select_one(
-            ".bb-price .opt[data-baseprice]"
-        )
-
-        if price_element:
-
-            price = clean(
-                price_element.get(
-                    "data-baseprice",
-                    ""
-                )
-            )
-
-            if price:
-                return price
-
-        # ==================================================
-        # ДОПОЛНИТЕЛЬНЫЙ ПОИСК
-        # если немного изменится HTML
-        # ==================================================
-
-        price_element = soup.select_one(
-            ".opt[data-baseprice]"
-        )
-
-        if price_element:
-
-            price = clean(
-                price_element.get(
-                    "data-baseprice",
-                    ""
-                )
-            )
-
-            if price:
-                return price
-
-        return ""
-
-    except Exception as e:
-
-        print(
-            f"   ⚠ Ошибка получения цены: {e}"
-        )
-
-        return ""
 
 
 # ==========================================================
 # PARSE XML
 # ==========================================================
 
-def parse_feed(xml_content):
+def parse_xml(xml_content):
 
     try:
 
@@ -366,101 +364,63 @@ def parse_feed(xml_content):
             f"XML повреждён: {e}"
         )
 
-    except Exception as e:
-
-        raise RuntimeError(
-            f"Ошибка чтения XML: {e}"
-        )
-
-
-    # Ищем offer независимо от namespace
-
     offers = [
         element
         for element in root.iter()
-        if local_name(element.tag).lower() == "offer"
+        if local_name(
+            element.tag
+        ).lower() == "offer"
     ]
-
 
     if not offers:
 
         raise RuntimeError(
-            "В XML отсутствуют элементы <offer>"
+            "В XML отсутствуют <offer>"
         )
 
-
     print(
-        f"📦 Найдено товаров в XML: "
+        f"📦 Товаров в XML: "
         f"{len(offers)}"
     )
 
-
     if PRODUCT_LIMIT:
 
-        offers = offers[:PRODUCT_LIMIT]
+        offers = offers[
+            :PRODUCT_LIMIT
+        ]
 
         print(
-            f"🧪 Тестовый лимит: "
+            f"🧪 Лимит: "
             f"{PRODUCT_LIMIT}"
         )
 
-
     result = []
 
-    total = len(offers)
-
-
-    for index, offer in enumerate(
-        offers,
-        1
-    ):
-
-        # ==================================================
-        # CODE
-        # ==================================================
+    for offer in offers:
 
         vendor_code = get_child_text(
             offer,
             "vendorCode"
         )
 
-
-        # ==================================================
-        # PRODUCT_CODE
-        # <param name="Код">792278</param>
-        # ==================================================
-
-        params = get_params(offer)
+        params = get_params(
+            offer
+        )
 
         product_code = params.get(
             "код",
             ""
         )
 
-
-        # ==================================================
-        # TITLE
-        # ==================================================
-
         title = get_child_text(
             offer,
             "name"
         )
 
-
-        # ==================================================
-        # URL
-        # ==================================================
-
         url = get_child_text(
             offer,
             "url"
         )
-
-
-        # ==================================================
-        # STATUS
-        # ==================================================
 
         available = clean(
             offer.attrib.get(
@@ -468,7 +428,6 @@ def parse_feed(xml_content):
                 ""
             )
         ).lower()
-
 
         if available == "true":
 
@@ -482,85 +441,382 @@ def parse_feed(xml_content):
 
             status = available
 
-
         if not title:
 
             continue
 
-
-        # ==================================================
-        # PRICE FROM SITE
-        # ==================================================
-
-        print(
-            f"💰 {index}/{total} "
-            f"| {title[:60]}"
-        )
-
-        price = get_site_price(
-            url
-        )
-
-
-        if price:
-
-            print(
-                f"   💵 Цена КМТ: ${price}"
-            )
-
-        else:
-
-            print(
-                "   ⚠ Цена на странице не найдена"
-            )
-
-
-        result.append([
-            vendor_code,
-            product_code,
-            title,
-            price,
-            status,
-            url
-        ])
-
-
-        # ==================================================
-        # PROGRESS
-        # ==================================================
-
-        progress = int(
-            index / total * 100
-        )
-
-
-        if (
-            index == 1
-            or index % 10 == 0
-            or index == total
-        ):
-
-            save_status(
-                True,
-                progress,
-                USER,
-                FILE_PATH
-            )
-
+        result.append({
+            "CODE": vendor_code,
+            "PRODUCT_CODE": product_code,
+            "TITLE": title,
+            "STATUS": status,
+            "URL": url
+        })
 
     if not result:
 
         raise RuntimeError(
             "После обработки XML "
-            "не получено ни одного товара"
+            "не получено товаров"
         )
-
 
     return result
 
 
 # ==========================================================
-# EMPTY EXCEL
+# PLAYWRIGHT AUTH
+# ==========================================================
+
+def login_to_kmt(browser):
+
+    print("🔐 Авторизация на КМТ...")
+
+    context = browser.new_context()
+
+    page = context.new_page()
+
+    try:
+
+        page.goto(
+            LOGIN_URL,
+            wait_until="domcontentloaded",
+            timeout=60000
+        )
+
+        page.wait_for_timeout(1000)
+
+        # --------------------------------------------------
+        # Если уже авторизованы
+        # --------------------------------------------------
+
+        login_field = page.locator(
+            'input[name="email"]'
+        )
+
+        if not login_field.count():
+
+            print(
+                "✅ Уже авторизованы"
+            )
+
+            context.storage_state(
+                path=STORAGE_STATE
+            )
+
+            return context
+
+
+        if not KMT_LOGIN or not KMT_PASSWORD:
+
+            raise RuntimeError(
+                "Не заданы KMT_LOGIN "
+                "и KMT_PASSWORD"
+            )
+
+
+        # --------------------------------------------------
+        # Заполняем форму
+        # --------------------------------------------------
+
+        print("   Ввожу логин...")
+
+        page.locator(
+            'input[name="email"]'
+        ).fill(
+            KMT_LOGIN
+        )
+
+        print("   Ввожу пароль...")
+
+        page.locator(
+            'input[name="password"]'
+        ).fill(
+            KMT_PASSWORD
+        )
+
+
+        # --------------------------------------------------
+        # Нажимаем Войти
+        # --------------------------------------------------
+
+        print(
+            "   Нажимаю «Увійти»..."
+        )
+
+        page.locator(
+            '[data-authsubmit]'
+        ).click()
+
+
+        # Ждём AJAX-авторизацию
+
+        page.wait_for_timeout(
+            2000
+        )
+
+
+        # --------------------------------------------------
+        # Проверяем, исчезла ли форма
+        # --------------------------------------------------
+
+        login_field = page.locator(
+            'input[name="email"]'
+        )
+
+        if login_field.count():
+
+            # Иногда AJAX отвечает чуть позже
+
+            page.wait_for_timeout(
+                2000
+            )
+
+
+        if login_field.count():
+
+            # Проверяем текст страницы
+
+            body_text = clean(
+                page.locator(
+                    "body"
+                ).inner_text()
+            ).lower()
+
+            if (
+                "невір" in body_text
+                or "неправ" in body_text
+                or "помил" in body_text
+                or "парол" in body_text
+            ):
+
+                raise RuntimeError(
+                    "КМТ не принял логин/пароль"
+                )
+
+
+        # --------------------------------------------------
+        # Сохраняем авторизацию
+        # --------------------------------------------------
+
+        context.storage_state(
+            path=STORAGE_STATE
+        )
+
+        print(
+            "✅ Авторизация выполнена"
+        )
+
+        return context
+
+    except Exception:
+
+        context.close()
+
+        raise
+
+
+# ==========================================================
+# LOAD SAVED AUTH
+# ==========================================================
+
+def create_kmt_context(browser):
+
+    # ------------------------------------------------------
+    # Если есть сохранённая авторизация
+    # ------------------------------------------------------
+
+    if os.path.exists(
+        STORAGE_STATE
+    ):
+
+        print(
+            "🔑 Найдена сохранённая "
+            "авторизация КМТ"
+        )
+
+        try:
+
+            context = browser.new_context(
+                storage_state=STORAGE_STATE
+            )
+
+            test_page = context.new_page()
+
+            test_page.goto(
+                "https://kmt5.com.ua/",
+                wait_until="domcontentloaded",
+                timeout=60000
+            )
+
+            test_page.wait_for_timeout(
+                500
+            )
+
+            # Если форма входа есть —
+            # сохранённая сессия истекла
+
+            if test_page.locator(
+                'input[name="email"]'
+            ).count():
+
+                print(
+                    "⚠ Сессия КМТ истекла"
+                )
+
+                context.close()
+
+                os.remove(
+                    STORAGE_STATE
+                )
+
+                return login_to_kmt(
+                    browser
+                )
+
+            print(
+                "✅ Сохранённая сессия работает"
+            )
+
+            return context
+
+        except Exception as e:
+
+            print(
+                f"⚠ Старая сессия "
+                f"не работает: {e}"
+            )
+
+            try:
+
+                context.close()
+
+            except Exception:
+
+                pass
+
+            try:
+
+                os.remove(
+                    STORAGE_STATE
+                )
+
+            except Exception:
+
+                pass
+
+            return login_to_kmt(
+                browser
+            )
+
+    # ------------------------------------------------------
+    # Первый запуск
+    # ------------------------------------------------------
+
+    return login_to_kmt(
+        browser
+    )
+
+
+# ==========================================================
+# GET PRICE FROM SITE
+# ==========================================================
+
+def get_site_price(
+    page,
+    url
+):
+
+    if not url:
+
+        return ""
+
+    try:
+
+        page.goto(
+            url,
+            wait_until="domcontentloaded",
+            timeout=30000
+        )
+
+        # Ждём появления цены.
+        # Не ждём долго.
+
+        try:
+
+            page.locator(
+                ".bb-price .opt[data-baseprice]"
+            ).wait_for(
+                state="attached",
+                timeout=5000
+            )
+
+        except Exception:
+
+            pass
+
+
+        # --------------------------------------------------
+        # Наша цена
+        # --------------------------------------------------
+
+        price_element = page.locator(
+            ".bb-price .opt[data-baseprice]"
+        ).first
+
+
+        if price_element.count():
+
+            price = price_element.get_attribute(
+                "data-baseprice"
+            )
+
+            price = clean(
+                price
+            )
+
+            if price:
+
+                return price
+
+
+        # --------------------------------------------------
+        # Дополнительный вариант
+        # --------------------------------------------------
+
+        price_element = page.locator(
+            ".opt[data-baseprice]"
+        ).first
+
+
+        if price_element.count():
+
+            price = price_element.get_attribute(
+                "data-baseprice"
+            )
+
+            price = clean(
+                price
+            )
+
+            if price:
+
+                return price
+
+
+        return ""
+
+    except Exception as e:
+
+        print(
+            f"   ⚠ Ошибка страницы: "
+            f"{e}"
+        )
+
+        return ""
+
+
+# ==========================================================
+# SAVE EMPTY EXCEL
 # ==========================================================
 
 def create_empty_excel():
@@ -570,13 +826,11 @@ def create_empty_excel():
         exist_ok=True
     )
 
-
     wb = Workbook()
 
     ws = wb.active
 
     ws.title = "КМТ"
-
 
     ws.append([
         "CODE",
@@ -587,7 +841,6 @@ def create_empty_excel():
         "URL"
     ])
 
-
     tmp = FILE_PATH + ".tmp"
 
     wb.save(tmp)
@@ -596,7 +849,6 @@ def create_empty_excel():
         tmp,
         FILE_PATH
     )
-
 
     print(
         "⚠ КМТ_LIVE.xlsx создан пустым"
@@ -615,13 +867,11 @@ def save_excel(items):
             "Попытка сохранить пустой результат"
         )
 
-
     wb = Workbook()
 
     ws = wb.active
 
     ws.title = "КМТ"
-
 
     ws.append([
         "CODE",
@@ -632,17 +882,21 @@ def save_excel(items):
         "URL"
     ])
 
-
     for item in items:
 
-        ws.append(item)
-
+        ws.append([
+            item["CODE"],
+            item["PRODUCT_CODE"],
+            item["TITLE"],
+            item["PRICE"],
+            item["STATUS"],
+            item["URL"]
+        ])
 
     os.makedirs(
         OUTPUT_DIR,
         exist_ok=True
     )
-
 
     tmp = FILE_PATH + ".tmp"
 
@@ -653,7 +907,6 @@ def save_excel(items):
         FILE_PATH
     )
 
-
     print(
         f"💾 Сохранено товаров: "
         f"{len(items)}"
@@ -661,7 +914,7 @@ def save_excel(items):
 
 
 # ==========================================================
-# RUN
+# MAIN PARSER
 # ==========================================================
 
 def run_parser():
@@ -674,9 +927,7 @@ def run_parser():
 
         return
 
-
     set_lock(True)
-
 
     try:
 
@@ -688,7 +939,6 @@ def run_parser():
             False,
             ""
         )
-
 
         print(
             "🚀 Запуск парсера КМТ"
@@ -703,39 +953,7 @@ def run_parser():
 
             xml_content = download_feed()
 
-        except Exception as e:
-
-            error_message = str(e)
-
-            print(
-                f"❌ ОШИБКА КМТ: "
-                f"{error_message}"
-            )
-
-
-            create_empty_excel()
-
-
-            save_status(
-                False,
-                100,
-                USER,
-                FILE_PATH,
-                True,
-                error_message
-            )
-
-
-            return
-
-
-        # ==================================================
-        # PARSE
-        # ==================================================
-
-        try:
-
-            items = parse_feed(
+            products = parse_xml(
                 xml_content
             )
 
@@ -744,13 +962,11 @@ def run_parser():
             error_message = str(e)
 
             print(
-                f"❌ ОШИБКА КМТ: "
+                f"❌ ОШИБКА XML: "
                 f"{error_message}"
             )
 
-
             create_empty_excel()
-
 
             save_status(
                 False,
@@ -761,12 +977,136 @@ def run_parser():
                 error_message
             )
 
+            return
+
+
+        # ==================================================
+        # BROWSER
+        # ==================================================
+
+        try:
+
+            with sync_playwright() as p:
+
+                browser = p.chromium.launch(
+                    headless=True
+                )
+
+                try:
+
+                    context = create_kmt_context(
+                        browser
+                    )
+
+                    page = context.new_page()
+
+                    total = len(products)
+
+                    price_found = 0
+
+                    price_missing = 0
+
+                    items = []
+
+
+                    # ======================================
+                    # PRODUCTS
+                    # ======================================
+
+                    for index, product in enumerate(
+                        products,
+                        1
+                    ):
+
+                        title = product["TITLE"]
+
+                        print(
+                            f"🌐 {index}/{total} "
+                            f"| {title[:70]}"
+                        )
+
+
+                        price = get_site_price(
+                            page,
+                            product["URL"]
+                        )
+
+
+                        if price:
+
+                            price_found += 1
+
+                            print(
+                                f"   💵 ${price}"
+                            )
+
+                        else:
+
+                            price_missing += 1
+
+                            print(
+                                "   ⚠ Цена не найдена"
+                            )
+
+
+                        product["PRICE"] = price
+
+                        items.append(
+                            product
+                        )
+
+
+                        progress = int(
+                            index / total * 100
+                        )
+
+
+                        if (
+                            index == 1
+                            or index % 10 == 0
+                            or index == total
+                        ):
+
+                            save_status(
+                                True,
+                                progress,
+                                USER,
+                                FILE_PATH
+                            )
+
+
+                    context.close()
+
+                finally:
+
+                    browser.close()
+
+
+        except Exception as e:
+
+            error_message = str(e)
+
+            print(
+                f"❌ ОШИБКА БРАУЗЕРА: "
+                f"{error_message}"
+            )
+
+            create_empty_excel()
+
+            save_status(
+                False,
+                100,
+                USER,
+                FILE_PATH,
+                True,
+                error_message
+            )
 
             return
 
 
         # ==================================================
-        # EMPTY RESULT
+        # SAVE
         # ==================================================
 
         if not items:
@@ -776,15 +1116,11 @@ def run_parser():
                 "товаров получено 0"
             )
 
-
             print(
-                f"❌ ОШИБКА КМТ: "
-                f"{error_message}"
+                f"❌ {error_message}"
             )
 
-
             create_empty_excel()
-
 
             save_status(
                 False,
@@ -795,17 +1131,14 @@ def run_parser():
                 error_message
             )
 
-
             return
 
 
-        # ==================================================
-        # SAVE
-        # ==================================================
-
         try:
 
-            save_excel(items)
+            save_excel(
+                items
+            )
 
         except Exception as e:
 
@@ -813,12 +1146,9 @@ def run_parser():
                 f"Ошибка сохранения Excel: {e}"
             )
 
-
             print(
-                f"❌ ОШИБКА КМТ: "
-                f"{error_message}"
+                f"❌ {error_message}"
             )
-
 
             try:
 
@@ -828,7 +1158,6 @@ def run_parser():
 
                 pass
 
-
             save_status(
                 False,
                 100,
@@ -837,7 +1166,6 @@ def run_parser():
                 True,
                 error_message
             )
-
 
             return
 
@@ -869,6 +1197,14 @@ def run_parser():
         )
 
         print(
+            f"💵 Цена найдена: {price_found}"
+        )
+
+        print(
+            f"⚠ Цена не найдена: {price_missing}"
+        )
+
+        print(
             f"📄 Файл: {FILE_PATH}"
         )
 
@@ -883,7 +1219,7 @@ def run_parser():
 
 
 # ==========================================================
-# MAIN
+# START
 # ==========================================================
 
 if __name__ == "__main__":
