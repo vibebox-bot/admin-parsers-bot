@@ -1,14 +1,13 @@
-
 import os
 import sys
 import json
-import re
 import time
-import requests
+import subprocess
+import shutil
 
 from datetime import datetime
-from bs4 import BeautifulSoup
 from openpyxl import Workbook
+from bs4 import BeautifulSoup
 
 
 # ==========================================================
@@ -26,38 +25,37 @@ print("🔥 DELLTA LIFE PARSER")
 
 BASE = "https://b2b.delltalife.com"
 
-# Для теста можно поставить 2
-CATEGORY_LIMIT = 2
-# CATEGORY_LIMIT = None
+# Для первого теста можно поставить:
+# CATEGORY_LIMIT = 2
+CATEGORY_LIMIT = None
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "123456"
 
 OUTPUT_DIR = os.path.abspath("output/Dellta")
-FILE_PATH = os.path.join(OUTPUT_DIR, "Dellta_LIVE.xlsx")
-STATUS_PATH = os.path.join(OUTPUT_DIR, "status.json")
+FILE_PATH = os.path.join(
+    OUTPUT_DIR,
+    "Dellta_LIVE.xlsx"
+)
+STATUS_PATH = os.path.join(
+    OUTPUT_DIR,
+    "status.json"
+)
 
 
 # ==========================================================
-# HTTP
+# PLAYWRIGHT
 # ==========================================================
 
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/131.0.0.0 Safari/537.36"
-    ),
-    "Accept": (
-        "text/html,application/xhtml+xml,application/xml;"
-        "q=0.9,image/avif,image/webp,*/*;q=0.8"
-    ),
-    "Accept-Language": "uk-UA,uk;q=0.9,ru;q=0.8,en-US;q=0.7,en;q=0.6",
-    "Connection": "keep-alive",
-}
-
-session = requests.Session()
-session.headers.update(HEADERS)
+try:
+    from playwright.sync_api import (
+        sync_playwright,
+        TimeoutError as PlaywrightTimeoutError,
+    )
+except ImportError:
+    print("❌ Playwright не установлен")
+    print("❌ Установи: pip install playwright")
+    sys.exit(1)
 
 
 # ==========================================================
@@ -70,20 +68,29 @@ def save_status(
     user="",
     file_path=""
 ):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(
+        OUTPUT_DIR,
+        exist_ok=True
+    )
 
     data = {
         "running": running,
         "progress": progress,
         "user": user,
-        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "time": datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
         "file_path": file_path,
     }
 
     tmp = STATUS_PATH + ".tmp"
 
     try:
-        with open(tmp, "w", encoding="utf-8") as f:
+        with open(
+            tmp,
+            "w",
+            encoding="utf-8"
+        ) as f:
             json.dump(
                 data,
                 f,
@@ -91,10 +98,15 @@ def save_status(
                 indent=2
             )
 
-        os.replace(tmp, STATUS_PATH)
+        os.replace(
+            tmp,
+            STATUS_PATH
+        )
 
     except Exception as e:
-        print(f"⚠ Не удалось сохранить status.json: {e}")
+        print(
+            f"⚠ Ошибка status.json: {e}"
+        )
 
 
 # ==========================================================
@@ -105,10 +117,8 @@ def clean(text):
     if not text:
         return ""
 
-    return re.sub(
-        r"\s+",
-        " ",
-        text
+    return " ".join(
+        text.split()
     ).strip()
 
 
@@ -116,324 +126,506 @@ def absolute_url(url):
     if not url:
         return ""
 
-    if url.startswith("http://") or url.startswith("https://"):
+    if (
+        url.startswith("http://")
+        or url.startswith("https://")
+    ):
         return url
 
     if url.startswith("/"):
         return BASE.rstrip("/") + url
 
-    return BASE.rstrip("/") + "/" + url.lstrip("/")
+    return (
+        BASE.rstrip("/")
+        + "/"
+        + url.lstrip("/")
+    )
+
+
+# ==========================================================
+# INSTALL FIREFOX IF NEEDED
+# ==========================================================
+
+def ensure_firefox():
+    """
+    Проверяем наличие Firefox Playwright.
+    Если браузера нет — устанавливаем его.
+    """
+
+    try:
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as p:
+            executable = p.firefox.executable_path
+
+        if executable and os.path.exists(executable):
+            print("🦊 Firefox Playwright найден")
+            return True
+
+    except Exception:
+        pass
+
+    print("🦊 Firefox Playwright не найден")
+    print("📦 Устанавливаем Firefox...")
+
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "playwright",
+                "install",
+                "firefox",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=300,
+        )
+
+        if result.returncode != 0:
+            print(
+                "❌ Не удалось установить Firefox"
+            )
+            print(
+                result.stdout[-3000:]
+            )
+            return False
+
+        print("✅ Firefox установлен")
+
+        return True
+
+    except Exception as e:
+        print(
+            f"❌ Ошибка установки Firefox: {e}"
+        )
+        return False
 
 
 # ==========================================================
 # LOGIN
 # ==========================================================
 
-def login():
+def login(page):
     print("🔐 Авторизация Dellta...")
 
-    login_page = BASE + "/"
-
     try:
-        print(f"🌐 GET {login_page}")
-
-        r = session.get(
-            login_page,
-            timeout=(15, 60),
-            allow_redirects=True
-        )
-
-        print(f"🌐 HTTP: {r.status_code}")
-        print(f"🌐 Final URL: {r.url}")
-
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Ошибка GET главной страницы: {e}")
-        return False
-
-    # ------------------------------------------------------
-    # 429
-    # ------------------------------------------------------
-
-    if r.status_code == 429:
-        soup = BeautifulSoup(
-            r.text,
-            "html.parser"
-        )
-
-        title = clean(
-            soup.title.get_text()
-            if soup.title
-            else ""
-        )
-
-        print("❌ Dellta вернул HTTP 429")
-
-        if title:
-            print(f"❌ Response title: {title}")
-
-        text = clean(soup.get_text(" ", strip=True))
-
-        if text:
-            print(f"❌ Ответ: {text[:500]}")
-
-        print()
         print(
-            "⚠ Сервер Dellta не отдал страницу с модалкой "
-            "авторизации."
-        )
-        print(
-            "⚠ Поэтому заполнить #login-form сейчас невозможно."
+            f"🌐 GET {BASE}/"
         )
 
-        return False
-
-    # ------------------------------------------------------
-    # Другие HTTP ошибки
-    # ------------------------------------------------------
-
-    if r.status_code >= 400:
-        print(
-            f"❌ Ошибка открытия Dellta: HTTP {r.status_code}"
-        )
-        return False
-
-    # ------------------------------------------------------
-    # Парсим страницу
-    # ------------------------------------------------------
-
-    soup = BeautifulSoup(
-        r.text,
-        "html.parser"
-    )
-
-    # Реальная форма из модального окна
-    form = soup.select_one("#login-form")
-
-    if not form:
-        # Дополнительный поиск по action
-        form = soup.select_one(
-            'form[action="/themes/default/ajax/login.php"]'
-        )
-
-    if not form:
-        print("❌ #login-form не найден")
-
-        title = clean(
-            soup.title.get_text()
-            if soup.title
-            else ""
-        )
-
-        if title:
-            print(f"📄 Response title: {title}")
-
-        return False
-
-    print("✅ Модалка авторизации найдена")
-
-    # ------------------------------------------------------
-    # Получаем action
-    # ------------------------------------------------------
-
-    action = form.get("action")
-
-    if not action:
-        action = "/themes/default/ajax/login.php"
-
-    action = absolute_url(action)
-
-    print(f"🔑 LOGIN URL: {action}")
-
-    # ------------------------------------------------------
-    # Собираем hidden-поля формы
-    # ------------------------------------------------------
-
-    payload = {}
-
-    for inp in form.select("input"):
-        name = inp.get("name")
-
-        if not name:
-            continue
-
-        input_type = (
-            inp.get("type", "text")
-            .lower()
-        )
-
-        # Пароли/логины зададим ниже сами
-        if name in ("email_auth", "pass_auth"):
-            continue
-
-        # Не отправляем reCAPTCHA регистрации
-        if "captcha" in name.lower():
-            continue
-
-        if input_type in (
-            "submit",
-            "button",
-            "reset",
-        ):
-            continue
-
-        payload[name] = inp.get(
-            "value",
-            ""
-        )
-
-    # ------------------------------------------------------
-    # Реальные поля Dellta
-    # ------------------------------------------------------
-
-    payload["email_auth"] = EMAIL
-    payload["pass_auth"] = PASSWORD
-
-    print("📨 Отправка формы авторизации...")
-
-    try:
-        r2 = session.post(
-            action,
-            data=payload,
-            headers={
-                "X-Requested-With": "XMLHttpRequest",
-                "Referer": r.url,
-                "Origin": BASE,
-                "Accept": "*/*",
-            },
-            timeout=(15, 60),
-            allow_redirects=True,
-        )
-
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Ошибка POST авторизации: {e}")
-        return False
-
-    print(f"🔐 LOGIN HTTP: {r2.status_code}")
-
-    if r2.status_code == 429:
-        print("❌ Dellta вернул HTTP 429 при авторизации")
-        return False
-
-    if r2.status_code >= 400:
-        print(
-            f"❌ Ошибка авторизации: HTTP {r2.status_code}"
-        )
-        return False
-
-    # ------------------------------------------------------
-    # Анализ ответа login.php
-    # ------------------------------------------------------
-
-    login_text = clean(
-        r2.text
-    )
-
-    if login_text:
-        print(
-            f"📄 LOGIN RESPONSE: "
-            f"{login_text[:500]}"
-        )
-
-    # ------------------------------------------------------
-    # Проверяем авторизацию повторным GET
-    # ------------------------------------------------------
-
-    print("🔎 Проверяем авторизацию...")
-
-    try:
-        check = session.get(
+        response = page.goto(
             BASE + "/",
-            timeout=(15, 60),
-            allow_redirects=True,
+            wait_until="domcontentloaded",
+            timeout=90000,
         )
 
-    except requests.exceptions.RequestException as e:
+        if response:
+            print(
+                f"🌐 HTTP: "
+                f"{response.status}"
+            )
+
         print(
-            f"❌ Ошибка проверки авторизации: {e}"
+            f"🌐 URL: {page.url}"
+        )
+
+    except Exception as e:
+        print(
+            f"❌ Ошибка открытия Dellta: {e}"
+        )
+        return False
+
+    # ------------------------------------------------------
+    # Ждём JavaScript / cookie protection
+    # ------------------------------------------------------
+
+    print(
+        "⏳ Ждём выполнение JavaScript..."
+    )
+
+    try:
+        page.wait_for_timeout(5000)
+    except Exception:
+        pass
+
+    # ------------------------------------------------------
+    # Проверяем, что страница действительно открылась
+    # ------------------------------------------------------
+
+    try:
+        body_text = clean(
+            page.locator("body").inner_text(
+                timeout=10000
+            )
+        )
+    except Exception:
+        body_text = ""
+
+    if "Захищена сторінка" in body_text:
+        print(
+            "❌ adm.tools всё ещё показывает "
+            "защищённую страницу"
+        )
+
+        print(
+            "❌ Firefox не получил доступ к сайту"
+        )
+
+        return False
+
+    # ------------------------------------------------------
+    # Ищем реальную форму
+    # ------------------------------------------------------
+
+    login_form = page.locator(
+        "#login-form"
+    )
+
+    try:
+        login_form.wait_for(
+            state="visible",
+            timeout=30000
+        )
+
+        print(
+            "✅ Модалка #login-form найдена"
+        )
+
+    except PlaywrightTimeoutError:
+
+        # Иногда форма есть в DOM,
+        # но модалка ещё не открыта.
+        print(
+            "⚠ #login-form не появилась сразу"
+        )
+
+        # Ищем кнопку/ссылку входа
+        selectors = [
+            'a[href="#modalLogin"]',
+            'a[href*="modalLogin"]',
+            '[data-target="#modalLogin"]',
+            '[href="#login"]',
+            '.login',
+        ]
+
+        opened = False
+
+        for selector in selectors:
+
+            try:
+                element = page.locator(
+                    selector
+                ).first
+
+                if element.count() > 0:
+                    if element.is_visible():
+                        print(
+                            f"🔓 Открываем "
+                            f"модалку: {selector}"
+                        )
+
+                        element.click(
+                            timeout=5000
+                        )
+
+                        page.wait_for_timeout(
+                            1000
+                        )
+
+                        opened = True
+                        break
+
+            except Exception:
+                continue
+
+        if opened:
+
+            try:
+                login_form.wait_for(
+                    state="visible",
+                    timeout=15000
+                )
+
+                print(
+                    "✅ Модалка #login-form найдена"
+                )
+
+            except Exception:
+                pass
+
+    # ------------------------------------------------------
+    # Повторно проверяем форму
+    # ------------------------------------------------------
+
+    if login_form.count() == 0:
+
+        print(
+            "❌ #login-form не найдена"
+        )
+
+        try:
+            title = clean(
+                page.title()
+            )
+
+            if title:
+                print(
+                    f"📄 Page title: {title}"
+                )
+
+        except Exception:
+            pass
+
+        return False
+
+    # ------------------------------------------------------
+    # EMAIL
+    # ------------------------------------------------------
+
+    email_input = page.locator(
+        '#login-form input[name="email_auth"]'
+    )
+
+    password_input = page.locator(
+        '#login-form input[name="pass_auth"]'
+    )
+
+    if email_input.count() == 0:
+        print(
+            "❌ Поле email_auth не найдено"
+        )
+        return False
+
+    if password_input.count() == 0:
+        print(
+            "❌ Поле pass_auth не найдено"
         )
         return False
 
     print(
-        f"🔎 CHECK HTTP: {check.status_code}"
+        "✏ Заполняем email..."
     )
 
-    if check.status_code == 429:
+    email_input.fill(
+        EMAIL
+    )
+
+    print(
+        "✏ Заполняем пароль..."
+    )
+
+    password_input.fill(
+        PASSWORD
+    )
+
+    # ------------------------------------------------------
+    # LOGIN BUTTON
+    # ------------------------------------------------------
+
+    login_button = page.locator(
+        '#login-form button'
+    ).first
+
+    if login_button.count() == 0:
+
         print(
-            "❌ Проверка авторизации получила HTTP 429"
+            "❌ Кнопка входа не найдена"
         )
         return False
 
-    check_soup = BeautifulSoup(
-        check.text,
+    print(
+        "🚀 Нажимаем «Увійти»..."
+    )
+
+    try:
+
+        login_button.click(
+            timeout=15000
+        )
+
+    except Exception as e:
+
+        print(
+            f"❌ Ошибка нажатия кнопки: {e}"
+        )
+        return False
+
+    # ------------------------------------------------------
+    # Ждём AJAX login
+    # ------------------------------------------------------
+
+    page.wait_for_timeout(
+        3000
+    )
+
+    # ------------------------------------------------------
+    # Проверяем ошибки авторизации
+    # ------------------------------------------------------
+
+    try:
+        current_text = clean(
+            page.locator("body").inner_text(
+                timeout=10000
+            )
+        )
+    except Exception:
+        current_text = ""
+
+    error_words = [
+        "Невірний",
+        "Неверный",
+        "неправильний",
+        "неправильный",
+        "Помилка",
+        "Ошибка",
+        "помилка",
+        "ошибка",
+    ]
+
+    for word in error_words:
+
+        if word in current_text:
+
+            # Это не всегда ошибка логина —
+            # слово может быть где-то ещё.
+            # Поэтому проверяем саму форму.
+            try:
+                form_visible = login_form.is_visible()
+            except Exception:
+                form_visible = False
+
+            if form_visible:
+
+                print(
+                    "❌ Dellta не принял авторизацию"
+                )
+
+                return False
+
+            break
+
+    # ------------------------------------------------------
+    # Проверяем исчезновение login modal
+    # ------------------------------------------------------
+
+    try:
+        still_visible = login_form.is_visible()
+    except Exception:
+        still_visible = False
+
+    # ------------------------------------------------------
+    # Проверяем признаки авторизации
+    # ------------------------------------------------------
+
+    logged_in = False
+
+    auth_selectors = [
+        'a[href*="logout"]',
+        'a[href*="exit"]',
+        '.logout',
+        '[href*="profile"]',
+        '[href*="cabinet"]',
+    ]
+
+    for selector in auth_selectors:
+
+        try:
+
+            element = page.locator(
+                selector
+            ).first
+
+            if element.count() > 0:
+                if element.is_visible():
+                    logged_in = True
+                    break
+
+        except Exception:
+            continue
+
+    if logged_in:
+        print(
+            "✅ Dellta: авторизация успешна"
+        )
+        return True
+
+    if not still_visible:
+
+        print(
+            "✅ Модалка закрылась"
+        )
+        print(
+            "✅ Dellta: авторизация успешна"
+        )
+
+        return True
+
+    # ------------------------------------------------------
+    # Последняя проверка через cookies
+    # ------------------------------------------------------
+
+    try:
+        cookies = page.context.cookies()
+
+        if cookies:
+
+            cookie_names = [
+                c.get("name", "")
+                for c in cookies
+            ]
+
+            print(
+                f"🍪 Cookies получено: "
+                f"{len(cookie_names)}"
+            )
+
+    except Exception:
+        pass
+
+    print(
+        "❌ Авторизация не подтверждена"
+    )
+
+    return False
+
+
+# ==========================================================
+# GET CATEGORIES
+# ==========================================================
+
+def get_categories(page):
+    print(
+        "📂 Получаем категории..."
+    )
+
+    try:
+
+        page.goto(
+            BASE + "/",
+            wait_until="domcontentloaded",
+            timeout=90000
+        )
+
+        page.wait_for_timeout(
+            2000
+        )
+
+    except Exception as e:
+
+        print(
+            f"❌ Ошибка открытия главной: {e}"
+        )
+
+        return []
+
+    html = page.content()
+
+    soup = BeautifulSoup(
+        html,
         "html.parser"
     )
-
-    # Если форма логина всё ещё присутствует,
-    # считаем, что авторизация не прошла.
-    still_login = check_soup.select_one(
-        "#login-form"
-    )
-
-    # Ищем признаки выхода/личного кабинета
-    logout = (
-        check_soup.select_one(
-            'a[href*="logout"]'
-        )
-        or check_soup.select_one(
-            'a[href*="exit"]'
-        )
-    )
-
-    if still_login and not logout:
-        print("❌ Авторизация не подтверждена")
-        return False
-
-    print("✅ Dellta: авторизация успешна")
-
-    return True
-
-
-# ==========================================================
-# GET SOUP
-# ==========================================================
-
-def get_soup(url):
-    try:
-        r = session.get(
-            url,
-            timeout=(15, 60),
-            allow_redirects=True,
-        )
-
-        if r.status_code == 429:
-            print(
-                f"❌ HTTP 429: {url}"
-            )
-            return None
-
-        r.raise_for_status()
-
-        return BeautifulSoup(
-            r.text,
-            "html.parser"
-        )
-
-    except requests.exceptions.RequestException as e:
-        print(
-            f"❌ GET error: {url} → {e}"
-        )
-        return None
-
-
-# ==========================================================
-# CATEGORIES
-# ==========================================================
-
-def get_categories():
-    soup = get_soup(BASE)
-
-    if not soup:
-        return []
 
     categories = []
 
@@ -442,23 +634,33 @@ def get_categories():
     )
 
     if not container:
+
         print(
             "❌ div.brandsOnMain не найден"
         )
+
         return []
 
     for a in container.select(
         "a.COMitem"
     ):
-        href = a.get("href")
+
+        href = a.get(
+            "href"
+        )
 
         if not href:
             continue
 
-        href = absolute_url(href)
+        href = absolute_url(
+            href
+        )
 
         if href not in categories:
-            categories.append(href)
+
+            categories.append(
+                href
+            )
 
     print(
         f"📂 Найдено категорий: "
@@ -469,7 +671,7 @@ def get_categories():
 
 
 # ==========================================================
-# PAGINATION
+# LAST PAGE
 # ==========================================================
 
 def get_last_page(soup):
@@ -478,69 +680,128 @@ def get_last_page(soup):
     for a in soup.select(
         ".pagination .page-link[pn]"
     ):
-        pn = a.get("pn")
+
+        pn = a.get(
+            "pn"
+        )
 
         if pn and pn.isdigit():
+
             pages.append(
                 int(pn)
             )
 
-    return max(pages) if pages else 1
+    return (
+        max(pages)
+        if pages
+        else 1
+    )
 
 
 # ==========================================================
-# PRODUCT PARSER
+# PARSE CATEGORY
 # ==========================================================
 
-def parse_category(cat_url):
+def parse_category(
+    page,
+    cat_url
+):
     all_items = []
 
     print(
         f"📂 CATEGORY: {cat_url}"
     )
 
-    first_page = get_soup(
-        cat_url
-    )
+    try:
 
-    if not first_page:
+        page.goto(
+            cat_url,
+            wait_until="domcontentloaded",
+            timeout=90000
+        )
+
+        page.wait_for_timeout(
+            1500
+        )
+
+    except Exception as e:
+
+        print(
+            f"❌ Ошибка категории: {e}"
+        )
+
         return all_items
 
+    # ------------------------------------------------------
+    # First page
+    # ------------------------------------------------------
+
+    html = page.content()
+
+    soup = BeautifulSoup(
+        html,
+        "html.parser"
+    )
+
     last_page = get_last_page(
-        first_page
+        soup
     )
 
     print(
         f"📄 Страниц: {last_page}"
     )
 
-    for page in range(
+    # ------------------------------------------------------
+    # Pages
+    # ------------------------------------------------------
+
+    for page_number in range(
         1,
         last_page + 1
     ):
 
-        if page == 1:
-            soup = first_page
+        if page_number != 1:
 
-        else:
             page_url = (
                 cat_url.rstrip("/")
-                + f"/page={page}/"
+                + f"/page={page_number}/"
             )
 
-            soup = get_soup(
-                page_url
-            )
+            try:
 
-            if not soup:
+                page.goto(
+                    page_url,
+                    wait_until="domcontentloaded",
+                    timeout=90000
+                )
+
+                page.wait_for_timeout(
+                    1000
+                )
+
+            except Exception as e:
+
+                print(
+                    f"❌ Ошибка страницы "
+                    f"{page_number}: {e}"
+                )
+
                 continue
+
+            html = page.content()
+
+            soup = BeautifulSoup(
+                html,
+                "html.parser"
+            )
 
         cards = soup.select(
             "tr.itemPosition"
         )
 
         print(
-            f"   Страница {page}: "
+            f"   Страница "
+            f"{page_number}: "
             f"{len(cards)} товаров"
         )
 
@@ -561,6 +822,7 @@ def parse_category(cat_url):
             )
 
             if sku_el:
+
                 sku = clean(
                     sku_el.get_text()
                 )
@@ -616,9 +878,8 @@ def parse_category(cat_url):
                 )
 
             # ------------------------------------------------
-            # PRICE
-            #
-            # Берём именно:
+            # DEALER PRICE
+            # ------------------------------------------------
             #
             # Комп. ДИЛЕР
             #
@@ -627,10 +888,6 @@ def parse_category(cat_url):
             #         12.80 $
             #     </span>
             #
-            # НЕ берём:
-            # ОПТ
-            # 13.50 $
-            # 576.00 ₴
             # ------------------------------------------------
 
             price_el = card.select_one(
@@ -655,7 +912,7 @@ def parse_category(cat_url):
                 )
 
             # ------------------------------------------------
-            # Добавляем только товар с названием
+            # ADD
             # ------------------------------------------------
 
             if not title:
@@ -673,12 +930,14 @@ def parse_category(cat_url):
 
 
 # ==========================================================
-# MAIN PARSER
+# MAIN
 # ==========================================================
 
 def run_parser():
 
-    print("🚀 Запуск парсера Dellta")
+    print(
+        "🚀 Запуск парсера Dellta"
+    )
 
     save_status(
         True,
@@ -688,12 +947,10 @@ def run_parser():
     )
 
     # ------------------------------------------------------
-    # LOGIN
+    # Firefox
     # ------------------------------------------------------
 
-    if not login():
-
-        print("❌ LOGIN FAILED")
+    if not ensure_firefox():
 
         save_status(
             False,
@@ -705,163 +962,244 @@ def run_parser():
         return
 
     # ------------------------------------------------------
-    # CATEGORIES
+    # Browser
     # ------------------------------------------------------
 
-    cats = get_categories()
+    with sync_playwright() as p:
 
-    if not cats:
-
-        print(
-            "❌ Категории не найдены"
-        )
-
-        save_status(
-            False,
-            0,
-            USER,
-            FILE_PATH
-        )
-
-        return
-
-    # ------------------------------------------------------
-    # LIMIT
-    # ------------------------------------------------------
-
-    if CATEGORY_LIMIT:
-        cats = cats[:CATEGORY_LIMIT]
-
-        print(
-            f"⚠ Тестовый лимит категорий: "
-            f"{CATEGORY_LIMIT}"
-        )
-
-    total = len(cats)
-
-    print(
-        f"🚀 Будет обработано категорий: "
-        f"{total}"
-    )
-
-    # ------------------------------------------------------
-    # EXCEL
-    # ------------------------------------------------------
-
-    wb = Workbook()
-
-    ws = wb.active
-    ws.title = "Dellta"
-
-    ws.append([
-        "SKU",
-        "TITLE",
-        "PRICE",
-        "STATUS",
-        "URL",
-    ])
-
-    # ------------------------------------------------------
-    # PARSE
-    # ------------------------------------------------------
-
-    for i, cat in enumerate(
-        cats,
-        1
-    ):
-
-        progress = int(
-            i / total * 100
-        )
-
-        save_status(
-            True,
-            progress,
-            USER,
-            FILE_PATH
-        )
-
-        print()
-        print(
-            f"🔥 [{i}/{total}] "
-            f"{progress}%"
-        )
-
-        items = parse_category(
-            cat
-        )
-
-        print(
-            f"   Получено товаров: "
-            f"{len(items)}"
-        )
-
-        for item in items:
-            ws.append(item)
-
-        # Небольшая пауза между категориями
-        time.sleep(0.3)
-
-    # ------------------------------------------------------
-    # SAVE
-    # ------------------------------------------------------
-
-    os.makedirs(
-        OUTPUT_DIR,
-        exist_ok=True
-    )
-
-    tmp = FILE_PATH + ".tmp"
-
-    try:
-
-        wb.save(tmp)
-
-        os.replace(
-            tmp,
-            FILE_PATH
-        )
-
-    except Exception as e:
-
-        print(
-            f"❌ Ошибка сохранения Excel: "
-            f"{e}"
-        )
+        browser = None
 
         try:
-            if os.path.exists(tmp):
-                os.remove(tmp)
-        except Exception:
-            pass
 
-        save_status(
-            False,
-            0,
-            USER,
-            FILE_PATH
-        )
+            print(
+                "🦊 Запускаем Firefox..."
+            )
 
-        return
+            browser = p.firefox.launch(
+                headless=True
+            )
 
-    # ------------------------------------------------------
-    # DONE
-    # ------------------------------------------------------
+            context = browser.new_context(
+                viewport={
+                    "width": 1366,
+                    "height": 900,
+                },
+                locale="uk-UA",
+                timezone_id="Europe/Kyiv",
+                user_agent=(
+                    "Mozilla/5.0 "
+                    "(Windows NT 10.0; Win64; x64; rv:128.0) "
+                    "Gecko/20100101 Firefox/128.0"
+                ),
+            )
 
-    save_status(
-        False,
-        100,
-        USER,
-        FILE_PATH
-    )
+            page = context.new_page()
 
-    print()
-    print("================================")
-    print("✅ DELLTA DONE")
-    print(
-        f"📄 FILE: {FILE_PATH}"
-    )
-    print("================================")
+            # ------------------------------------------------
+            # LOGIN
+            # ------------------------------------------------
+
+            if not login(page):
+
+                print(
+                    "❌ LOGIN FAILED"
+                )
+
+                save_status(
+                    False,
+                    0,
+                    USER,
+                    FILE_PATH
+                )
+
+                return
+
+            # ------------------------------------------------
+            # CATEGORIES
+            # ------------------------------------------------
+
+            cats = get_categories(
+                page
+            )
+
+            if not cats:
+
+                print(
+                    "❌ Категории не найдены"
+                )
+
+                save_status(
+                    False,
+                    0,
+                    USER,
+                    FILE_PATH
+                )
+
+                return
+
+            if CATEGORY_LIMIT:
+
+                cats = cats[
+                    :CATEGORY_LIMIT
+                ]
+
+                print(
+                    f"⚠ Лимит категорий: "
+                    f"{CATEGORY_LIMIT}"
+                )
+
+            total = len(cats)
+
+            # ------------------------------------------------
+            # EXCEL
+            # ------------------------------------------------
+
+            wb = Workbook()
+
+            ws = wb.active
+            ws.title = "Dellta"
+
+            ws.append([
+                "SKU",
+                "TITLE",
+                "PRICE",
+                "STATUS",
+                "URL",
+            ])
+
+            # ------------------------------------------------
+            # PARSE
+            # ------------------------------------------------
+
+            seen = set()
+
+            for i, cat in enumerate(
+                cats,
+                1
+            ):
+
+                progress = int(
+                    i / total * 100
+                )
+
+                save_status(
+                    True,
+                    progress,
+                    USER,
+                    FILE_PATH
+                )
+
+                print()
+                print(
+                    f"🔥 [{i}/{total}] "
+                    f"{progress}%"
+                )
+
+                items = parse_category(
+                    page,
+                    cat
+                )
+
+                print(
+                    f"   Получено: "
+                    f"{len(items)}"
+                )
+
+                for item in items:
+
+                    sku = item[0]
+                    url = item[4]
+
+                    key = (
+                        sku
+                        if sku
+                        else url
+                    )
+
+                    if key in seen:
+                        continue
+
+                    seen.add(
+                        key
+                    )
+
+                    ws.append(
+                        item
+                    )
+
+                time.sleep(
+                    0.5
+                )
+
+            # ------------------------------------------------
+            # SAVE
+            # ------------------------------------------------
+
+            os.makedirs(
+                OUTPUT_DIR,
+                exist_ok=True
+            )
+
+            tmp = (
+                FILE_PATH
+                + ".tmp"
+            )
+
+            wb.save(
+                tmp
+            )
+
+            os.replace(
+                tmp,
+                FILE_PATH
+            )
+
+            save_status(
+                False,
+                100,
+                USER,
+                FILE_PATH
+            )
+
+            print()
+            print(
+                "================================"
+            )
+            print(
+                "✅ DELLTA DONE"
+            )
+            print(
+                f"📄 FILE: {FILE_PATH}"
+            )
+            print(
+                f"📦 Товаров: {len(seen)}"
+            )
+            print(
+                "================================"
+            )
+
+        except Exception as e:
+
+            print(
+                f"❌ Критическая ошибка: {e}"
+            )
+
+            save_status(
+                False,
+                0,
+                USER,
+                FILE_PATH
+            )
+
+        finally:
+
+            try:
+
+                if browser:
+                    browser.close()
+
+            except Exception:
+                pass
 
 
 # ==========================================================
