@@ -588,6 +588,8 @@ def open_category(page, category):
 # ==========================================================
 def login(page):
 
+    log("🔐 LOGIN: открываем сайт")
+
     page.goto(
         BASE_URL + "/",
         wait_until="domcontentloaded",
@@ -596,24 +598,130 @@ def login(page):
 
     time.sleep(5)
 
+    log(f"🔐 LOGIN: URL = {page.url}")
+    log(f"🔐 LOGIN: TITLE = {page.title()}")
+
+    body_text = clean_text(
+        page.locator("body").inner_text()
+    )
+
+    log(
+        f"🔐 LOGIN: BODY = {body_text[:500]}"
+    )
+
+    # ------------------------------------------------------
+    # ПРОВЕРКА ЗАЩИТЫ ADM.TOOLS
+    # ------------------------------------------------------
+
+    if (
+        "Сторінка захищена" in body_text
+        or "захищено adm.tools" in body_text
+        or "Продовжити" in body_text
+    ):
+
+        log("🛡 LOGIN: обнаружена защита adm.tools")
+
+        continue_button = page.get_by_text(
+            "Продовжити",
+            exact=True
+        )
+
+        log(
+            f"🛡 LOGIN: кнопка Продовжити = "
+            f"{continue_button.count()}"
+        )
+
+        if continue_button.count():
+
+            try:
+                continue_button.click(
+                    timeout=10000
+                )
+
+                log(
+                    "🛡 LOGIN: нажали Продовжити"
+                )
+
+            except Exception as e:
+
+                log(
+                    f"❌ LOGIN: ошибка кнопки "
+                    f"Продовжити: {e}"
+                )
+
+            time.sleep(10)
+
+            log(
+                f"🛡 LOGIN: URL после = {page.url}"
+            )
+
+            log(
+                f"🛡 LOGIN: TITLE после = "
+                f"{page.title()}"
+            )
+
+            body_after = clean_text(
+                page.locator("body").inner_text()
+            )
+
+            log(
+                f"🛡 LOGIN: BODY после = "
+                f"{body_after[:500]}"
+            )
+
+        return False
+
+    # ------------------------------------------------------
+    # ПРОВЕРКА КНОПКИ ВХОДА
+    # ------------------------------------------------------
+
     enter_button = page.locator(
         "#a-enter"
     )
 
+    log(
+        f"🔐 LOGIN: #a-enter count = "
+        f"{enter_button.count()}"
+    )
+
     if not enter_button.count():
+
+        log(
+            "❌ LOGIN: #a-enter не найдена"
+        )
+
         return False
+
+    # ------------------------------------------------------
+    # ОТКРЫВАЕМ ФОРМУ
+    # ------------------------------------------------------
 
     enter_button.click()
 
     try:
+
         page.locator(
             "#login-form"
         ).wait_for(
             state="visible",
             timeout=15000
         )
+
     except PlaywrightTimeoutError:
+
+        log(
+            "❌ LOGIN: #login-form не появилась"
+        )
+
         return False
+
+    log(
+        "✅ LOGIN: форма авторизации найдена"
+    )
+
+    # ------------------------------------------------------
+    # ВВОД
+    # ------------------------------------------------------
 
     page.locator(
         "input[name='email_auth']"
@@ -623,22 +731,61 @@ def login(page):
         "input[name='pass_auth']"
     ).fill(PASSWORD)
 
+    log(
+        "🔐 LOGIN: логин и пароль введены"
+    )
+
+    # ------------------------------------------------------
+    # КНОПКА
+    # ------------------------------------------------------
+
     login_button = page.locator(
         "#login-form button.modalButton"
     )
 
+    log(
+        f"🔐 LOGIN: кнопка входа = "
+        f"{login_button.count()}"
+    )
+
     if not login_button.count():
+
+        log(
+            "❌ LOGIN: кнопка входа не найдена"
+        )
+
         return False
 
     login_button.click()
 
+    log(
+        "🔐 LOGIN: нажали Войти"
+    )
+
     time.sleep(5)
 
+    # ------------------------------------------------------
+    # ПРОВЕРКА
+    # ------------------------------------------------------
+
     try:
-        if page.locator("#login-form").is_visible():
+
+        if page.locator(
+            "#login-form"
+        ).is_visible():
+
+            log(
+                "❌ LOGIN: форма всё ещё открыта"
+            )
+
             return False
+
     except Exception:
         pass
+
+    log(
+        "✅ LOGIN: авторизация прошла"
+    )
 
     return True
 
