@@ -1,3 +1,4 @@
+
 import json
 import time
 import re
@@ -81,7 +82,10 @@ def normalize_url(url):
 # ==========================================================
 
 def save_status(status, **extra):
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(
+        parents=True,
+        exist_ok=True
+    )
 
     data = {
         "status": status,
@@ -141,6 +145,22 @@ def create_excel():
     ])
 
     wb.save(OUTPUT_FILE)
+
+
+def reset_excel():
+    """
+    Полностью очищает Excel и создаёт новый
+    только с заголовками.
+    """
+
+    try:
+        if OUTPUT_FILE.exists():
+            OUTPUT_FILE.unlink()
+
+        create_excel()
+
+    except Exception:
+        pass
 
 
 def append_products(products):
@@ -490,10 +510,7 @@ def run_parser():
             # EXCEL
             # ------------------------------------------------
 
-            if OUTPUT_FILE.exists():
-                OUTPUT_FILE.unlink()
-
-            create_excel()
+            reset_excel()
 
             # ------------------------------------------------
             # КАТЕГОРИИ
@@ -503,7 +520,23 @@ def run_parser():
                 page
             )
 
+            log(
+                f"📂 Категорий: {len(categories)}"
+            )
+
             if not categories:
+
+                reset_excel()
+
+                save_status(
+                    "error",
+                    products=0,
+                    categories=0,
+                    error="Categories not found"
+                )
+
+                browser.close()
+
                 return
 
             if CATEGORY_LIMIT:
@@ -517,8 +550,12 @@ def run_parser():
 
             if not login(page):
 
+                reset_excel()
+
                 save_status(
                     "error",
+                    products=0,
+                    categories=0,
                     error="Authorization failed"
                 )
 
@@ -531,6 +568,7 @@ def run_parser():
             # ------------------------------------------------
 
             total_products = 0
+            successful_categories = 0
 
             for index, category in enumerate(
                 categories,
@@ -558,6 +596,11 @@ def run_parser():
                             products
                         )
 
+                        successful_categories += 1
+
+                        log(
+                            f"📦 Товаров: {len(products)}"
+                        )
 
                     save_status(
                         "running",
@@ -570,6 +613,25 @@ def run_parser():
                     continue
 
             # ------------------------------------------------
+            # ЕСЛИ НИ ОДНА КАТЕГОРИЯ НЕ ОБРАБОТАЛАСЬ
+            # ------------------------------------------------
+
+            if successful_categories == 0:
+
+                reset_excel()
+
+                save_status(
+                    "error",
+                    products=0,
+                    categories=0,
+                    error="All categories failed"
+                )
+
+                browser.close()
+
+                return
+
+            # ------------------------------------------------
             # ЗАВЕРШЕНИЕ
             # ------------------------------------------------
 
@@ -578,7 +640,7 @@ def run_parser():
             save_status(
                 "completed",
                 products=total_products,
-                categories=len(categories),
+                categories=successful_categories,
                 file=str(OUTPUT_FILE)
             )
 
@@ -588,12 +650,20 @@ def run_parser():
 
     except Exception as e:
 
+        # ----------------------------------------------------
+        # ЛЮБАЯ КРИТИЧЕСКАЯ ОШИБКА
+        # ----------------------------------------------------
+
+        reset_excel()
+
         log(
             f"❌ Критическая ошибка: {e}"
         )
 
         save_status(
             "error",
+            products=0,
+            categories=0,
             error=str(e)
         )
 
