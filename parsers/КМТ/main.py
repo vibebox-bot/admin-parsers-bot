@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 
-print("🔥 Харьковская КМТ — XML + LOGIN + SITE PRICE PARSER")
+print("🔥 Харьковская КМТ")
 
 # ==========================================================
 # НАСТРОЙКИ
@@ -39,7 +39,7 @@ KMT_PASSWORD = "18022021"
 # После проверки поставить None
 # ==========================================================
 
-PRODUCT_LIMIT = 50
+PRODUCT_LIMIT = None
 
 
 # ==========================================================
@@ -493,37 +493,20 @@ def parse_xml(xml_content):
 
 def login_kmt():
 
-    print(
-        "🔐 Авторизация КМТ..."
-    )
+    print("🔐 Авторизация...")
 
     try:
-
-        # --------------------------------------------------
-        # 1. Открываем login page
-        # --------------------------------------------------
 
         response = session.get(
             LOGIN_URL,
             timeout=30
         )
 
-        print(
-            f"   Login page: "
-            f"HTTP {response.status_code}"
-        )
-
         if response.status_code != 200:
 
             raise RuntimeError(
-                "Не удалось открыть "
-                "страницу авторизации"
+                f"Страница входа: HTTP {response.status_code}"
             )
-
-
-        # --------------------------------------------------
-        # 2. Отправляем AJAX login
-        # --------------------------------------------------
 
         login_headers = {
             "Referer": LOGIN_URL,
@@ -541,12 +524,10 @@ def login_kmt():
             )
         }
 
-
         payload = {
             "email": KMT_LOGIN,
             "password": KMT_PASSWORD
         }
-
 
         response = session.post(
             LOGIN_AJAX_URL,
@@ -555,72 +536,40 @@ def login_kmt():
             timeout=30
         )
 
-
-        print(
-            f"   Login AJAX: "
-            f"HTTP {response.status_code}"
-        )
-
-        print(
-            f"   Ответ: "
-            f"{clean(response.text)[:300]}"
-        )
-
-
         if response.status_code != 200:
 
             raise RuntimeError(
-                f"Авторизация вернула HTTP "
-                f"{response.status_code}"
+                f"Авторизация: HTTP {response.status_code}"
             )
 
+        try:
 
-        # --------------------------------------------------
-        # 3. Проверяем авторизацию
-        # --------------------------------------------------
+            data = response.json()
+
+        except Exception:
+
+            data = {}
+
+        if data.get("success") is not True:
+
+            raise RuntimeError(
+                "КМТ не подтвердил авторизацию"
+            )
 
         check = session.get(
-            "https://kmt5.com.ua/",
+            "https://kmt5.com.ua/my-account/",
             timeout=30
         )
-
 
         if check.status_code != 200:
 
             raise RuntimeError(
-                "Не удалось проверить "
-                "авторизацию"
+                "Не удалось проверить авторизацию"
             )
 
-
-        soup = BeautifulSoup(
-            check.text,
-            "html.parser"
-        )
-
-
-        # Если на главной снова есть
-        # поле email — значит мы не вошли
-
-        login_field = soup.select_one(
-            'input[name="email"]'
-        )
-
-
-        if login_field:
-
-            raise RuntimeError(
-                "КМТ не авторизовал аккаунт. "
-                "Проверь логин и пароль."
-            )
-
-
-        print(
-            "✅ Авторизация КМТ успешна"
-        )
+        print("✅ Авторизация успешна")
 
         return True
-
 
     except Exception as e:
 
@@ -633,14 +582,10 @@ def login_kmt():
 # PRICE
 # ==========================================================
 
-def get_site_price(
-    url
-):
+def get_site_price(url):
 
     if not url:
-
         return ""
-
 
     try:
 
@@ -649,42 +594,20 @@ def get_site_price(
             timeout=15
         )
 
-
         if response.status_code != 200:
-
-            print(
-                f"   ⚠ HTTP "
-                f"{response.status_code}"
-            )
-
             return ""
-
-
-        # --------------------------------------------------
-        # Проверяем, что это НЕ пустая
-        # неавторизованная страница
-        # --------------------------------------------------
 
         if len(response.text.strip()) < 500:
-
-
             return ""
-
 
         soup = BeautifulSoup(
             response.text,
             "html.parser"
         )
 
-
-        # --------------------------------------------------
-        # НАША ЦЕНА
-        # --------------------------------------------------
-
         price_element = soup.select_one(
             ".bb-price .opt[data-baseprice]"
         )
-
 
         if price_element:
 
@@ -696,19 +619,12 @@ def get_site_price(
             )
 
             if price:
-
                 return price
-
-
-        # --------------------------------------------------
-        # Резервный селектор
-        # --------------------------------------------------
 
         price_element = soup.select_one(
             ".opt[data-baseprice]"
         )
 
-
         if price_element:
 
             price = clean(
@@ -719,18 +635,13 @@ def get_site_price(
             )
 
             if price:
-
                 return price
 
-
         return ""
 
-
-    except Exception as e:
-
+    except Exception:
 
         return ""
-
 
 # ==========================================================
 # EMPTY EXCEL
@@ -848,12 +759,6 @@ def run_parser():
             False,
             ""
         )
-
-
-        print(
-            "🚀 Запуск парсера КМТ"
-        )
-
 
         # ==================================================
         # XML
