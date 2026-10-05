@@ -400,12 +400,37 @@ def get_categories(page):
 
     try:
 
+        # --------------------------------------------------
+        # Открываем меню "Каталог товарів"
+        # --------------------------------------------------
+
+        catalog_button = page.locator(
+            "a.catalogButton"
+        ).first
+
+        if catalog_button.count():
+
+            try:
+                catalog_button.click()
+                time.sleep(1)
+            except Exception:
+                pass
+
+        # --------------------------------------------------
+        # Ждём существование меню
+        # visible НЕ требуем
+        # --------------------------------------------------
+
         page.wait_for_selector(
             "ul.firstUl",
+            state="attached",
             timeout=15000
         )
 
+        # --------------------------------------------------
         # Только ПРЯМЫЕ li первого уровня
+        # --------------------------------------------------
+
         items = page.locator(
             "ul.firstUl > li"
         )
@@ -421,7 +446,7 @@ def get_categories(page):
                 or ""
             )
 
-            # Пропускаем служебные разделы
+            # Служебные разделы / акции
             if "dont_miss_it" in classes:
                 continue
 
@@ -476,6 +501,14 @@ def get_categories(page):
         )
 
         return []
+
+
+
+
+
+
+
+
 
 
 # ==========================================================
