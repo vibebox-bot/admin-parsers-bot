@@ -22,7 +22,7 @@ PASSWORD = "123456"
 # Максимальное количество категорий
 # None = все категории
 #CATEGORY_LIMIT = 1
-CATEGORY_LIMIT = 2
+CATEGORY_LIMIT = None
 
 OUTPUT_DIR = Path("output/Dellta")
 OUTPUT_FILE = OUTPUT_DIR / "Dellta_LIVE.xlsx"
