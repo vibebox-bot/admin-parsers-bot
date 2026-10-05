@@ -29,4 +29,4 @@ RUN echo "=== 4. PYTHON ===" && \
 
 EXPOSE 8080
 
-CMD ["bash", "-c", "Xvfb :99 -screen 0 1440x900x24 >/tmp/xvfb.log 2>&1 & sleep 2; x11vnc -display :99 -forever -shared -localhost -rfbport 5900 >/tmp/x11vnc.log 2>&1 & sleep 2; novnc_proxy --vnc localhost:5900 --listen 8080 >/tmp/novnc.log 2>&1 & export DISPLAY=:99; python -u bot.py"]
+CMD ["bash", "-c", "Xvfb :99 -screen 0 1440x900x24 >/tmp/xvfb.log 2>&1 & sleep 2; x11vnc -display :99 -forever -shared -localhost -rfbport 5900 >/tmp/x11vnc.log 2>&1 & sleep 2; novnc_proxy --vnc localhost:5900 --listen 8080 >/tmp/novnc.log 2>&1 & sleep 2; echo '=== XVFB ==='; cat /tmp/xvfb.log; echo '=== X11VNC ==='; cat /tmp/x11vnc.log; echo '=== NOVNC ==='; cat /tmp/novnc.log; echo '=== PORT ==='; ss -lntp; export DISPLAY=:99; python -u bot.py"]
