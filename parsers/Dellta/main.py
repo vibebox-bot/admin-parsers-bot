@@ -595,11 +595,6 @@ def open_category(page, category):
     # Только теперь забираем весь HTML
     # ======================================================
 
-    final_count = page.locator(
-        "tr.itemPosition.simple"
-    ).count()
-
-
 
     return page.content()
 
