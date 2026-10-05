@@ -1,8 +1,9 @@
-
+import os
 import json
 import time
 import re
 from pathlib import Path
+from datetime import datetime
 
 from bs4 import BeautifulSoup
 from openpyxl import Workbook, load_workbook
@@ -18,6 +19,8 @@ BASE_URL = "https://b2b.delltalife.com"
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "123456"
 
+# Максимальное количество категорий
+# None = все категории
 CATEGORY_LIMIT = 2
 
 OUTPUT_DIR = Path("output/Dellta")
@@ -26,6 +29,11 @@ STATUS_FILE = OUTPUT_DIR / "status.json"
 LOCK_FILE = OUTPUT_DIR / "lock.txt"
 
 SHEET_NAME = "Dellta"
+
+# USER приходит из run.py / bot.py
+import sys
+
+USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
 
 # ==========================================================
@@ -41,13 +49,19 @@ def log(message):
 # ==========================================================
 
 def clean_text(value):
+
     if not value:
         return ""
 
-    return re.sub(r"\s+", " ", str(value)).strip()
+    return re.sub(
+        r"\s+",
+        " ",
+        str(value)
+    ).strip()
 
 
 def clean_price(value):
+
     if not value:
         return ""
 
@@ -56,7 +70,10 @@ def clean_price(value):
     value = value.replace(",", ".")
     value = clean_text(value)
 
-    match = re.search(r"\d+(?:\.\d+)?", value)
+    match = re.search(
+        r"\d+(?:\.\d+)?",
+        value
+    )
 
     if not match:
         return ""
@@ -65,6 +82,7 @@ def clean_price(value):
 
 
 def normalize_url(url):
+
     if not url:
         return ""
 
@@ -81,16 +99,31 @@ def normalize_url(url):
 # STATUS
 # ==========================================================
 
-def save_status(status, **extra):
+def save_status(
+    running=False,
+    progress=0,
+    user="",
+    file_path=""
+):
+
     OUTPUT_DIR.mkdir(
         parents=True,
         exist_ok=True
     )
 
     data = {
-        "status": status,
-        **extra
+        "running": running,
+        "progress": progress,
+        "user": user,
+        "time": datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
+        "file_path": file_path
     }
+
+    tmp = STATUS_FILE.with_suffix(
+        ".json.tmp"
+    )
 
     STATUS_FILE.write_text(
         json.dumps(
@@ -102,23 +135,57 @@ def save_status(status, **extra):
     )
 
 
-def create_lock():
+# ==========================================================
+# LOCK
+# ==========================================================
+
+def is_locked():
+
+    if not LOCK_FILE.exists():
+        return False
+
+    try:
+
+        age = (
+            time.time()
+            - LOCK_FILE.stat().st_mtime
+        )
+
+        # Если lock старше часа — считаем его зависшим
+        if age > 3600:
+
+            LOCK_FILE.unlink(
+                missing_ok=True
+            )
+
+            return False
+
+        return True
+
+    except Exception:
+
+        return False
+
+
+def set_lock(state):
+
     OUTPUT_DIR.mkdir(
         parents=True,
         exist_ok=True
     )
 
-    LOCK_FILE.write_text(
-        "running",
-        encoding="utf-8"
-    )
+    if state:
 
+        LOCK_FILE.write_text(
+            str(time.time()),
+            encoding="utf-8"
+        )
 
-def remove_lock():
-    try:
-        LOCK_FILE.unlink()
-    except FileNotFoundError:
-        pass
+    else:
+
+        LOCK_FILE.unlink(
+            missing_ok=True
+        )
 
 
 # ==========================================================
@@ -126,6 +193,7 @@ def remove_lock():
 # ==========================================================
 
 def create_excel():
+
     OUTPUT_DIR.mkdir(
         parents=True,
         exist_ok=True
@@ -144,22 +212,22 @@ def create_excel():
         "URL"
     ])
 
-    wb.save(OUTPUT_FILE)
+    wb.save(
+        OUTPUT_FILE
+    )
 
 
 def reset_excel():
-    """
-    Полностью очищает Excel и создаёт новый
-    только с заголовками.
-    """
 
     try:
+
         if OUTPUT_FILE.exists():
             OUTPUT_FILE.unlink()
 
         create_excel()
 
     except Exception:
+
         pass
 
 
@@ -187,7 +255,9 @@ def append_products(products):
             product["URL"]
         ])
 
-    wb.save(OUTPUT_FILE)
+    wb.save(
+        OUTPUT_FILE
+    )
 
 
 # ==========================================================
@@ -250,7 +320,10 @@ def parse_products(html):
         )
 
         url = normalize_url(
-            title_el.get("href", "")
+            title_el.get(
+                "href",
+                ""
+            )
             if title_el
             else ""
         )
@@ -358,7 +431,9 @@ def get_categories(page):
         if not href or not name:
             continue
 
-        url = normalize_url(href)
+        url = normalize_url(
+            href
+        )
 
         item = {
             "name": name,
@@ -468,23 +543,39 @@ def login(page):
 
 def run_parser():
 
-    create_lock()
+    if is_locked():
+        return
 
-    save_status(
-        "running",
-        products=0,
-        categories=0
-    )
-
-    log("🚀 Запуск парсера Dellta")
+    set_lock(True)
 
     try:
 
-        with sync_playwright() as p:
+        # --------------------------------------------------
+        # START STATUS
+        # --------------------------------------------------
 
-            # ------------------------------------------------
-            # FIREFOX
-            # ------------------------------------------------
+        save_status(
+            True,
+            0,
+            USER,
+            str(OUTPUT_FILE)
+        )
+
+        log(
+            "🚀 Запуск парсера Dellta"
+        )
+
+        # --------------------------------------------------
+        # EXCEL
+        # --------------------------------------------------
+
+        reset_excel()
+
+        # --------------------------------------------------
+        # PLAYWRIGHT
+        # --------------------------------------------------
+
+        with sync_playwright() as p:
 
             browser = p.firefox.launch(
                 headless=True
@@ -507,10 +598,23 @@ def run_parser():
             page = context.new_page()
 
             # ------------------------------------------------
-            # EXCEL
+            # АВТОРИЗАЦИЯ
             # ------------------------------------------------
 
-            reset_excel()
+            if not login(page):
+
+                reset_excel()
+
+                save_status(
+                    False,
+                    0,
+                    USER,
+                    str(OUTPUT_FILE)
+                )
+
+                browser.close()
+
+                return
 
             # ------------------------------------------------
             # КАТЕГОРИИ
@@ -529,39 +633,29 @@ def run_parser():
                 reset_excel()
 
                 save_status(
-                    "error",
-                    products=0,
-                    categories=0,
-                    error="Categories not found"
+                    False,
+                    0,
+                    USER,
+                    str(OUTPUT_FILE)
                 )
 
                 browser.close()
 
                 return
 
+            # ------------------------------------------------
+            # LIMIT
+            # ------------------------------------------------
+
             if CATEGORY_LIMIT:
+
                 categories = categories[
                     :CATEGORY_LIMIT
                 ]
 
-            # ------------------------------------------------
-            # АВТОРИЗАЦИЯ
-            # ------------------------------------------------
-
-            if not login(page):
-
-                reset_excel()
-
-                save_status(
-                    "error",
-                    products=0,
-                    categories=0,
-                    error="Authorization failed"
-                )
-
-                browser.close()
-
-                return
+            total_categories = len(
+                categories
+            )
 
             # ------------------------------------------------
             # ПАРСИНГ
@@ -602,10 +696,17 @@ def run_parser():
                             f"📦 Товаров: {len(products)}"
                         )
 
+                    progress = int(
+                        index
+                        / total_categories
+                        * 100
+                    )
+
                     save_status(
-                        "running",
-                        products=total_products,
-                        categories=index
+                        True,
+                        progress,
+                        USER,
+                        str(OUTPUT_FILE)
                     )
 
                 except Exception:
@@ -613,7 +714,7 @@ def run_parser():
                     continue
 
             # ------------------------------------------------
-            # ЕСЛИ НИ ОДНА КАТЕГОРИЯ НЕ ОБРАБОТАЛАСЬ
+            # ЕСЛИ ВСЕ КАТЕГОРИИ УПАЛИ
             # ------------------------------------------------
 
             if successful_categories == 0:
@@ -621,10 +722,10 @@ def run_parser():
                 reset_excel()
 
                 save_status(
-                    "error",
-                    products=0,
-                    categories=0,
-                    error="All categories failed"
+                    False,
+                    0,
+                    USER,
+                    str(OUTPUT_FILE)
                 )
 
                 browser.close()
@@ -632,27 +733,27 @@ def run_parser():
                 return
 
             # ------------------------------------------------
-            # ЗАВЕРШЕНИЕ
+            # FINISH
             # ------------------------------------------------
 
             browser.close()
 
-            save_status(
-                "completed",
-                products=total_products,
-                categories=successful_categories,
-                file=str(OUTPUT_FILE)
-            )
+        save_status(
+            False,
+            100,
+            USER,
+            str(OUTPUT_FILE)
+        )
 
-            log(
-                "🎉 DELLTA ЗАВЕРШЕН"
-            )
+        log(
+            "🎉 DELLTA ЗАВЕРШЕН"
+        )
 
     except Exception as e:
 
-        # ----------------------------------------------------
-        # ЛЮБАЯ КРИТИЧЕСКАЯ ОШИБКА
-        # ----------------------------------------------------
+        # --------------------------------------------------
+        # КРИТИЧЕСКАЯ ОШИБКА
+        # --------------------------------------------------
 
         reset_excel()
 
@@ -661,15 +762,15 @@ def run_parser():
         )
 
         save_status(
-            "error",
-            products=0,
-            categories=0,
-            error=str(e)
+            False,
+            0,
+            USER,
+            str(OUTPUT_FILE)
         )
 
     finally:
 
-        remove_lock()
+        set_lock(False)
 
 
 # ==========================================================
