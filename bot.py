@@ -9,6 +9,10 @@ from aiogram.exceptions import TelegramRetryAfter, TelegramBadRequest
 
 LOCK_FILE = "bot.lock"
 
+DELLTA_BROWSER_URL = (
+    "https://loving-rebirth-production-64db.up.railway.app/vnc.html"
+)
+
 if os.path.exists(LOCK_FILE):
     print("❌ BOT ALREADY RUNNING")
     sys.exit()
@@ -668,6 +672,31 @@ def kb_start():
     )
 
 
+def kb_dellta_verification():
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🖥️ Открыть браузер",
+                    url=DELLTA_BROWSER_URL
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="✅ Я прошёл проверку",
+                    callback_data="dellta_check"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="⛔ Отмена",
+                    callback_data="cancel_Dellta"
+                )
+            ]
+        ]
+    )
+
 # =========================
 # START
 # =========================
@@ -916,6 +945,51 @@ async def run_parser(key, user, xml_url=None):
         RUNNING_PROCESSES.pop(key, None)
         print("RUN ERROR:", e)
         return -1
+
+
+async def dellta_verification_watcher(
+    chat_id,
+    message_id
+):
+
+    key = "Dellta"
+
+    if key not in SUPPLIERS:
+        return
+
+    s = SUPPLIERS[key]
+
+    while key in RUNNING_PROCESSES:
+
+        st = load_json(s["status"])
+
+        if not st.get("running"):
+            return
+
+        if st.get("verification_required"):
+
+            try:
+
+                await bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    text=(
+                        "🛡️ <b>Dellta требует проверки сайта</b>\n\n"
+                        "Откройте браузер, пройдите проверку "
+                        "и после этого нажмите кнопку ниже."
+                    ),
+                    reply_markup=kb_dellta_verification(),
+                    parse_mode="HTML"
+                )
+
+            except Exception:
+                pass
+
+            return
+
+        await asyncio.sleep(2)
+
+
 # =========================
 # CALLBACKS
 # =========================
