@@ -524,11 +524,6 @@ def open_category(page, category):
         )
         return ""
 
-    # ======================================================
-    # Жмём "Показать еще" до тех пор,
-    # пока кнопка полностью не исчезнет
-    # ======================================================
-
     while True:
 
         product_locator = page.locator(
@@ -541,7 +536,6 @@ def open_category(page, category):
             "#moreBtn"
         )
 
-        # Кнопки больше нет
         if more_button.count() == 0:
             break
 
@@ -558,13 +552,8 @@ def open_category(page, category):
                 timeout=10000
             )
 
-        except Exception as e:
-           
+        except Exception:
             break
-
-        # ==================================================
-        # Ждём появления новых товаров
-        # ==================================================
 
         try:
 
@@ -585,18 +574,13 @@ def open_category(page, category):
 
         after_count = product_locator.count()
 
-
-        # Защита от зацикливания
         if after_count <= before_count:
-
             break
 
-    # ======================================================
-    # Только теперь забираем весь HTML
-    # ======================================================
-
-
     return page.content()
+
+
+
 
 
 # ==========================================================
