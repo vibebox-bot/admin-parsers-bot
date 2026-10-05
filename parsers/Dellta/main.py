@@ -723,6 +723,8 @@ def run_parser():
 
             if not login(page):
 
+                log("❌ LOGIN FAILED")
+
                 reset_excel()
 
                 save_status(
@@ -744,6 +746,9 @@ def run_parser():
                 page
             )
 
+            log(
+                f"📂 Категорий получено: {len(categories)}"
+            )
 
             if not categories:
 
