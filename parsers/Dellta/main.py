@@ -609,75 +609,78 @@ def login(page):
         f"🔐 LOGIN: BODY = {body_text[:500]}"
     )
 
-    # ------------------------------------------------------
-    # ПРОВЕРКА ЗАЩИТЫ ADM.TOOLS
-    # ------------------------------------------------------
+    # ======================================================
+    # ADM.TOOLS
+    # ======================================================
 
     if (
         "Сторінка захищена" in body_text
         or "захищено adm.tools" in body_text
         or "Продовжити" in body_text
     ):
-
         log("🛡 LOGIN: обнаружена защита adm.tools")
+        log("🖥 LOGIN: Firefox открыт в VNC")
+        log("👆 LOGIN: нажмите «Продовжити» вручную")
 
-        continue_button = page.get_by_text(
-            "Продовжити",
-            exact=True
-        )
+        # Ждём ручного прохождения проверки.
+        # Firefox при этом остаётся открыт.
+        protection_passed = False
 
-        log(
-            f"🛡 LOGIN: кнопка Продовжити = "
-            f"{continue_button.count()}"
-        )
+        for i in range(60):
 
-        if continue_button.count():
+            time.sleep(5)
 
             try:
-                continue_button.click(
-                    timeout=10000
+                current_text = clean_text(
+                    page.locator("body").inner_text()
+                )
+            except Exception:
+                current_text = ""
+
+            if (
+                "Сторінка захищена" not in current_text
+                and "захищено adm.tools" not in current_text
+                and "Продовжити" not in current_text
+            ):
+                protection_passed = True
+
+                log(
+                    "✅ LOGIN: защита adm.tools пройдена"
                 )
 
                 log(
-                    "🛡 LOGIN: нажали Продовжити"
+                    f"✅ LOGIN: URL = {page.url}"
                 )
-
-            except Exception as e:
 
                 log(
-                    f"❌ LOGIN: ошибка кнопки "
-                    f"Продовжити: {e}"
+                    f"✅ LOGIN: TITLE = {page.title()}"
                 )
 
-            time.sleep(10)
+                break
 
+            if i % 6 == 0:
+                log(
+                    f"🖥 LOGIN: ждём ручную проверку... "
+                    f"{i * 5} сек."
+                )
+
+        if not protection_passed:
             log(
-                f"🛡 LOGIN: URL после = {page.url}"
+                "❌ LOGIN: время ожидания "
+                "проверки adm.tools истекло"
             )
 
-            log(
-                f"🛡 LOGIN: TITLE после = "
-                f"{page.title()}"
-            )
+            return False
 
-            body_after = clean_text(
-                page.locator("body").inner_text()
-            )
+        time.sleep(3)
 
-            log(
-                f"🛡 LOGIN: BODY после = "
-                f"{body_after[:500]}"
-            )
+    # ======================================================
+    # ПРОВЕРЯЕМ, ЧТО МЫ НА СТРАНИЦЕ САЙТА
+    # ======================================================
 
-        return False
+    log("🔐 LOGIN: ищем кнопку Вхід/Реєстрація")
 
-    # ------------------------------------------------------
-    # ПРОВЕРКА КНОПКИ ВХОДА
-    # ------------------------------------------------------
-
-    enter_button = page.locator(
-        "#a-enter"
-    )
+    enter_button = page.locator("#a-enter")
 
     log(
         f"🔐 LOGIN: #a-enter count = "
@@ -685,24 +688,62 @@ def login(page):
     )
 
     if not enter_button.count():
-
         log(
             "❌ LOGIN: #a-enter не найдена"
         )
 
+        log(
+            f"❌ LOGIN: текущий URL = {page.url}"
+        )
+
+        log(
+            f"❌ LOGIN: текущий TITLE = "
+            f"{page.title()}"
+        )
+
+        try:
+            current_body = clean_text(
+                page.locator("body").inner_text()
+            )
+
+            log(
+                f"❌ LOGIN: BODY = "
+                f"{current_body[:1000]}"
+            )
+
+        except Exception:
+            pass
+
         return False
 
-    # ------------------------------------------------------
-    # ОТКРЫВАЕМ ФОРМУ
-    # ------------------------------------------------------
+    # ======================================================
+    # ОТКРЫВАЕМ ФОРМУ АВТОРИЗАЦИИ
+    # ======================================================
 
-    enter_button.click()
+    try:
+        enter_button.click(
+            timeout=15000
+        )
+
+        log(
+            "🔐 LOGIN: нажали Вхід/Реєстрація"
+        )
+
+    except Exception as e:
+
+        log(
+            f"❌ LOGIN: ошибка открытия формы: {e}"
+        )
+
+        return False
+
+    # ======================================================
+    # ЖДЁМ ФОРМУ
+    # ======================================================
 
     try:
 
-        page.locator(
-            "#login-form"
-        ).wait_for(
+        page.locator("#login-form").wait_for(
             state="visible",
             timeout=15000
         )
@@ -719,25 +760,45 @@ def login(page):
         "✅ LOGIN: форма авторизации найдена"
     )
 
-    # ------------------------------------------------------
-    # ВВОД
-    # ------------------------------------------------------
+    # ======================================================
+    # ВВОДИМ ЛОГИН
+    # ======================================================
 
-    page.locator(
+    email_input = page.locator(
         "input[name='email_auth']"
-    ).fill(EMAIL)
+    )
 
-    page.locator(
+    password_input = page.locator(
         "input[name='pass_auth']"
-    ).fill(PASSWORD)
+    )
+
+    if not email_input.count():
+
+        log(
+            "❌ LOGIN: поле email_auth не найдено"
+        )
+
+        return False
+
+    if not password_input.count():
+
+        log(
+            "❌ LOGIN: поле pass_auth не найдено"
+        )
+
+        return False
+
+    email_input.fill(EMAIL)
+
+    password_input.fill(PASSWORD)
 
     log(
         "🔐 LOGIN: логин и пароль введены"
     )
 
-    # ------------------------------------------------------
-    # КНОПКА
-    # ------------------------------------------------------
+    # ======================================================
+    # КНОПКА ВХОДА
+    # ======================================================
 
     login_button = page.locator(
         "#login-form button.modalButton"
@@ -756,17 +817,29 @@ def login(page):
 
         return False
 
-    login_button.click()
+    try:
 
-    log(
-        "🔐 LOGIN: нажали Войти"
-    )
+        login_button.click(
+            timeout=15000
+        )
+
+        log(
+            "🔐 LOGIN: нажали Войти"
+        )
+
+    except Exception as e:
+
+        log(
+            f"❌ LOGIN: ошибка кнопки Войти: {e}"
+        )
+
+        return False
+
+    # ======================================================
+    # ЖДЁМ РЕЗУЛЬТАТ АВТОРИЗАЦИИ
+    # ======================================================
 
     time.sleep(5)
-
-    # ------------------------------------------------------
-    # ПРОВЕРКА
-    # ------------------------------------------------------
 
     try:
 
@@ -778,6 +851,22 @@ def login(page):
                 "❌ LOGIN: форма всё ещё открыта"
             )
 
+            try:
+
+                current_body = clean_text(
+                    page.locator(
+                        "body"
+                    ).inner_text()
+                )
+
+                log(
+                    f"❌ LOGIN: BODY = "
+                    f"{current_body[:1000]}"
+                )
+
+            except Exception:
+                pass
+
             return False
 
     except Exception:
@@ -785,6 +874,14 @@ def login(page):
 
     log(
         "✅ LOGIN: авторизация прошла"
+    )
+
+    log(
+        f"✅ LOGIN: URL = {page.url}"
+    )
+
+    log(
+        f"✅ LOGIN: TITLE = {page.title()}"
     )
 
     return True
