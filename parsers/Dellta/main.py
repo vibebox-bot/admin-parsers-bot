@@ -831,7 +831,7 @@ def run_parser():
         
             context = p.firefox.launch_persistent_context(
                 user_data_dir="/data/dellta_firefox",
-                headless=False,
+                headless=True,
                 viewport={"width": 1440, "height": 900},
                 locale="uk-UA",
                 timezone_id="Europe/Kyiv",
