@@ -390,68 +390,69 @@ def parse_products(html):
 
 
 # ==========================================================
-# КАТЕГОРИИ
+# КАТЕГОРИИ — ТОЛЬКО 1-Й УРОВЕНЬ
 # ==========================================================
+
 def get_categories(page):
-    """
-    Получает основные категории из меню Каталог товарів.
-    Категории находятся внутри:
-    <ul class="firstUl">
-        <li class="cat541 hasUl">
-            <a href="/.../">...</a>
-        </li>
-        ...
-    </ul>
-    """
 
     categories = []
     seen = set()
 
     try:
-        # Ждём меню каталога
-        page.wait_for_selector("ul.firstUl", timeout=15000)
 
-        items = page.locator("ul.firstUl > li.cat")
+        page.wait_for_selector(
+            "ul.firstUl",
+            timeout=15000
+        )
+
+        # Только ПРЯМЫЕ li первого уровня
+        items = page.locator(
+            "ul.firstUl > li"
+        )
 
         count = items.count()
 
         for i in range(count):
+
             li = items.nth(i)
 
-            # Пропускаем специальные пункты:
-            # "Не пропустіть", акции и т.п.
-            classes = li.get_attribute("class") or ""
+            classes = (
+                li.get_attribute("class")
+                or ""
+            )
 
+            # Пропускаем служебные разделы
             if "dont_miss_it" in classes:
                 continue
 
-            link = li.locator(":scope > a").first
+            # Только прямая ссылка первого уровня
+            link = li.locator(
+                ":scope > a"
+            ).first
 
-            if await link.count() == 0:
+            if link.count() == 0:
                 continue
 
-            href = await link.get_attribute("href")
-            name = (await link.inner_text()).strip()
+            href = link.get_attribute(
+                "href"
+            )
 
-            if not href:
+            name = clean_text(
+                link.inner_text()
+            )
+
+            if not href or not name:
                 continue
 
-            if not name:
-                continue
-
-            # Только реальные категории
+            # Служебные ссылки
             if href.startswith("/catalog/"):
                 continue
 
-            # Убираем пробелы/переносы
-            name = " ".join(name.split())
+            url = normalize_url(
+                href
+            )
 
-            # Абсолютный URL
-            if href.startswith("/"):
-                url = BASE_URL + href
-            else:
-                url = href
-
+            # Защита от дублей
             if url in seen:
                 continue
 
@@ -462,12 +463,20 @@ def get_categories(page):
                 "url": url
             })
 
-        print(f"📂 Категорий: {len(categories)}")
+        log(
+            f"📂 Категорий: {len(categories)}"
+        )
 
         return categories
 
-    except Exception:
+    except Exception as e:
+
+        log(
+            f"❌ Ошибка категорий: {e}"
+        )
+
         return []
+
 
 # ==========================================================
 # ОТКРЫТИЕ КАТЕГОРИИ
