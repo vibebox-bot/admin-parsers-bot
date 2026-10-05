@@ -10,4 +10,4 @@ RUN python -m playwright install --with-deps firefox
 
 COPY . .
 
-CMD ["python", "bot.py"]
+CMD ["python", "-u", "bot.py"]
