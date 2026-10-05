@@ -7,7 +7,10 @@ COPY requirements.txt .
 RUN echo "=== 1. INSTALL PYTHON ===" && \
     pip install --no-cache-dir -r requirements.txt
 
-RUN echo "=== 2. INSTALL FIREFOX ===" && \
+RUN echo "=== 2. INSTALL FIREFOX + XVFB ===" && \
+    apt-get update && \
+    apt-get install -y xvfb xauth && \
+    rm -rf /var/lib/apt/lists/* && \
     python -m playwright install --with-deps firefox
 
 COPY . .
@@ -24,4 +27,4 @@ RUN echo "=== 4. PYTHON ===" && \
     python -c "import psutil; print('psutil OK')" && \
     python -c "import pytz; print('pytz OK')"
 
-CMD ["python", "-u", "bot.py"]
+CMD ["xvfb-run", "-a", "python", "-u", "bot.py"]
