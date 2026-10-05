@@ -27,4 +27,4 @@ RUN echo "=== 4. PYTHON ===" && \
     python -c "import psutil; print('psutil OK')" && \
     python -c "import pytz; print('pytz OK')"
 
-CMD ["xvfb-run", "-a", "python", "-u", "bot.py"]
+CMD ["python", "-u", "bot.py"]
