@@ -551,11 +551,6 @@ def open_category(page, category):
         except Exception:
             break
 
-        log(
-            f"   📄 Загружено: "
-            f"{before_count} товаров → Показать еще"
-        )
-
         try:
             more_button.scroll_into_view_if_needed()
 
@@ -564,10 +559,7 @@ def open_category(page, category):
             )
 
         except Exception as e:
-            log(
-                f"⚠ Не удалось нажать "
-                f"'Показать еще': {e}"
-            )
+           
             break
 
         # ==================================================
@@ -593,17 +585,9 @@ def open_category(page, category):
 
         after_count = product_locator.count()
 
-        log(
-            f"      → Загружено: "
-            f"{after_count}"
-        )
 
         # Защита от зацикливания
         if after_count <= before_count:
-
-            log(
-                "⚠ Новых товаров не появилось"
-            )
 
             break
 
@@ -615,16 +599,9 @@ def open_category(page, category):
         "tr.itemPosition.simple"
     ).count()
 
-    log(
-        f"   ✅ Категория "
-        f"{category['name']}: "
-        f"{final_count} товаров"
-    )
+
 
     return page.content()
-
-
-
 
 
 # ==========================================================
@@ -788,9 +765,6 @@ def run_parser():
                 page
             )
 
-            log(
-                f"📂 Категорий: {len(categories)}"
-            )
 
             if not categories:
 
@@ -856,9 +830,6 @@ def run_parser():
 
                         successful_categories += 1
 
-                        log(
-                            f"📦 Товаров: {len(products)}"
-                        )
 
                     progress = int(
                         index
