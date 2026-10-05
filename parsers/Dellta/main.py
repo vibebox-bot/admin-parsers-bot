@@ -14,7 +14,7 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 # НАСТРОЙКИ
 # ==========================================================
 
-
+BASE_URL = "https://b2b.delltalife.com"
 
 EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "123456"
