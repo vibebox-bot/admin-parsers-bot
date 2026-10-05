@@ -12,8 +12,8 @@ from bs4 import BeautifulSoup
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 Харьковская КМТ — XML + LOGIN + SITE PRICE PARSER")
 
+print("🔥 Харьковская КМТ — XML + LOGIN + SITE PRICE PARSER")
 
 # ==========================================================
 # НАСТРОЙКИ
