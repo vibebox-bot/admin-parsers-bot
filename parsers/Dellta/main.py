@@ -830,7 +830,7 @@ def run_parser():
         with sync_playwright() as p:
         
             context = p.firefox.launch_persistent_context(
-                user_data_dir="/data/dellta_firefox",
+                user_data_dir="/app/output/dellta_firefox",
                 headless=True,
                 viewport={"width": 1440, "height": 900},
                 locale="uk-UA",
