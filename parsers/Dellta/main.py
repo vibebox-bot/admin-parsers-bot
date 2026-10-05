@@ -503,29 +503,104 @@ def get_categories(page):
         return []
 
 
-
-
-
-
-
-
-
-
 # ==========================================================
-# ОТКРЫТИЕ КАТЕГОРИИ
+# ОТКРЫТИЕ КАТЕГОРИИ + ПАГИНАЦИЯ
 # ==========================================================
 
 def open_category(page, category):
 
-    page.goto(
-        category["url"],
-        wait_until="domcontentloaded",
-        timeout=60000
+    all_html = []
+
+    current_url = category["url"]
+
+    visited = set()
+
+    while current_url:
+
+        # --------------------------------------------------
+        # Защита от зацикливания
+        # --------------------------------------------------
+
+        if current_url in visited:
+            break
+
+        visited.add(current_url)
+
+        # --------------------------------------------------
+        # Открываем страницу
+        # --------------------------------------------------
+
+        page.goto(
+            current_url,
+            wait_until="domcontentloaded",
+            timeout=60000
+        )
+
+        time.sleep(2)
+
+        # --------------------------------------------------
+        # Сохраняем HTML текущей страницы
+        # --------------------------------------------------
+
+        all_html.append(
+            page.content()
+        )
+
+        # --------------------------------------------------
+        # Ищем следующую страницу
+        # --------------------------------------------------
+
+        next_link = page.locator(
+            "nav .pagination "
+            "a.page-link[href*='page=']"
+        )
+
+        next_url = ""
+
+        count = next_link.count()
+
+        for i in range(count):
+
+            link = next_link.nth(i)
+
+            href = link.get_attribute(
+                "href"
+            )
+
+            if not href:
+                continue
+
+            # Берём только страницу, которая
+            # больше текущей
+            pn = link.get_attribute(
+                "pn"
+            )
+
+            if pn and pn != "1":
+
+                candidate = normalize_url(
+                    href
+                )
+
+                if candidate not in visited:
+
+                    next_url = candidate
+                    break
+
+        # --------------------------------------------------
+        # Если следующей страницы нет —
+        # закончили
+        # --------------------------------------------------
+
+        if not next_url:
+            break
+
+        current_url = next_url
+
+    return "\n".join(
+        all_html
     )
 
-    time.sleep(3)
-
-    return page.content()
 
 
 # ==========================================================
