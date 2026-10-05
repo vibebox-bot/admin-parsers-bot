@@ -600,21 +600,54 @@ def login(page):
 
     time.sleep(5)
 
+    log(
+        f"🔐 LOGIN: TITLE = {page.title()}"
+    )
+
+    html = page.content()
+
+    log(
+        f"🔐 LOGIN: HTML SIZE = {len(html)}"
+    )
+
+    try:
+        body_text = page.locator(
+            "body"
+        ).inner_text()
+
+        log(
+            "🔐 LOGIN: BODY TEXT = "
+            + body_text[:1000]
+        )
+
+    except Exception as e:
+
+        log(
+            f"⚠ LOGIN: не удалось получить BODY TEXT: {e}"
+        )
+
     enter_button = page.locator(
         "#a-enter"
     )
 
     log(
-        f"🔐 LOGIN: #a-enter count = {enter_button.count()}"
+        f"🔐 LOGIN: #a-enter count = "
+        f"{enter_button.count()}"
     )
 
     if not enter_button.count():
-        log("❌ LOGIN: кнопка #a-enter не найдена")
+
+        log(
+            "❌ LOGIN: кнопка #a-enter не найдена"
+        )
+
         return False
 
     enter_button.click()
 
-    log("🔐 LOGIN: нажали Вхід/Реєстрація")
+    log(
+        "🔐 LOGIN: нажали Вхід/Реєстрація"
+    )
 
     try:
 
@@ -627,11 +660,15 @@ def login(page):
 
     except PlaywrightTimeoutError:
 
-        log("❌ LOGIN: #login-form не появился")
+        log(
+            "❌ LOGIN: #login-form не появился"
+        )
 
         return False
 
-    log("🔐 LOGIN: форма найдена")
+    log(
+        "🔐 LOGIN: форма найдена"
+    )
 
     page.locator(
         "input[name='email_auth']"
@@ -645,23 +682,32 @@ def login(page):
         PASSWORD
     )
 
-    log("🔐 LOGIN: email/password заполнены")
+    log(
+        "🔐 LOGIN: email/password заполнены"
+    )
 
     login_button = page.locator(
         "#login-form button.modalButton"
     )
 
     log(
-        f"🔐 LOGIN: кнопка входа count = {login_button.count()}"
+        f"🔐 LOGIN: кнопка входа count = "
+        f"{login_button.count()}"
     )
 
     if not login_button.count():
-        log("❌ LOGIN: кнопка входа не найдена")
+
+        log(
+            "❌ LOGIN: кнопка входа не найдена"
+        )
+
         return False
 
     login_button.click()
 
-    log("🔐 LOGIN: нажали Увійти")
+    log(
+        "🔐 LOGIN: нажали Увійти"
+    )
 
     time.sleep(5)
 
@@ -687,7 +733,9 @@ def login(page):
             f"⚠ LOGIN: не удалось проверить форму: {e}"
         )
 
-    log("✅ LOGIN: авторизация успешна")
+    log(
+        "✅ LOGIN: авторизация успешна"
+    )
 
     return True
 
