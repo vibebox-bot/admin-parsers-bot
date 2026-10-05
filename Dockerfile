@@ -27,4 +27,4 @@ RUN echo "=== 4. PYTHON ===" && \
     python -c "import psutil; print('psutil OK')" && \
     python -c "import pytz; print('pytz OK')"
 
-CMD ["python", "-u", "bot.py"]
+CMD ["bash", "-c", "Xvfb :99 -screen 0 1440x900x24 >/tmp/xvfb.log 2>&1 & export DISPLAY=:99; python -u bot.py"]
