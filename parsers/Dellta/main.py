@@ -508,214 +508,122 @@ def get_categories(page):
 
 def open_category(page, category):
 
-    all_html = []
+    try:
+        page.goto(
+            category["url"],
+            wait_until="domcontentloaded",
+            timeout=60000
+        )
 
-    current_url = category["url"]
-    visited = set()
-    current_page = 1
+        time.sleep(2)
 
-    while current_url:
+    except Exception as e:
+        log(
+            f"❌ Ошибка загрузки категории "
+            f"{category['name']}: {e}"
+        )
+        return ""
 
-        if current_url in visited:
-            log(
-                f"⚠ Уже посещали: {current_url}"
-            )
+    # ======================================================
+    # Жмём "Показать еще" до тех пор,
+    # пока кнопка полностью не исчезнет
+    # ======================================================
+
+    while True:
+
+        product_locator = page.locator(
+            "tr.itemPosition.simple"
+        )
+
+        before_count = product_locator.count()
+
+        more_button = page.locator(
+            "#moreBtn"
+        )
+
+        # Кнопки больше нет
+        if more_button.count() == 0:
             break
 
-        visited.add(current_url)
+        try:
+            if not more_button.is_visible():
+                break
+        except Exception:
+            break
 
-        # ==================================================
-        # Открываем страницу
-        # ==================================================
+        log(
+            f"   📄 Загружено: "
+            f"{before_count} товаров → Показать еще"
+        )
 
         try:
-            page.goto(
-                current_url,
-                wait_until="domcontentloaded",
-                timeout=60000
-            )
+            more_button.scroll_into_view_if_needed()
 
-            time.sleep(2)
+            more_button.click(
+                timeout=10000
+            )
 
         except Exception as e:
             log(
-                f"❌ Ошибка загрузки "
-                f"страницы {current_page}: {e}"
+                f"⚠ Не удалось нажать "
+                f"'Показать еще': {e}"
             )
             break
 
         # ==================================================
-        # ПОДГРУЗКА "ПОКАЗАТЬ ЕЩЁ"
+        # Ждём появления новых товаров
         # ==================================================
 
-        while True:
+        try:
 
-            product_locator = page.locator(
-                "tr.itemPosition.simple"
+            page.wait_for_function(
+                """
+                (before) => {
+                    return document.querySelectorAll(
+                        'tr.itemPosition.simple'
+                    ).length > before;
+                }
+                """,
+                arg=before_count,
+                timeout=15000
             )
 
-            before_count = product_locator.count()
+        except Exception:
+            time.sleep(2)
 
-            more_button = page.locator(
-                "#moreBtn"
-            )
-
-            # Кнопки больше нет
-            if more_button.count() == 0:
-                break
-
-            try:
-                if not more_button.is_visible():
-                    break
-            except Exception:
-                break
-
-            log(
-                f"   📄 Страница {current_page}: "
-                f"{before_count} товаров → "
-                f"Показать еще"
-            )
-
-            try:
-
-                more_button.scroll_into_view_if_needed()
-
-                more_button.click(
-                    timeout=10000
-                )
-
-            except Exception as e:
-
-                log(
-                    f"⚠ Не удалось нажать "
-                    f"'Показать еще': {e}"
-                )
-
-                break
-
-            # ==================================================
-            # Ждём увеличения количества товаров
-            # ==================================================
-
-            try:
-
-                page.wait_for_function(
-                    """
-                    (before) => {
-                        return document.querySelectorAll(
-                            'tr.itemPosition.simple'
-                        ).length > before;
-                    }
-                    """,
-                    arg=before_count,
-                    timeout=15000
-                )
-
-            except Exception:
-
-                # Иногда товары уже появились,
-                # но JS не успел корректно отработать ожидание
-                time.sleep(2)
-
-            after_count = product_locator.count()
-
-            if after_count <= before_count:
-
-                log(
-                    f"⚠ Новых товаров не появилось: "
-                    f"{after_count}"
-                )
-
-                break
-
-            log(
-                f"      → Загружено: "
-                f"{after_count}"
-            )
-
-        # ==================================================
-        # Забираем полностью загруженную страницу
-        # ==================================================
-
-        html = page.content()
-
-        all_html.append(html)
-
-        final_count = page.locator(
-            "tr.itemPosition.simple"
-        ).count()
+        after_count = product_locator.count()
 
         log(
-            f"   ✅ Страница {current_page}: "
-            f"{final_count} товаров"
+            f"      → Загружено: "
+            f"{after_count}"
         )
 
-        # ==================================================
-        # Ищем следующую РЕАЛЬНУЮ страницу
-        # ==================================================
+        # Защита от зацикливания
+        if after_count <= before_count:
 
-        pagination_links = page.locator(
-            "ul.pagination a.page-link"
-        )
+            log(
+                "⚠ Новых товаров не появилось"
+            )
 
-        next_url = ""
-        next_page = None
-
-        count = pagination_links.count()
-
-        for i in range(count):
-
-            link = pagination_links.nth(i)
-
-            href = link.get_attribute("href")
-            pn = link.get_attribute("pn")
-
-            if not href or not pn:
-                continue
-
-            try:
-                page_number = int(pn)
-            except (TypeError, ValueError):
-                continue
-
-            # Только следующая страница
-            if page_number <= current_page:
-                continue
-
-            # Битые последние ссылки сайта
-            if href in (
-                "/nov/0/",
-                "/nov/1/"
-            ):
-                continue
-
-            candidate = normalize_url(href)
-
-            if not candidate:
-                continue
-
-            if candidate in visited:
-                continue
-
-            # Берём ближайшую следующую страницу
-            if (
-                next_page is None
-                or page_number < next_page
-            ):
-                next_page = page_number
-                next_url = candidate
-
-        # ==================================================
-        # Больше реальных страниц нет
-        # ==================================================
-
-        if not next_url:
             break
 
-        current_page = next_page
-        current_url = next_url
+    # ======================================================
+    # Только теперь забираем весь HTML
+    # ======================================================
 
-    return "\n".join(all_html)
+    final_count = page.locator(
+        "tr.itemPosition.simple"
+    ).count()
+
+    log(
+        f"   ✅ Категория "
+        f"{category['name']}: "
+        f"{final_count} товаров"
+    )
+
+    return page.content()
+
+
 
 
 
