@@ -604,27 +604,134 @@ def login(page):
         f"🔐 LOGIN: TITLE = {page.title()}"
     )
 
-    html = page.content()
+    # ======================================================
+    # ADM.TOOLS — ЗАЩИЩЕННАЯ СТРАНИЦА
+    # ======================================================
 
-    log(
-        f"🔐 LOGIN: HTML SIZE = {len(html)}"
-    )
+    body_text = ""
 
     try:
         body_text = page.locator(
             "body"
         ).inner_text()
 
+    except Exception:
+        pass
+
+    if (
+        "Сторінка захищена" in body_text
+        or "Щоб продовжити" in body_text
+        or "захищено adm.tools" in body_text
+    ):
+
         log(
-            "🔐 LOGIN: BODY TEXT = "
-            + body_text[:1000]
+            "🛡 LOGIN: обнаружена защита adm.tools"
         )
 
-    except Exception as e:
+        log(
+            "🛡 LOGIN: ищем кнопку «Продовжити»"
+        )
+
+        continue_button = page.get_by_text(
+            "Продовжити",
+            exact=True
+        ).first
+
+        if continue_button.count() == 0:
+
+            continue_button = page.locator(
+                "button",
+                has_text="Продовжити"
+            ).first
+
+        if continue_button.count() == 0:
+
+            continue_button = page.locator(
+                "a",
+                has_text="Продовжити"
+            ).first
 
         log(
-            f"⚠ LOGIN: не удалось получить BODY TEXT: {e}"
+            f"🛡 LOGIN: кнопка «Продовжити» count = "
+            f"{continue_button.count()}"
         )
+
+        if continue_button.count() == 0:
+
+            log(
+                "❌ LOGIN: кнопка «Продовжити» не найдена"
+            )
+
+            return False
+
+        try:
+
+            continue_button.scroll_into_view_if_needed()
+
+            continue_button.click(
+                timeout=10000
+            )
+
+            log(
+                "🛡 LOGIN: нажали «Продовжити»"
+            )
+
+        except Exception as e:
+
+            log(
+                f"❌ LOGIN: ошибка нажатия "
+                f"«Продовжити»: {e}"
+            )
+
+            return False
+
+        # Ждём, пока защита сменится обычной страницей.
+        try:
+
+            page.wait_for_function(
+                """
+                () => {
+                    const text =
+                        document.body
+                            ? document.body.innerText
+                            : "";
+
+                    return (
+                        !text.includes("Сторінка захищена") &&
+                        !text.includes("Щоб продовжити")
+                    );
+                }
+                """,
+                timeout=30000
+            )
+
+            log(
+                "🛡 LOGIN: защитная страница исчезла"
+            )
+
+        except PlaywrightTimeoutError:
+
+            log(
+                "❌ LOGIN: защита adm.tools "
+                "не пройдена автоматически"
+            )
+
+            return False
+
+        time.sleep(3)
+
+        log(
+            f"🛡 LOGIN: URL после защиты = {page.url}"
+        )
+
+        log(
+            f"🛡 LOGIN: TITLE после защиты = "
+            f"{page.title()}"
+        )
+
+    # ======================================================
+    # ОБЫЧНАЯ СТРАНИЦА ВХОДА
+    # ======================================================
 
     enter_button = page.locator(
         "#a-enter"
