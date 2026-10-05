@@ -590,23 +590,35 @@ def login(page):
 
     log("🔐 LOGIN: открываем сайт")
 
-    page.goto(
-        BASE_URL + "/",
-        wait_until="domcontentloaded",
-        timeout=60000
-    )
+    try:
+        page.goto(
+            BASE_URL + "/",
+            wait_until="domcontentloaded",
+            timeout=60000
+        )
+    except Exception as e:
+        log(f"❌ LOGIN: ошибка открытия сайта: {e}")
+        return False
 
     time.sleep(5)
 
     log(f"🔐 LOGIN: URL = {page.url}")
     log(f"🔐 LOGIN: TITLE = {page.title()}")
 
-    body_text = clean_text(
-        page.locator("body").inner_text()
-    )
+    # ======================================================
+    # ПОЛУЧАЕМ ТЕКСТ СТРАНИЦЫ
+    # ======================================================
+
+    try:
+        body_text = clean_text(
+            page.locator("body").inner_text()
+        )
+    except Exception:
+        body_text = ""
 
     log(
-        f"🔐 LOGIN: BODY = {body_text[:500]}"
+        f"🔐 LOGIN: BODY = "
+        f"{body_text[:500]}"
     )
 
     # ======================================================
@@ -618,13 +630,19 @@ def login(page):
         or "захищено adm.tools" in body_text
         or "Продовжити" in body_text
     ):
-        log("🛡 LOGIN: обнаружена защита adm.tools")
-        log("🖥 LOGIN: Firefox открыт в VNC")
-        log("👆 LOGIN: нажмите «Продовжити» вручную")
 
-        # Ждём ручного прохождения проверки.
-        # Firefox при этом остаётся открыт.
+        log("🛡 LOGIN: обнаружена защита adm.tools")
+
+        log("🖥 LOGIN: Firefox открыт в VNC")
+
+        log(
+            "👆 LOGIN: нажмите «Продовжити» вручную"
+        )
+
         protection_passed = False
+
+        # Ждём ручного прохождения проверки
+        # максимум 5 минут
 
         for i in range(60):
 
@@ -637,11 +655,13 @@ def login(page):
             except Exception:
                 current_text = ""
 
+            # Проверяем, исчезла ли страница защиты
             if (
                 "Сторінка захищена" not in current_text
                 and "захищено adm.tools" not in current_text
                 and "Продовжити" not in current_text
             ):
+
                 protection_passed = True
 
                 log(
@@ -659,12 +679,14 @@ def login(page):
                 break
 
             if i % 6 == 0:
+
                 log(
                     f"🖥 LOGIN: ждём ручную проверку... "
                     f"{i * 5} сек."
                 )
 
         if not protection_passed:
+
             log(
                 "❌ LOGIN: время ожидания "
                 "проверки adm.tools истекло"
@@ -675,12 +697,82 @@ def login(page):
         time.sleep(3)
 
     # ======================================================
-    # ПРОВЕРЯЕМ, ЧТО МЫ НА СТРАНИЦЕ САЙТА
+    # ПРОВЕРЯЕМ, НЕ АВТОРИЗОВАНЫ ЛИ УЖЕ
     # ======================================================
 
-    log("🔐 LOGIN: ищем кнопку Вхід/Реєстрація")
+    log(
+        "🔐 LOGIN: проверяем авторизацию"
+    )
 
-    enter_button = page.locator("#a-enter")
+    # ------------------------------------------------------
+    # Вариант 1 — кнопка "Вийти"
+    # ------------------------------------------------------
+
+    logout_button = page.get_by_text(
+        "Вийти",
+        exact=True
+    )
+
+    if logout_button.count():
+
+        log(
+            "✅ LOGIN: пользователь уже авторизован"
+        )
+
+        log(
+            "✅ LOGIN: найдена кнопка «Вийти»"
+        )
+
+        log(
+            f"✅ LOGIN: URL = {page.url}"
+        )
+
+        log(
+            f"✅ LOGIN: TITLE = {page.title()}"
+        )
+
+        return True
+
+    # ------------------------------------------------------
+    # Вариант 2 — "Профіль"
+    # ------------------------------------------------------
+
+    profile_button = page.get_by_text(
+        "Профіль",
+        exact=True
+    )
+
+    if profile_button.count():
+
+        log(
+            "✅ LOGIN: пользователь уже авторизован"
+        )
+
+        log(
+            "✅ LOGIN: найден «Профіль»"
+        )
+
+        log(
+            f"✅ LOGIN: URL = {page.url}"
+        )
+
+        log(
+            f"✅ LOGIN: TITLE = {page.title()}"
+        )
+
+        return True
+
+    # ======================================================
+    # ЕСЛИ НЕ АВТОРИЗОВАНЫ — ИЩЕМ ВХОД
+    # ======================================================
+
+    log(
+        "🔐 LOGIN: ищем кнопку Вхід/Реєстрація"
+    )
+
+    enter_button = page.locator(
+        "#a-enter"
+    )
 
     log(
         f"🔐 LOGIN: #a-enter count = "
@@ -688,6 +780,7 @@ def login(page):
     )
 
     if not enter_button.count():
+
         log(
             "❌ LOGIN: #a-enter не найдена"
         )
@@ -702,8 +795,11 @@ def login(page):
         )
 
         try:
+
             current_body = clean_text(
-                page.locator("body").inner_text()
+                page.locator(
+                    "body"
+                ).inner_text()
             )
 
             log(
@@ -721,6 +817,7 @@ def login(page):
     # ======================================================
 
     try:
+
         enter_button.click(
             timeout=15000
         )
@@ -743,7 +840,9 @@ def login(page):
 
     try:
 
-        page.locator("#login-form").wait_for(
+        page.locator(
+            "#login-form"
+        ).wait_for(
             state="visible",
             timeout=15000
         )
@@ -761,7 +860,7 @@ def login(page):
     )
 
     # ======================================================
-    # ВВОДИМ ЛОГИН
+    # ПОЛЯ АВТОРИЗАЦИИ
     # ======================================================
 
     email_input = page.locator(
@@ -788,13 +887,31 @@ def login(page):
 
         return False
 
-    email_input.fill(EMAIL)
+    # ======================================================
+    # ВВОДИМ ЛОГИН И ПАРОЛЬ
+    # ======================================================
 
-    password_input.fill(PASSWORD)
+    try:
 
-    log(
-        "🔐 LOGIN: логин и пароль введены"
-    )
+        email_input.fill(
+            EMAIL
+        )
+
+        password_input.fill(
+            PASSWORD
+        )
+
+        log(
+            "🔐 LOGIN: логин и пароль введены"
+        )
+
+    except Exception as e:
+
+        log(
+            f"❌ LOGIN: ошибка заполнения формы: {e}"
+        )
+
+        return False
 
     # ======================================================
     # КНОПКА ВХОДА
@@ -841,6 +958,10 @@ def login(page):
 
     time.sleep(5)
 
+    # ======================================================
+    # ПРОВЕРЯЕМ, ЧТО ФОРМА ИСЧЕЗЛА
+    # ======================================================
+
     try:
 
         if page.locator(
@@ -872,19 +993,61 @@ def login(page):
     except Exception:
         pass
 
+    # ======================================================
+    # ПРОВЕРЯЕМ, ЧТО АВТОРИЗАЦИЯ ДЕЙСТВИТЕЛЬНО ЕСТЬ
+    # ======================================================
+
+    time.sleep(2)
+
+    try:
+
+        current_body = clean_text(
+            page.locator(
+                "body"
+            ).inner_text()
+        )
+
+    except Exception:
+
+        current_body = ""
+
+    if (
+        "Вийти" in current_body
+        or "Профіль" in current_body
+    ):
+
+        log(
+            "✅ LOGIN: авторизация прошла"
+        )
+
+        log(
+            f"✅ LOGIN: URL = {page.url}"
+        )
+
+        log(
+            f"✅ LOGIN: TITLE = {page.title()}"
+        )
+
+        return True
+
+    # ======================================================
+    # ЕСЛИ ФОРМА ЗАКРЫЛАСЬ, НО НЕ ВИДНО АВТОРИЗАЦИИ
+    # ======================================================
+
     log(
-        "✅ LOGIN: авторизация прошла"
+        "⚠️ LOGIN: форма закрылась, "
+        "но состояние авторизации не удалось подтвердить"
     )
 
     log(
-        f"✅ LOGIN: URL = {page.url}"
+        f"⚠️ LOGIN: URL = {page.url}"
     )
 
     log(
-        f"✅ LOGIN: TITLE = {page.title()}"
+        f"⚠️ LOGIN: TITLE = {page.title()}"
     )
 
-    return True
+    return False
 
 # ==========================================================
 # ОСНОВНОЙ ПАРСЕР
