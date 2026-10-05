@@ -681,16 +681,11 @@ def run_parser():
         # --------------------------------------------------
 
         with sync_playwright() as p:
-
-            browser = p.firefox.launch(
-                headless=True
-            )
-
-            context = browser.new_context(
-                viewport={
-                    "width": 1440,
-                    "height": 900
-                },
+        
+            context = p.firefox.launch_persistent_context(
+                user_data_dir="/data/dellta_firefox",
+                headless=True,
+                viewport={"width": 1440, "height": 900},
                 locale="uk-UA",
                 timezone_id="Europe/Kyiv",
                 user_agent=(
@@ -699,8 +694,12 @@ def run_parser():
                     "Gecko/20100101 Firefox/128.0"
                 )
             )
+        
+            if context.pages:
+                page = context.pages[0]
+            else:
+                page = context.new_page()
 
-            page = context.new_page()
 
             # ------------------------------------------------
             # АВТОРИЗАЦИЯ
@@ -719,7 +718,8 @@ def run_parser():
                     str(OUTPUT_FILE)
                 )
 
-                browser.close()
+
+                context.close()
 
                 return
 
@@ -746,9 +746,11 @@ def run_parser():
                     str(OUTPUT_FILE)
                 )
 
-                browser.close()
+
+                context.close()
 
                 return
+
 
             # ------------------------------------------------
             # LIMIT
@@ -838,15 +840,16 @@ def run_parser():
                     str(OUTPUT_FILE)
                 )
 
-                browser.close()
+
+                context.close()
 
                 return
+
 
             # ------------------------------------------------
             # FINISH
             # ------------------------------------------------
-
-            browser.close()
+            context.close()
 
         save_status(
             False,
