@@ -518,12 +518,15 @@ def open_category(page, category):
 
         if current_url in visited:
             log(
-                f"⚠ Уже посещали страницу: "
-                f"{current_url}"
+                f"⚠ Уже посещали: {current_url}"
             )
             break
 
         visited.add(current_url)
+
+        # ==================================================
+        # Открываем страницу
+        # ==================================================
 
         try:
             page.goto(
@@ -536,40 +539,123 @@ def open_category(page, category):
 
         except Exception as e:
             log(
-                f"❌ Ошибка загрузки страницы "
-                f"{current_page}: {e}"
+                f"❌ Ошибка загрузки "
+                f"страницы {current_page}: {e}"
             )
             break
+
+        # ==================================================
+        # ПОДГРУЗКА "ПОКАЗАТЬ ЕЩЁ"
+        # ==================================================
+
+        while True:
+
+            product_locator = page.locator(
+                "tr.itemPosition.simple"
+            )
+
+            before_count = product_locator.count()
+
+            more_button = page.locator(
+                "#moreBtn"
+            )
+
+            # Кнопки больше нет
+            if more_button.count() == 0:
+                break
+
+            try:
+                if not more_button.is_visible():
+                    break
+            except Exception:
+                break
+
+            log(
+                f"   📄 Страница {current_page}: "
+                f"{before_count} товаров → "
+                f"Показать еще"
+            )
+
+            try:
+
+                more_button.scroll_into_view_if_needed()
+
+                more_button.click(
+                    timeout=10000
+                )
+
+            except Exception as e:
+
+                log(
+                    f"⚠ Не удалось нажать "
+                    f"'Показать еще': {e}"
+                )
+
+                break
+
+            # ==================================================
+            # Ждём увеличения количества товаров
+            # ==================================================
+
+            try:
+
+                page.wait_for_function(
+                    """
+                    (before) => {
+                        return document.querySelectorAll(
+                            'tr.itemPosition.simple'
+                        ).length > before;
+                    }
+                    """,
+                    arg=before_count,
+                    timeout=15000
+                )
+
+            except Exception:
+
+                # Иногда товары уже появились,
+                # но JS не успел корректно отработать ожидание
+                time.sleep(2)
+
+            after_count = product_locator.count()
+
+            if after_count <= before_count:
+
+                log(
+                    f"⚠ Новых товаров не появилось: "
+                    f"{after_count}"
+                )
+
+                break
+
+            log(
+                f"      → Загружено: "
+                f"{after_count}"
+            )
+
+        # ==================================================
+        # Забираем полностью загруженную страницу
+        # ==================================================
 
         html = page.content()
 
         all_html.append(html)
 
-        # --------------------------------------------------
-        # Количество товаров на текущей странице
-        # --------------------------------------------------
-
-        try:
-            product_count = len(
-                page.locator(
-                    "tr.itemPosition.simple"
-                ).all()
-            )
-        except Exception:
-            product_count = 0
+        final_count = page.locator(
+            "tr.itemPosition.simple"
+        ).count()
 
         log(
-            f"   📄 Страница {current_page}: "
-            f"{product_count} товаров"
+            f"   ✅ Страница {current_page}: "
+            f"{final_count} товаров"
         )
 
-        # --------------------------------------------------
-        # Поиск следующей страницы
-        # --------------------------------------------------
+        # ==================================================
+        # Ищем следующую РЕАЛЬНУЮ страницу
+        # ==================================================
 
         pagination_links = page.locator(
-            "ul.pagination "
-            "a.page-link"
+            "ul.pagination a.page-link"
         )
 
         next_url = ""
@@ -592,9 +678,15 @@ def open_category(page, category):
             except (TypeError, ValueError):
                 continue
 
-            # Берём только страницу,
-            # которая идёт после текущей
+            # Только следующая страница
             if page_number <= current_page:
+                continue
+
+            # Битые последние ссылки сайта
+            if href in (
+                "/nov/0/",
+                "/nov/1/"
+            ):
                 continue
 
             candidate = normalize_url(href)
@@ -605,7 +697,7 @@ def open_category(page, category):
             if candidate in visited:
                 continue
 
-            # Ищем ближайшую следующую страницу
+            # Берём ближайшую следующую страницу
             if (
                 next_page is None
                 or page_number < next_page
@@ -613,9 +705,9 @@ def open_category(page, category):
                 next_page = page_number
                 next_url = candidate
 
-        # --------------------------------------------------
-        # Больше страниц нет
-        # --------------------------------------------------
+        # ==================================================
+        # Больше реальных страниц нет
+        # ==================================================
 
         if not next_url:
             break
@@ -624,6 +716,7 @@ def open_category(page, category):
         current_url = next_url
 
     return "\n".join(all_html)
+
 
 
 # ==========================================================
