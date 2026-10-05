@@ -842,11 +842,11 @@ def run_parser():
 
                 except Exception as e:
 
-                log(
-                    f"❌ Ошибка категории {category['name']}: {e}"
-                )
-            
-                continue
+                    log(
+                        f"❌ Ошибка категории {category['name']}: {e}"
+                    )
+                
+                    continue
 
 
             # ------------------------------------------------
