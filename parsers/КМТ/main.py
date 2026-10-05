@@ -39,7 +39,7 @@ KMT_PASSWORD = "18022021"
 # После проверки поставить None
 # ==========================================================
 
-PRODUCT_LIMIT = 5
+PRODUCT_LIMIT = 50
 
 
 # ==========================================================
@@ -249,20 +249,12 @@ def download_feed():
 
         try:
 
-            print(
-                f"🌐 Загрузка XML... "
-                f"{attempt + 1}/3"
-            )
 
             response = session.get(
                 FEED_URL,
                 timeout=60
             )
 
-            print(
-                f"   HTTP: "
-                f"{response.status_code}"
-            )
 
             if response.status_code != 200:
 
@@ -287,10 +279,6 @@ def download_feed():
 
                 continue
 
-            print(
-                f"   Получено: "
-                f"{len(content):,} байт"
-            )
 
             return content
 
@@ -298,9 +286,7 @@ def download_feed():
 
             last_error = str(e)
 
-            print(
-                f"⚠ Ошибка XML: {e}"
-            )
+
 
             time.sleep(2)
 
@@ -423,10 +409,6 @@ def parse_xml(xml_content):
             "В XML отсутствуют <offer>"
         )
 
-    print(
-        f"📦 Товаров в XML: "
-        f"{len(offers)}"
-    )
 
     if PRODUCT_LIMIT:
 
@@ -434,10 +416,6 @@ def parse_xml(xml_content):
             :PRODUCT_LIMIT
         ]
 
-        print(
-            f"🧪 Лимит: "
-            f"{PRODUCT_LIMIT}"
-        )
 
     result = []
 
@@ -689,9 +667,6 @@ def get_site_price(
 
         if len(response.text.strip()) < 500:
 
-            print(
-                "   ⚠ Страница слишком маленькая"
-            )
 
             return ""
 
@@ -753,9 +728,6 @@ def get_site_price(
 
     except Exception as e:
 
-        print(
-            f"   ⚠ Ошибка цены: {e}"
-        )
 
         return ""
 
@@ -795,9 +767,6 @@ def create_empty_excel():
         FILE_PATH
     )
 
-    print(
-        "⚠ КМТ_LIVE.xlsx создан пустым"
-    )
 
 
 # ==========================================================
@@ -852,10 +821,6 @@ def save_excel(items):
         FILE_PATH
     )
 
-    print(
-        f"💾 Сохранено товаров: "
-        f"{len(items)}"
-    )
 
 
 # ==========================================================
@@ -866,9 +831,6 @@ def run_parser():
 
     if is_locked():
 
-        print(
-            "⚠ Парсер КМТ уже запущен"
-        )
 
         return
 
@@ -979,10 +941,6 @@ def run_parser():
                 "TITLE"
             ]
 
-            print(
-                f"🌐 {index}/{total} "
-                f"| {title[:70]}"
-            )
 
 
             price = get_site_price(
@@ -994,17 +952,13 @@ def run_parser():
 
                 price_found += 1
 
-                print(
-                    f"   💵 ${price}"
-                )
+
 
             else:
 
                 price_missing += 1
 
-                print(
-                    "   ⚠ Цена не найдена"
-                )
+  
 
 
             product[
@@ -1118,29 +1072,6 @@ def run_parser():
             "✅ КМТ ГОТОВО"
         )
 
-        print(
-            f"✅ Товаров: "
-            f"{len(products)}"
-        )
-
-        print(
-            f"💵 Цена найдена: "
-            f"{price_found}"
-        )
-
-        print(
-            f"⚠ Цена не найдена: "
-            f"{price_missing}"
-        )
-
-        print(
-            f"📄 Файл: "
-            f"{FILE_PATH}"
-        )
-
-        print(
-            "========================================"
-        )
 
 
     finally:
