@@ -21,7 +21,7 @@ PASSWORD = "123456"
 
 # Максимальное количество категорий
 # None = все категории
-CATEGORY_LIMIT = 2
+CATEGORY_LIMIT = 1
 
 OUTPUT_DIR = Path("output/Dellta")
 OUTPUT_FILE = OUTPUT_DIR / "Dellta_LIVE.xlsx"
@@ -507,6 +507,7 @@ def get_categories(page):
 # ОТКРЫТИЕ КАТЕГОРИИ + ПАГИНАЦИЯ
 # ==========================================================
 
+
 def open_category(page, category):
 
     all_html = []
@@ -514,6 +515,8 @@ def open_category(page, category):
     current_url = category["url"]
 
     visited = set()
+
+    current_page = 1
 
     while current_url:
 
@@ -539,7 +542,7 @@ def open_category(page, category):
         time.sleep(2)
 
         # --------------------------------------------------
-        # Сохраняем HTML текущей страницы
+        # Сохраняем HTML
         # --------------------------------------------------
 
         all_html.append(
@@ -550,56 +553,65 @@ def open_category(page, category):
         # Ищем следующую страницу
         # --------------------------------------------------
 
-        next_link = page.locator(
-            "nav .pagination "
-            "a.page-link[href*='page=']"
+        pagination_links = page.locator(
+            "nav.pagination a.page-link, "
+            "nav .pagination a.page-link"
         )
 
         next_url = ""
 
-        count = next_link.count()
+        count = pagination_links.count()
 
         for i in range(count):
 
-            link = next_link.nth(i)
+            link = pagination_links.nth(i)
 
             href = link.get_attribute(
                 "href"
             )
 
-            if not href:
-                continue
-
-            # Берём только страницу, которая
-            # больше текущей
             pn = link.get_attribute(
                 "pn"
             )
 
-            if pn and pn != "1":
+            if not href or not pn:
+                continue
 
-                candidate = normalize_url(
-                    href
-                )
+            try:
+                page_number = int(pn)
+            except ValueError:
+                continue
 
-                if candidate not in visited:
+            # Нужна именно следующая страница
+            if page_number != current_page + 1:
+                continue
 
-                    next_url = candidate
-                    break
+            candidate = normalize_url(
+                href
+            )
+
+            if candidate in visited:
+                continue
+
+            next_url = candidate
+
+            break
 
         # --------------------------------------------------
-        # Если следующей страницы нет —
-        # закончили
+        # Следующей страницы нет
         # --------------------------------------------------
 
         if not next_url:
             break
+
+        current_page += 1
 
         current_url = next_url
 
     return "\n".join(
         all_html
     )
+
 
 
 
