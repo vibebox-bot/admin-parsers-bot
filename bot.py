@@ -771,6 +771,7 @@ async def receive_xml(message: types.Message):
     st["success"] = False
     st["canceled"] = False
     st["progress"] = 0
+    st["verification_required"] = False
     
 
     st["time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -928,16 +929,25 @@ async def run_parser(key, user, xml_url=None):
                 pass
         
             await asyncio.sleep(1)
-        
+
+
         stdout, stderr = await proc.communicate()
-      
         
-        if stdout:
-            print(stdout.decode(errors="ignore"))
-
         if stderr:
-            print(stderr.decode(errors="ignore"))
+        
+            error_text = stderr.decode(
+                errors="ignore"
+            ).strip()
+        
+            if error_text:
+        
+                print(
+                    f"❌ {key}: {error_text[-3000:]}",
+                    flush=True
+                )
+  
 
+        
         RUNNING_PROCESSES.pop(key, None)
         return proc.returncode
 
@@ -959,12 +969,21 @@ async def dellta_verification_watcher(
 
     s = SUPPLIERS[key]
 
-    while key in RUNNING_PROCESSES:
+    while True:
+
+        # Если процесс уже завершился — выходим
+        if key not in RUNNING_PROCESSES:
+            return
 
         st = load_json(s["status"])
 
+        # Парсер больше не работает
         if not st.get("running"):
             return
+
+        # ================================================
+        # ADM.TOOLS ТРЕБУЕТ ПРОВЕРКУ
+        # ================================================
 
         if st.get("verification_required"):
 
@@ -974,9 +993,13 @@ async def dellta_verification_watcher(
                     chat_id=chat_id,
                     message_id=message_id,
                     text=(
-                        "🛡️ <b>Dellta требует проверки сайта</b>\n\n"
-                        "Откройте браузер, пройдите проверку "
-                        "и после этого нажмите кнопку ниже."
+                        "🛡️ <b>Dellta требует проверки</b>\n\n"
+                        "Для продолжения работы нужно пройти "
+                        "проверку сайта.\n\n"
+                        "1️⃣ Нажмите <b>«Открыть браузер»</b>\n"
+                        "2️⃣ Пройдите проверку\n"
+                        "3️⃣ Вернитесь сюда\n"
+                        "4️⃣ Нажмите <b>«Я прошёл проверку»</b>"
                     ),
                     reply_markup=kb_dellta_verification(),
                     parse_mode="HTML"
@@ -990,6 +1013,7 @@ async def dellta_verification_watcher(
         await asyncio.sleep(2)
 
 
+
 # =========================
 # CALLBACKS
 # =========================
@@ -1000,6 +1024,56 @@ async def cb(call: types.CallbackQuery):
 
     await call.answer()
     data = call.data
+
+    # ================================================
+    # DELLTA — ПРОВЕРКА ПРОЙДЕНА
+    # ================================================
+
+    if data == "dellta_check":
+
+        key = "Dellta"
+        s = SUPPLIERS[key]
+
+        if key not in RUNNING_PROCESSES:
+
+            await call.message.edit_text(
+                "⚠️ <b>Dellta уже не запущен.</b>",
+                reply_markup=kb_supplier(
+                    key,
+                    False
+                ),
+                parse_mode="HTML"
+            )
+
+            return
+
+        st = load_json(
+            s["status"]
+        )
+
+        # Проверка ещё висит
+        if st.get("verification_required"):
+
+            await call.answer(
+                "⚠️ Проверка ещё не пройдена",
+                show_alert=True
+            )
+
+            return
+
+        # ============================================
+        # ПРОВЕРКА УЖЕ ПРОЙДЕНА
+        # ============================================
+
+        await call.message.edit_text(
+            "✅ <b>Проверка пройдена</b>\n\n"
+            "🚀 Dellta продолжает работу...",
+            parse_mode="HTML"
+        )
+
+        return
+
+    
 
     # BACK
     if data == "back":
@@ -1273,10 +1347,22 @@ async def cb(call: types.CallbackQuery):
                     os.remove(s["lock"])
                 except:
                     pass
-    
         asyncio.create_task(parser_job())
-    
+        
+        await asyncio.sleep(0.5)
+        
+        # Dellta — следим за adm.tools
+        if key == "Dellta":
+        
+            asyncio.create_task(
+                dellta_verification_watcher(
+                    call.message.chat.id,
+                    call.message.message_id
+                )
+            )
+            
         await asyncio.sleep(0.2)
+
     
         frames = [
             "⏳ Подготавливаю запуск...",
