@@ -21,7 +21,7 @@ PASSWORD = "123456"
 
 # Максимальное количество категорий
 # None = все категории
-CATEGORY_LIMIT = 4
+CATEGORY_LIMIT = 2
 
 OUTPUT_DIR = Path("output/Dellta")
 OUTPUT_FILE = OUTPUT_DIR / "Dellta_LIVE.xlsx"
@@ -392,59 +392,72 @@ def parse_products(html):
 # ==========================================================
 # КАТЕГОРИИ
 # ==========================================================
-
 def get_categories(page):
-
-    page.goto(
-        BASE_URL + "/",
-        wait_until="domcontentloaded",
-        timeout=60000
-    )
-
-    time.sleep(5)
-
-    html = page.content()
-
-    soup = BeautifulSoup(
-        html,
-        "html.parser"
-    )
+    """
+    Открывает каталог товаров и собирает категории
+    из появившегося меню.
+    """
 
     categories = []
 
-    for link in soup.select(
-        "a[href*='/invertoryi-']"
-    ):
+    try:
+        # Открываем каталог
+        catalog_button = page.locator("a.catalogButton").first
 
-        href = link.get(
-            "href",
-            ""
-        )
+        if catalog_button.count() == 0:
+            print("❌ Кнопка каталога не найдена")
+            return categories
 
-        name = clean_text(
-            link.get_text(
-                " ",
-                strip=True
-            )
-        )
+        catalog_button.click()
 
-        if not href or not name:
-            continue
+        # Ждём появления содержимого каталога
+        page.wait_for_timeout(1000)
 
-        url = normalize_url(
-            href
-        )
+        # Получаем HTML уже открытого каталога
+        html = page.content()
+        soup = BeautifulSoup(html, "html.parser")
 
-        item = {
-            "name": name,
-            "url": url
-        }
+        # Ищем ссылки на категории
+        seen = set()
 
-        if item not in categories:
-            categories.append(item)
+        for a in soup.select("a[href]"):
 
-    return categories
+            href = (a.get("href") or "").strip()
+            name = a.get_text(" ", strip=True)
 
+            if not href or not name:
+                continue
+
+            # Нас интересуют ссылки на разделы каталога
+            if "/invertoryi-" not in href:
+                continue
+
+            if href.startswith("/"):
+                url = BASE_URL + href
+            elif href.startswith("http"):
+                url = href
+            else:
+                continue
+
+            key = url.rstrip("/")
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+
+            categories.append({
+                "name": name,
+                "url": url
+            })
+
+        print(f"📂 Категорий: {len(categories)}")
+
+        return categories
+
+    except Exception as e:
+        print(f"❌ Ошибка каталога: {e}")
+        return []
 
 # ==========================================================
 # ОТКРЫТИЕ КАТЕГОРИИ
