@@ -742,6 +742,11 @@ async def receive_xml(message: types.Message):
     st["success"] = False
     st["canceled"] = False
     st["progress"] = 0
+    
+
+    st["time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    st["file_path"] = s["file"]
+    
 
     with open(
         s["status"],
@@ -955,21 +960,23 @@ async def cb(call: types.CallbackQuery):
 
         from datetime import timedelta
 
-        run_time = st.get("time", "-")
-        
-        try:
-            dt = datetime.strptime(run_time, "%Y-%m-%d %H:%M:%S")
-        
-            # +3 часа
-            dt = dt + timedelta(hours=3)
-        
-            # формат без секунд
-            run_time = dt.strftime("%d.%m.%Y %H:%M")
-    
+        run_time = st.get("time")
 
-        except Exception as e:
-            if "message is not modified" not in str(e):
-                print("EDIT ERROR:", e)
+        if run_time and run_time not in ("-", ""):
+            try:
+                dt = datetime.strptime(
+                    run_time,
+                    "%Y-%m-%d %H:%M:%S"
+                )
+        
+                dt = dt + timedelta(hours=3)
+                run_time = dt.strftime("%d.%m.%Y %H:%M")
+        
+            except (ValueError, TypeError):
+                run_time = "-"
+        else:
+            run_time = "-"
+
 
     
         text = f"📦 <b>{s['name']}</b>\n\n"
