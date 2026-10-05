@@ -104,7 +104,8 @@ def save_status(
     running=False,
     progress=0,
     user="",
-    file_path=""
+    file_path="",
+    verification_required=False
 ):
 
     OUTPUT_DIR.mkdir(
@@ -119,12 +120,9 @@ def save_status(
         "time": datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"
         ),
-        "file_path": file_path
+        "file_path": file_path,
+        "verification_required": verification_required
     }
-
-    tmp = STATUS_FILE.with_suffix(
-        ".json.tmp"
-    )
 
     STATUS_FILE.write_text(
         json.dumps(
@@ -588,7 +586,7 @@ def open_category(page, category):
 # ==========================================================
 def login(page):
 
-    log("🔐 LOGIN: открываем сайт")
+    log("🔐 Dellta: открываем сайт")
 
     try:
         page.goto(
@@ -597,16 +595,13 @@ def login(page):
             timeout=60000
         )
     except Exception as e:
-        log(f"❌ LOGIN: ошибка открытия сайта: {e}")
+        log(f"❌ Dellta: ошибка открытия сайта: {e}")
         return False
 
     time.sleep(5)
 
-    log(f"🔐 LOGIN: URL = {page.url}")
-    log(f"🔐 LOGIN: TITLE = {page.title()}")
-
     # ======================================================
-    # ПОЛУЧАЕМ ТЕКСТ СТРАНИЦЫ
+    # ПРОВЕРЯЕМ ADM.TOOLS
     # ======================================================
 
     try:
@@ -616,35 +611,30 @@ def login(page):
     except Exception:
         body_text = ""
 
-    log(
-        f"🔐 LOGIN: BODY = "
-        f"{body_text[:500]}"
-    )
-
-    # ======================================================
-    # ADM.TOOLS
-    # ======================================================
-
     if (
         "Сторінка захищена" in body_text
         or "захищено adm.tools" in body_text
         or "Продовжити" in body_text
     ):
 
-        log("🛡 LOGIN: обнаружена защита adm.tools")
+        log("🛡️ Dellta: требуется проверка сайта")
 
-        log("🖥 LOGIN: Firefox открыт в VNC")
-
-        log(
-            "👆 LOGIN: нажмите «Продовжити» вручную"
+        # Сообщаем bot.py, что пользователю нужно
+        # открыть браузер и пройти проверку.
+        save_status(
+            True,
+            0,
+            USER,
+            str(OUTPUT_FILE),
+            verification_required=True
         )
 
         protection_passed = False
 
         # Ждём ручного прохождения проверки
-        # максимум 5 минут
+        # максимум 5 минут.
 
-        for i in range(60):
+        for _ in range(60):
 
             time.sleep(5)
 
@@ -655,7 +645,6 @@ def login(page):
             except Exception:
                 current_text = ""
 
-            # Проверяем, исчезла ли страница защиты
             if (
                 "Сторінка захищена" not in current_text
                 and "захищено adm.tools" not in current_text
@@ -664,49 +653,48 @@ def login(page):
 
                 protection_passed = True
 
-                log(
-                    "✅ LOGIN: защита adm.tools пройдена"
-                )
+                log("✅ Dellta: проверка сайта пройдена")
 
-                log(
-                    f"✅ LOGIN: URL = {page.url}"
-                )
-
-                log(
-                    f"✅ LOGIN: TITLE = {page.title()}"
+                save_status(
+                    True,
+                    0,
+                    USER,
+                    str(OUTPUT_FILE),
+                    verification_required=False
                 )
 
                 break
 
-            if i % 6 == 0:
-
-                log(
-                    f"🖥 LOGIN: ждём ручную проверку... "
-                    f"{i * 5} сек."
-                )
-
         if not protection_passed:
 
-            log(
-                "❌ LOGIN: время ожидания "
-                "проверки adm.tools истекло"
+            log("❌ Dellta: время проверки истекло")
+
+            save_status(
+                False,
+                0,
+                USER,
+                str(OUTPUT_FILE),
+                verification_required=False
             )
 
             return False
 
         time.sleep(3)
 
+    else:
+
+        # Проверка не требуется
+        save_status(
+            True,
+            0,
+            USER,
+            str(OUTPUT_FILE),
+            verification_required=False
+        )
+
     # ======================================================
     # ПРОВЕРЯЕМ, НЕ АВТОРИЗОВАНЫ ЛИ УЖЕ
     # ======================================================
-
-    log(
-        "🔐 LOGIN: проверяем авторизацию"
-    )
-
-    # ------------------------------------------------------
-    # Вариант 1 — кнопка "Вийти"
-    # ------------------------------------------------------
 
     logout_button = page.get_by_text(
         "Вийти",
@@ -715,27 +703,8 @@ def login(page):
 
     if logout_button.count():
 
-        log(
-            "✅ LOGIN: пользователь уже авторизован"
-        )
-
-        log(
-            "✅ LOGIN: найдена кнопка «Вийти»"
-        )
-
-        log(
-            f"✅ LOGIN: URL = {page.url}"
-        )
-
-        log(
-            f"✅ LOGIN: TITLE = {page.title()}"
-        )
-
+        log("✅ Dellta: пользователь уже авторизован")
         return True
-
-    # ------------------------------------------------------
-    # Вариант 2 — "Профіль"
-    # ------------------------------------------------------
 
     profile_button = page.get_by_text(
         "Профіль",
@@ -744,77 +713,21 @@ def login(page):
 
     if profile_button.count():
 
-        log(
-            "✅ LOGIN: пользователь уже авторизован"
-        )
-
-        log(
-            "✅ LOGIN: найден «Профіль»"
-        )
-
-        log(
-            f"✅ LOGIN: URL = {page.url}"
-        )
-
-        log(
-            f"✅ LOGIN: TITLE = {page.title()}"
-        )
-
+        log("✅ Dellta: пользователь уже авторизован")
         return True
 
     # ======================================================
-    # ЕСЛИ НЕ АВТОРИЗОВАНЫ — ИЩЕМ ВХОД
+    # ИЩЕМ КНОПКУ ВХОДА
     # ======================================================
-
-    log(
-        "🔐 LOGIN: ищем кнопку Вхід/Реєстрація"
-    )
 
     enter_button = page.locator(
         "#a-enter"
     )
 
-    log(
-        f"🔐 LOGIN: #a-enter count = "
-        f"{enter_button.count()}"
-    )
-
     if not enter_button.count():
 
-        log(
-            "❌ LOGIN: #a-enter не найдена"
-        )
-
-        log(
-            f"❌ LOGIN: текущий URL = {page.url}"
-        )
-
-        log(
-            f"❌ LOGIN: текущий TITLE = "
-            f"{page.title()}"
-        )
-
-        try:
-
-            current_body = clean_text(
-                page.locator(
-                    "body"
-                ).inner_text()
-            )
-
-            log(
-                f"❌ LOGIN: BODY = "
-                f"{current_body[:1000]}"
-            )
-
-        except Exception:
-            pass
-
+        log("❌ Dellta: кнопка входа не найдена")
         return False
-
-    # ======================================================
-    # ОТКРЫВАЕМ ФОРМУ АВТОРИЗАЦИИ
-    # ======================================================
 
     try:
 
@@ -822,14 +735,10 @@ def login(page):
             timeout=15000
         )
 
-        log(
-            "🔐 LOGIN: нажали Вхід/Реєстрація"
-        )
-
     except Exception as e:
 
         log(
-            f"❌ LOGIN: ошибка открытия формы: {e}"
+            f"❌ Dellta: ошибка открытия формы: {e}"
         )
 
         return False
@@ -850,18 +759,10 @@ def login(page):
     except PlaywrightTimeoutError:
 
         log(
-            "❌ LOGIN: #login-form не появилась"
+            "❌ Dellta: форма авторизации не появилась"
         )
 
         return False
-
-    log(
-        "✅ LOGIN: форма авторизации найдена"
-    )
-
-    # ======================================================
-    # ПОЛЯ АВТОРИЗАЦИИ
-    # ======================================================
 
     email_input = page.locator(
         "input[name='email_auth']"
@@ -874,7 +775,7 @@ def login(page):
     if not email_input.count():
 
         log(
-            "❌ LOGIN: поле email_auth не найдено"
+            "❌ Dellta: поле email не найдено"
         )
 
         return False
@@ -882,13 +783,13 @@ def login(page):
     if not password_input.count():
 
         log(
-            "❌ LOGIN: поле pass_auth не найдено"
+            "❌ Dellta: поле пароля не найдено"
         )
 
         return False
 
     # ======================================================
-    # ВВОДИМ ЛОГИН И ПАРОЛЬ
+    # ВВОДИМ ДАННЫЕ
     # ======================================================
 
     try:
@@ -901,35 +802,26 @@ def login(page):
             PASSWORD
         )
 
-        log(
-            "🔐 LOGIN: логин и пароль введены"
-        )
-
     except Exception as e:
 
         log(
-            f"❌ LOGIN: ошибка заполнения формы: {e}"
+            f"❌ Dellta: ошибка заполнения формы: {e}"
         )
 
         return False
 
     # ======================================================
-    # КНОПКА ВХОДА
+    # ВХОД
     # ======================================================
 
     login_button = page.locator(
         "#login-form button.modalButton"
     )
 
-    log(
-        f"🔐 LOGIN: кнопка входа = "
-        f"{login_button.count()}"
-    )
-
     if not login_button.count():
 
         log(
-            "❌ LOGIN: кнопка входа не найдена"
+            "❌ Dellta: кнопка входа не найдена"
         )
 
         return False
@@ -940,27 +832,19 @@ def login(page):
             timeout=15000
         )
 
-        log(
-            "🔐 LOGIN: нажали Войти"
-        )
-
     except Exception as e:
 
         log(
-            f"❌ LOGIN: ошибка кнопки Войти: {e}"
+            f"❌ Dellta: ошибка кнопки входа: {e}"
         )
 
         return False
 
     # ======================================================
-    # ЖДЁМ РЕЗУЛЬТАТ АВТОРИЗАЦИИ
+    # ЖДЁМ РЕЗУЛЬТАТ
     # ======================================================
 
     time.sleep(5)
-
-    # ======================================================
-    # ПРОВЕРЯЕМ, ЧТО ФОРМА ИСЧЕЗЛА
-    # ======================================================
 
     try:
 
@@ -969,33 +853,13 @@ def login(page):
         ).is_visible():
 
             log(
-                "❌ LOGIN: форма всё ещё открыта"
+                "❌ Dellta: форма авторизации всё ещё открыта"
             )
-
-            try:
-
-                current_body = clean_text(
-                    page.locator(
-                        "body"
-                    ).inner_text()
-                )
-
-                log(
-                    f"❌ LOGIN: BODY = "
-                    f"{current_body[:1000]}"
-                )
-
-            except Exception:
-                pass
 
             return False
 
     except Exception:
         pass
-
-    # ======================================================
-    # ПРОВЕРЯЕМ, ЧТО АВТОРИЗАЦИЯ ДЕЙСТВИТЕЛЬНО ЕСТЬ
-    # ======================================================
 
     time.sleep(2)
 
@@ -1017,37 +881,17 @@ def login(page):
     ):
 
         log(
-            "✅ LOGIN: авторизация прошла"
-        )
-
-        log(
-            f"✅ LOGIN: URL = {page.url}"
-        )
-
-        log(
-            f"✅ LOGIN: TITLE = {page.title()}"
+            "✅ Dellta: авторизация выполнена"
         )
 
         return True
 
-    # ======================================================
-    # ЕСЛИ ФОРМА ЗАКРЫЛАСЬ, НО НЕ ВИДНО АВТОРИЗАЦИИ
-    # ======================================================
-
     log(
-        "⚠️ LOGIN: форма закрылась, "
-        "но состояние авторизации не удалось подтвердить"
-    )
-
-    log(
-        f"⚠️ LOGIN: URL = {page.url}"
-    )
-
-    log(
-        f"⚠️ LOGIN: TITLE = {page.title()}"
+        "❌ Dellta: авторизацию подтвердить не удалось"
     )
 
     return False
+
 
 # ==========================================================
 # ОСНОВНОЙ ПАРСЕР
