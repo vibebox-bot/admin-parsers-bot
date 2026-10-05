@@ -506,58 +506,74 @@ def get_categories(page):
 # ОТКРЫТИЕ КАТЕГОРИИ + ПАГИНАЦИЯ
 # ==========================================================
 
-
 def open_category(page, category):
 
     all_html = []
 
     current_url = category["url"]
-
     visited = set()
-
     current_page = 1
 
     while current_url:
 
-        # --------------------------------------------------
-        # Защита от зацикливания
-        # --------------------------------------------------
-
         if current_url in visited:
+            log(
+                f"⚠ Уже посещали страницу: "
+                f"{current_url}"
+            )
             break
 
         visited.add(current_url)
 
+        try:
+            page.goto(
+                current_url,
+                wait_until="domcontentloaded",
+                timeout=60000
+            )
+
+            time.sleep(2)
+
+        except Exception as e:
+            log(
+                f"❌ Ошибка загрузки страницы "
+                f"{current_page}: {e}"
+            )
+            break
+
+        html = page.content()
+
+        all_html.append(html)
+
         # --------------------------------------------------
-        # Открываем страницу
+        # Количество товаров на текущей странице
         # --------------------------------------------------
 
-        page.goto(
-            current_url,
-            wait_until="domcontentloaded",
-            timeout=60000
+        try:
+            product_count = len(
+                page.locator(
+                    "tr.itemPosition.simple"
+                ).all()
+            )
+        except Exception:
+            product_count = 0
+
+        log(
+            f"   📄 Страница {current_page}: "
+            f"{product_count} товаров"
         )
 
-        time.sleep(2)
-
         # --------------------------------------------------
-        # Сохраняем HTML
-        # --------------------------------------------------
-
-        all_html.append(
-            page.content()
-        )
-
-        # --------------------------------------------------
-        # Ищем следующую страницу
+        # Поиск следующей страницы
         # --------------------------------------------------
 
         pagination_links = page.locator(
-            "nav.pagination a.page-link, "
-            "nav .pagination a.page-link"
+            "ul.pagination "
+            "a.page-link"
         )
 
         next_url = ""
+        next_page = None
 
         count = pagination_links.count()
 
@@ -565,53 +581,49 @@ def open_category(page, category):
 
             link = pagination_links.nth(i)
 
-            href = link.get_attribute(
-                "href"
-            )
-
-            pn = link.get_attribute(
-                "pn"
-            )
+            href = link.get_attribute("href")
+            pn = link.get_attribute("pn")
 
             if not href or not pn:
                 continue
 
             try:
                 page_number = int(pn)
-            except ValueError:
+            except (TypeError, ValueError):
                 continue
 
-            # Нужна именно следующая страница
-            if page_number != current_page + 1:
+            # Берём только страницу,
+            # которая идёт после текущей
+            if page_number <= current_page:
                 continue
 
-            candidate = normalize_url(
-                href
-            )
+            candidate = normalize_url(href)
+
+            if not candidate:
+                continue
 
             if candidate in visited:
                 continue
 
-            next_url = candidate
-
-            break
+            # Ищем ближайшую следующую страницу
+            if (
+                next_page is None
+                or page_number < next_page
+            ):
+                next_page = page_number
+                next_url = candidate
 
         # --------------------------------------------------
-        # Следующей страницы нет
+        # Больше страниц нет
         # --------------------------------------------------
 
         if not next_url:
             break
 
-        current_page += 1
-
+        current_page = next_page
         current_url = next_url
 
-    return "\n".join(
-        all_html
-    )
-
-
+    return "\n".join(all_html)
 
 
 # ==========================================================
