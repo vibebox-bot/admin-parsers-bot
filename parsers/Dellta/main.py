@@ -394,57 +394,68 @@ def parse_products(html):
 # ==========================================================
 def get_categories(page):
     """
-    Открывает каталог товаров и собирает категории
-    из появившегося меню.
+    Получает основные категории из меню Каталог товарів.
+    Категории находятся внутри:
+    <ul class="firstUl">
+        <li class="cat541 hasUl">
+            <a href="/.../">...</a>
+        </li>
+        ...
+    </ul>
     """
 
     categories = []
+    seen = set()
 
     try:
-        # Открываем каталог
-        catalog_button = page.locator("a.catalogButton").first
+        # Ждём меню каталога
+        page.wait_for_selector("ul.firstUl", timeout=15000)
 
-        if catalog_button.count() == 0:
-            print("❌ Кнопка каталога не найдена")
-            return categories
+        items = page.locator("ul.firstUl > li.cat")
 
-        catalog_button.click()
+        count = items.count()
 
-        # Ждём появления содержимого каталога
-        page.wait_for_timeout(1000)
+        for i in range(count):
+            li = items.nth(i)
 
-        # Получаем HTML уже открытого каталога
-        html = page.content()
-        soup = BeautifulSoup(html, "html.parser")
+            # Пропускаем специальные пункты:
+            # "Не пропустіть", акции и т.п.
+            classes = li.get_attribute("class") or ""
 
-        # Ищем ссылки на категории
-        seen = set()
-
-        for a in soup.select("a[href]"):
-
-            href = (a.get("href") or "").strip()
-            name = a.get_text(" ", strip=True)
-
-            if not href or not name:
+            if "dont_miss_it" in classes:
                 continue
 
-            # Нас интересуют ссылки на разделы каталога
-            if "/invertoryi-" not in href:
+            link = li.locator(":scope > a").first
+
+            if await link.count() == 0:
                 continue
 
+            href = await link.get_attribute("href")
+            name = (await link.inner_text()).strip()
+
+            if not href:
+                continue
+
+            if not name:
+                continue
+
+            # Только реальные категории
+            if href.startswith("/catalog/"):
+                continue
+
+            # Убираем пробелы/переносы
+            name = " ".join(name.split())
+
+            # Абсолютный URL
             if href.startswith("/"):
                 url = BASE_URL + href
-            elif href.startswith("http"):
-                url = href
             else:
+                url = href
+
+            if url in seen:
                 continue
 
-            key = url.rstrip("/")
-
-            if key in seen:
-                continue
-
-            seen.add(key)
+            seen.add(url)
 
             categories.append({
                 "name": name,
@@ -455,8 +466,7 @@ def get_categories(page):
 
         return categories
 
-    except Exception as e:
-        print(f"❌ Ошибка каталога: {e}")
+    except Exception:
         return []
 
 # ==========================================================
