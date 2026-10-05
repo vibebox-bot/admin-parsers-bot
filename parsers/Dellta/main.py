@@ -839,9 +839,15 @@ def run_parser():
                         str(OUTPUT_FILE)
                     )
 
-                except Exception:
 
-                    continue
+                except Exception as e:
+
+                log(
+                    f"❌ Ошибка категории {category['name']}: {e}"
+                )
+            
+                continue
+
 
             # ------------------------------------------------
             # ЕСЛИ ВСЕ КАТЕГОРИИ УПАЛИ
