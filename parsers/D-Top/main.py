@@ -213,78 +213,62 @@ def get_soup(url, retries=3):
 # LOGIN
 # ==========================================================
 
-def login():
-    print("🔐 Авторизация...")
 
+def login():
+    print("🔐 Авторизация...", flush=True)
+
+    # Сначала открываем главную страницу и получаем cookies.
+    home = session.get(BASE + "/", timeout=40)
+    home.raise_for_status()
+
+    # Используем ту же сессию для страницы входа.
     soup = get_soup(LOGIN_URL)
 
     if soup is None:
-        raise RuntimeError("Не удалось открыть страницу авторизации.")
+        raise RuntimeError(
+            "Не удалось открыть страницу авторизации после загрузки главной."
+        )
 
     form = soup.select_one('form[action*="account/login"]')
 
     if not form:
-        raise RuntimeError(
-            "Не найдена форма входа на сайте. "
-            "Проверьте адрес страницы авторизации."
-        )
+        raise RuntimeError("Форма авторизации не найдена.")
 
     payload = {}
 
-    # Сохраняем скрытые поля формы, если они присутствуют.
     for inp in form.select("input[name]"):
         name = inp.get("name")
         input_type = (inp.get("type") or "").lower()
 
-        if name and input_type in ("hidden", "submit"):
+        if name and input_type == "hidden":
             payload[name] = inp.get("value", "")
 
     payload["email"] = EMAIL
     payload["password"] = PASSWORD
 
-    action = absolute_url(form.get("action"), LOGIN_URL) or LOGIN_URL
+    action = absolute_url(form.get("action", ""), LOGIN_URL) or LOGIN_URL
 
-    try:
-        response = session.post(
-            action,
-            data=payload,
-            headers={"Referer": LOGIN_URL},
-            timeout=40,
-            allow_redirects=True,
-        )
-        response.raise_for_status()
-    except requests.RequestException as exc:
-        raise RuntimeError(f"Ошибка отправки формы авторизации: {exc}")
-
-    # Проверяем отдельную страницу личного кабинета.
-    account_soup = get_soup(ACCOUNT_URL)
-
-    if account_soup is None:
-        raise RuntimeError(
-            "Не удалось проверить авторизацию через личный кабинет."
-        )
-
-    current_url = response.url.lower()
-
-    login_form = account_soup.select_one(
-        'form[action*="account/login"]'
+    response = session.post(
+        action,
+        data=payload,
+        headers={"Referer": LOGIN_URL},
+        timeout=40,
+        allow_redirects=True,
     )
+    response.raise_for_status()
 
-    error_box = (
-        account_soup.select_one(".alert-danger")
-        or account_soup.select_one(".text-danger")
-    )
+    # Проверяем результат входа.
+    account = session.get(ACCOUNT_URL, timeout=40)
+    account.raise_for_status()
 
-    if "route=account/login" in current_url or login_form:
-        error_text = clean(error_box.get_text(" ", strip=True)) if error_box else ""
+    account_soup = BeautifulSoup(account.text, "html.parser")
 
+    if account_soup.select_one('form[action*="account/login"]'):
         raise RuntimeError(
-            "Авторизация не подтверждена. "
-            + (f"Ответ сайта: {error_text}" if error_text else
-               "Проверьте логин, пароль и доступ к аккаунту.")
+            "Вход не подтверждён. Проверь логин, пароль или сообщение сайта."
         )
 
-    print("✅ Авторизация подтверждена")
+    print("✅ Страница личного кабинета доступна", flush=True)
 
 
 # ==========================================================
