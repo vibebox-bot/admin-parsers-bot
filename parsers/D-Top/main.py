@@ -27,7 +27,7 @@ ACCOUNT_URL = BASE + "/index.php?route=account/account"
 
 # Прежние учётные данные
 EMAIL = "angelinatitor@gmail.com"
-PASSWORD = "18022021"
+PASSWORD = "380931937922"
 
 # None = все категории
 CATEGORY_LIMIT = 1
