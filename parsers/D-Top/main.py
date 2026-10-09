@@ -1,20 +1,38 @@
-import os
-import json
-import re
-import time
-import requests
-from datetime import datetime
-from bs4 import BeautifulSoup
-from openpyxl import Workbook
-
-from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse, parse_qsl
 
 import sys
+import os
+import traceback
 
+print("🟢 D-TOP: RUN.PY STARTED", flush=True)
+print("🐍 PYTHON:", sys.version, flush=True)
+print("📂 FILE:", os.path.abspath(__file__), flush=True)
+
+try:
+    import json
+    import re
+    import time
+    import requests
+    from datetime import datetime
+    from bs4 import BeautifulSoup
+    from openpyxl import Workbook
+    from urllib.parse import (
+        urljoin,
+        urlparse,
+        parse_qs,
+        urlencode,
+        urlunparse,
+        parse_qsl,
+    )
+
+    print("🟢 D-TOP: ALL IMPORTS OK", flush=True)
+
+except Exception:
+    traceback.print_exc()
+    raise
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-print("🔥 Харьковская D-Top — NEW SITE")
+print("🔥 Харьковская D-Top — NEW SITE", flush=True)
 
 # ==========================================================
 # CONFIG
