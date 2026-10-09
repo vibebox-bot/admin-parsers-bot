@@ -30,7 +30,8 @@ EMAIL = "angelinatitor@gmail.com"
 PASSWORD = "380931937922"
 
 # None = все категории
-CATEGORY_LIMIT = 1
+# CATEGORY_LIMIT = 1
+CATEGORY_LIMIT = None
 
 OUTPUT_DIR = os.path.abspath("output/D-Top")
 FILE_PATH = os.path.join(OUTPUT_DIR, "D-Top_LIVE.xlsx")
@@ -410,7 +411,6 @@ def get_categories():
 
     result = sorted(categories)
 
-    print(f"📂 Всего найдено категорий: {len(result)}")
 
     return result
 
@@ -523,7 +523,6 @@ def get_product_sku(product_url):
             if value:
                 return clean(value.get_text(" ", strip=True))
 
-    print(f"⚠ Артикул не найден: {product_url}")
 
     return ""
 
@@ -565,10 +564,6 @@ def parse_category(category_url):
                 ".product-layout .product-thumb"
             )
 
-        print(
-            f"   Страница {page}/{last_page}: "
-            f"карточек {len(cards)}"
-        )
 
         for card in cards:
             item = parse_product_card(card, page_url)
@@ -667,10 +662,6 @@ def run_parser():
 
             save_status(True, progress, USER, FILE_PATH)
 
-            print(
-                f"\n📂 Категория {index}/{total_categories}: "
-                f"{category_url}"
-            )
 
             category_products = parse_category(category_url)
 
@@ -681,10 +672,6 @@ def run_parser():
                 if key not in products_by_url:
                     products_by_url[key] = item
 
-            print(
-                f"📦 Уникальных товаров собрано: "
-                f"{len(products_by_url)}"
-            )
 
             time.sleep(0.15)
 
@@ -697,8 +684,6 @@ def run_parser():
         # 4. Артикулы получаем из карточек товаров.
         items = list(products_by_url.values())
         total_products = len(items)
-
-        print(f"\n🔎 Получение артикулов: {total_products} товаров")
 
         for index, item in enumerate(items, 1):
             item["sku"] = get_product_sku(item["url"])
@@ -722,8 +707,6 @@ def run_parser():
         save_status(False, 100, USER, FILE_PATH)
 
         print("\n✅ D-Top: парсер завершил работу")
-        print(f"📦 Всего товаров: {len(items)}")
-        print(f"📄 Файл: {FILE_PATH}")
 
     except Exception as exc:
         message = str(exc)
