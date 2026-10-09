@@ -7,6 +7,8 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 
+from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse, parse_qsl
+
 import sys
 
 
