@@ -214,26 +214,53 @@ def get_soup(url, retries=3):
 # ==========================================================
 
 
+
 def login():
-    print("🔐 Авторизация...", flush=True)
+    print("🔐 Авторизация D-Top...", flush=True)
 
-    # Сначала открываем главную страницу и получаем cookies.
-    home = session.get(BASE + "/", timeout=40)
-    home.raise_for_status()
+    # 1. Получаем cookies с главной страницы.
+    try:
+        home = session.get(BASE + "/", timeout=40)
+        home.raise_for_status()
+    except requests.RequestException as exc:
+        raise RuntimeError(
+            f"Не удалось открыть главную страницу D-Top: {exc}"
+        )
 
-    # Используем ту же сессию для страницы входа.
+    # 2. Открываем форму входа через ту же сессию.
     soup = get_soup(LOGIN_URL)
 
     if soup is None:
         raise RuntimeError(
-            "Не удалось открыть страницу авторизации после загрузки главной."
+            "Не удалось открыть форму авторизации. "
+            "Пароль не отправлялся."
+        )
+
+    page_text = clean(soup.get_text(" ", strip=True)).lower()
+
+    lock_messages = (
+        "превысила допустимое количество попыток входа",
+        "превышено допустимое количество попыток входа",
+        "слишком много попыток входа",
+        "too many login attempts",
+        "too many attempts",
+    )
+
+    # Если сайт уже сообщает о блокировке, ничего не отправляем.
+    if any(message in page_text for message in lock_messages):
+        raise RuntimeError(
+            "D-Top заблокировал вход из-за превышения числа попыток. "
+            "Новые попытки не выполнялись. Дождитесь разблокировки."
         )
 
     form = soup.select_one('form[action*="account/login"]')
 
     if not form:
-        raise RuntimeError("Форма авторизации не найдена.")
+        raise RuntimeError(
+            "Форма авторизации не найдена. Пароль не отправлялся."
+        )
 
+    # 3. Подготавливаем поля формы.
     payload = {}
 
     for inp in form.select("input[name]"):
@@ -248,27 +275,79 @@ def login():
 
     action = absolute_url(form.get("action", ""), LOGIN_URL) or LOGIN_URL
 
-    response = session.post(
-        action,
-        data=payload,
-        headers={"Referer": LOGIN_URL},
-        timeout=40,
-        allow_redirects=True,
-    )
-    response.raise_for_status()
-
-    # Проверяем результат входа.
-    account = session.get(ACCOUNT_URL, timeout=40)
-    account.raise_for_status()
-
-    account_soup = BeautifulSoup(account.text, "html.parser")
-
-    if account_soup.select_one('form[action*="account/login"]'):
+    # 4. Только одна отправка формы за запуск.
+    try:
+        response = session.post(
+            action,
+            data=payload,
+            headers={"Referer": LOGIN_URL},
+            timeout=40,
+            allow_redirects=True,
+        )
+        response.raise_for_status()
+    except requests.RequestException as exc:
         raise RuntimeError(
-            "Вход не подтверждён. Проверь логин, пароль или сообщение сайта."
+            f"Ошибка отправки формы входа: {exc}. "
+            "Автоматических повторных попыток не будет."
         )
 
-    print("✅ Страница личного кабинета доступна", flush=True)
+    # Проверяем сообщение сайта после единственной попытки.
+    response_soup = BeautifulSoup(response.text, "html.parser")
+    response_text = clean(
+        response_soup.get_text(" ", strip=True)
+    ).lower()
+
+    if any(message in response_text for message in lock_messages):
+        raise RuntimeError(
+            "Сайт сообщил о блокировке входа. "
+            "Парсер остановлен без повторных попыток."
+        )
+
+    # Проверяем наличие ошибок формы.
+    error_el = (
+        response_soup.select_one(".alert-danger")
+        or response_soup.select_one(".text-danger")
+    )
+
+    if error_el:
+        error_text = clean(error_el.get_text(" ", strip=True))
+        raise RuntimeError(
+            f"Сайт отклонил авторизацию: {error_text}. "
+            "Повторная отправка пароля не выполнялась."
+        )
+
+    # Проверяем доступ к личному кабинету.
+    try:
+        account = session.get(ACCOUNT_URL, timeout=40)
+        account.raise_for_status()
+    except requests.RequestException as exc:
+        raise RuntimeError(
+            f"Не удалось проверить личный кабинет: {exc}"
+        )
+
+    account_soup = BeautifulSoup(account.text, "html.parser")
+    account_text = clean(
+        account_soup.get_text(" ", strip=True)
+    ).lower()
+
+    if any(message in account_text for message in lock_messages):
+        raise RuntimeError(
+            "D-Top сообщил о блокировке входа. "
+            "Новые попытки авторизации не выполняются."
+        )
+
+    login_form = account_soup.select_one(
+        'form[action*="account/login"]'
+    )
+
+    if login_form:
+        raise RuntimeError(
+            "Авторизация не подтверждена. "
+            "Пароль повторно отправляться не будет. "
+            "Проверьте доступ к аккаунту после окончания блокировки."
+        )
+
+    print("✅ Авторизация подтверждена", flush=True)
 
 
 # ==========================================================
