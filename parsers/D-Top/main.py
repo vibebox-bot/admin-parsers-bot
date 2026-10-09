@@ -2,20 +2,12 @@ import os
 import json
 import re
 import time
-import sys
-from datetime import datetime
-from urllib.parse import (
-    urljoin,
-    urlparse,
-    parse_qs,
-    parse_qsl,
-    urlencode,
-    urlunparse,
-)
-
 import requests
+from datetime import datetime
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
+
+import sys
 
 
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
