@@ -1,184 +1,199 @@
 
 # -*- coding: utf-8 -*-
-"""
-Jmax parser
-Excel + status.json + lock.txt
-"""
 
 import os
-import re
 import sys
+import re
 import json
 import time
 import logging
-from pathlib import Path
+import requests
+
 from datetime import datetime
 from urllib.parse import urljoin, urlparse, urlunparse, parse_qs, urlencode
-
-import requests
 from bs4 import BeautifulSoup
-from openpyxl import Workbook, load_workbook
+from openpyxl import Workbook
 
 
-# ============================================================
-# CONFIG
-# ============================================================
-
-BASE = "https://www.jmaxtvshop.com.ua"
 USER = sys.argv[1] if len(sys.argv) > 1 else "-"
 
-OUTPUT_DIR = Path("output") / "4421-4422_Jmax"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+print("🔥 Харьковская 4421-4422 Jmax")
 
-EXCEL_FILE = OUTPUT_DIR / "4421-4422_Jmax_LIVE.xlsx"
-STATUS_FILE = OUTPUT_DIR / "status.json"
-LOCK_FILE = OUTPUT_DIR / "lock.txt"
+BASE = "https://www.jmaxtvshop.com.ua"
 
+CATEGORY_LIMIT = 1
+#CATEGORY_LIMIT = None
+
+# Задаются в окружении, чтобы не хранить пароль в коде.
 EMAIL = os.getenv("JMAX_EMAIL", "")
 PASSWORD = os.getenv("JMAX_PASSWORD", "")
 
-REQUEST_TIMEOUT = 30
-RETRIES = 3
-REQUEST_DELAY = 0.3
-MAX_PAGES_PER_CATEGORY = 300
-MAX_CATEGORIES = 1000
-MAX_LOCK_AGE = 3600
+OUTPUT_DIR = os.path.abspath("output/4421-4422_Jmax")
+
+FILE_PATH = os.path.join(
+    OUTPUT_DIR, "4421-4422_Jmax_LIVE.xlsx"
+)
+
+STATUS_PATH = os.path.join(
+    OUTPUT_DIR, "status.json"
+)
+
+LOCK_FILE = os.path.join(
+    OUTPUT_DIR, "lock.txt"
+)
+
+MAX_PAGES = 150
+MAX_RETRIES = 3
+REQUEST_DELAY = 0.25
 
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) "
         "Gecko/20100101 Firefox/158.0"
     ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;"
+        "q=0.9,*/*;q=0.8"
+    ),
     "Accept-Language": "ru-RU,ru;q=0.9,uk;q=0.8,en;q=0.7",
+    "Connection": "keep-alive",
 }
 
-COLUMNS = ["SKU", "TITLE", "PRICE", "STATUS", "URL"]
+session = requests.Session()
+session.headers.update(HEADERS)
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
+    format="%(asctime)s | %(message)s",
     datefmt="%H:%M:%S",
 )
 
 
 # ============================================================
-# SESSION
+# LOCK — совместим со старой интеграцией
 # ============================================================
 
-session = requests.Session()
-session.headers.update(HEADERS)
-
-
-def now():
-    return datetime.now().astimezone().isoformat(timespec="seconds")
-
-
-def save_status(status, message, current=0, total=0, **extra):
-    data = {
-        "status": status,
-        "message": message,
-        "current": current,
-        "total": total,
-        "user": USER,
-        "updated_at": now(),
-    }
-    data.update(extra)
-
-    tmp = STATUS_FILE.with_suffix(".tmp")
-    try:
-        tmp.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        os.replace(tmp, STATUS_FILE)
-    except Exception:
-        logging.exception("Не удалось сохранить status.json")
-
-
-def acquire_lock():
-    if LOCK_FILE.exists():
-        try:
-            age = time.time() - LOCK_FILE.stat().st_mtime
-            if age < MAX_LOCK_AGE:
-                logging.error("Парсер уже запущен: %s", LOCK_FILE)
-                return False
-            LOCK_FILE.unlink(missing_ok=True)
-        except OSError:
-            logging.exception("Не удалось проверить lock.txt")
-            return False
-
-    try:
-        LOCK_FILE.write_text(
-            json.dumps({"pid": os.getpid(), "started_at": now()}),
-            encoding="utf-8",
-        )
-        return True
-    except OSError:
-        logging.exception("Не удалось создать lock.txt")
+def is_locked():
+    if not os.path.exists(LOCK_FILE):
         return False
 
-
-def release_lock():
     try:
-        if LOCK_FILE.exists():
-            LOCK_FILE.unlink()
+        age = time.time() - os.path.getmtime(LOCK_FILE)
+
+        if age > 3600:
+            os.remove(LOCK_FILE)
+            return False
+
+        return True
+
     except OSError:
-        logging.exception("Не удалось удалить lock.txt")
+        return True
+
+
+def set_lock(state):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    if state:
+        with open(LOCK_FILE, "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
+    elif os.path.exists(LOCK_FILE):
+        os.remove(LOCK_FILE)
+
+
+# ============================================================
+# STATUS — формат старого status.json
+# ============================================================
+
+def save_status(
+    running=False,
+    progress=0,
+    user="",
+    file_path=""
+):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    data = {
+        "running": running,
+        "progress": progress,
+        "user": user,
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "file_path": file_path,
+    }
+
+    tmp = STATUS_PATH + ".tmp"
+
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    os.replace(tmp, STATUS_PATH)
 
 
 # ============================================================
 # HTTP
 # ============================================================
 
+def clean(text):
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
 def normalize_url(url):
     if not url:
         return ""
 
-    url = urljoin(BASE + "/", url.strip())
-    parsed = urlparse(url)
+    url = url.strip()
+
+    if url.startswith(("#", "javascript:", "mailto:", "tel:")):
+        return ""
+
+    absolute = urljoin(BASE + "/", url)
+    parsed = urlparse(absolute)
 
     if parsed.netloc.lower() != urlparse(BASE).netloc.lower():
         return ""
 
-    # Удаляем фрагмент, сохраняя параметры страницы.
     return urlunparse((
         parsed.scheme,
         parsed.netloc,
-        parsed.path.rstrip("/") or "/",
+        parsed.path,
         parsed.params,
         parsed.query,
         "",
     ))
 
 
-def canonical_product_url(url):
-    """URL товара без параметров и якорей."""
+def canonical_url(url):
     url = normalize_url(url)
     if not url:
         return ""
 
     parsed = urlparse(url)
+
     return urlunparse((
-        parsed.scheme, parsed.netloc, parsed.path.rstrip("/") or "/",
-        "", "", ""
+        parsed.scheme,
+        parsed.netloc,
+        parsed.path.rstrip("/") or "/",
+        "",
+        "",
+        "",
     ))
 
 
-def get_soup(url, params=None):
-    for attempt in range(1, RETRIES + 1):
+def get_soup(url):
+    for attempt in range(1, MAX_RETRIES + 1):
         try:
             response = session.get(
                 url,
-                params=params,
-                timeout=REQUEST_TIMEOUT,
+                timeout=30,
                 allow_redirects=True,
             )
 
             if response.status_code == 429:
                 wait = min(60 * attempt, 300)
-                logging.warning("HTTP 429. Пауза %s сек.", wait)
-                time.sleep(wait)
-                continue
+                print(f"⚠️ Jmax 429. Ждём {wait} сек.")
+                if attempt < MAX_RETRIES:
+                    time.sleep(wait)
+                    continue
+                break
 
             response.raise_for_status()
 
@@ -186,17 +201,15 @@ def get_soup(url, params=None):
                 response.encoding = response.apparent_encoding or "utf-8"
 
             time.sleep(REQUEST_DELAY)
-            return BeautifulSoup(response.text, "html.parser"), response.url
+            return BeautifulSoup(response.text, "html.parser")
 
         except requests.RequestException as exc:
-            logging.warning(
-                "Ошибка запроса %s/%s: %s",
-                attempt, RETRIES, exc,
-            )
-            if attempt < RETRIES:
+            logging.warning("Ошибка GET %s: %s", url, exc)
+
+            if attempt < MAX_RETRIES:
                 time.sleep(attempt * 2)
 
-    return None, url
+    return BeautifulSoup("", "html.parser")
 
 
 # ============================================================
@@ -204,293 +217,280 @@ def get_soup(url, params=None):
 # ============================================================
 
 def login():
+    print("🔐 LOGIN...")
+
+    # Если учётные данные не заданы, пробуем публичный доступ.
     if not EMAIL or not PASSWORD:
-        logging.info(
-            "JMAX_EMAIL/JMAX_PASSWORD не заданы. Работаем без авторизации."
-        )
+        print("ℹ️ JMAX_EMAIL/JMAX_PASSWORD не заданы; пробуем без входа.")
         return True
 
     login_url = BASE + "/index.php?route=account/login"
-    soup, page_url = get_soup(login_url)
 
-    if soup is None:
-        logging.warning("Не удалось открыть страницу входа.")
-        return False
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = session.get(login_url, timeout=30)
+            response.raise_for_status()
 
-    form = soup.select_one("form.jm-login__form")
-    if form is None:
-        for candidate in soup.select("form"):
-            if candidate.select_one('input[name="email"]') and \
-               candidate.select_one('input[name="password"]'):
-                form = candidate
-                break
+            soup = BeautifulSoup(response.text, "html.parser")
 
-    if form is None:
-        logging.warning("Форма авторизации не найдена.")
-        return False
+            form = soup.select_one("form.jm-login__form")
 
-    payload = {}
-    for inp in form.select("input[name]"):
-        name = inp.get("name")
-        typ = (inp.get("type") or "").lower()
-        if typ in ("submit", "button", "file"):
-            continue
-        payload[name] = inp.get("value", "")
+            if not form:
+                for candidate in soup.select("form"):
+                    if (
+                        candidate.select_one('input[name="email"]')
+                        and candidate.select_one('input[name="password"]')
+                    ):
+                        form = candidate
+                        break
 
-    payload["email"] = EMAIL
-    payload["password"] = PASSWORD
+            if not form:
+                print("❌ LOGIN FORM NOT FOUND")
+                return False
 
-    action = normalize_url(form.get("action") or page_url)
-    method = (form.get("method") or "post").lower()
+            payload = {}
 
-    try:
-        if method == "get":
-            response = session.get(
-                action, params=payload, timeout=REQUEST_TIMEOUT
-            )
-        else:
-            response = session.post(
+            for inp in form.select("input[name]"):
+                input_type = (inp.get("type") or "").lower()
+
+                if input_type in ("submit", "button", "file"):
+                    continue
+
+                payload[inp["name"]] = inp.get("value", "")
+
+            payload["email"] = EMAIL
+            payload["password"] = PASSWORD
+
+            action = normalize_url(form.get("action") or login_url)
+
+            result = session.post(
                 action,
                 data=payload,
-                headers={"Referer": page_url},
-                timeout=REQUEST_TIMEOUT,
+                headers={"Referer": login_url},
+                timeout=30,
+                allow_redirects=True,
             )
-        response.raise_for_status()
+            result.raise_for_status()
 
-        check, final_url = get_soup(BASE)
-        if check is None:
-            return False
+            account = session.get(BASE, timeout=30)
+            account.raise_for_status()
 
-        text = check.get_text(" ", strip=True).lower()
-        logged_out = (
-            "route=account/logout" in str(check)
-            or "выйти" in text
-            or "выход" in text
-        )
+            html = account.text.lower()
 
-        if logged_out:
-            logging.info("Авторизация выполнена.")
+            if any(marker in html for marker in (
+                "route=account/logout",
+                "account/logout",
+                "выйти",
+                "вихід",
+            )):
+                print("✅ LOGIN OK")
+                return True
+
+            print("⚠️ Вход не подтверждён. Пробуем продолжить.")
             return True
 
-        logging.warning(
-            "Вход не подтверждён. Продолжаем с текущей сессией."
-        )
-        return True
+        except requests.RequestException as exc:
+            print(f"❌ LOGIN ERROR: {exc}")
 
-    except requests.RequestException:
-        logging.exception("Ошибка авторизации.")
-        return False
+            if attempt < MAX_RETRIES:
+                time.sleep(attempt * 3)
 
-
-# ============================================================
-# EXCEL
-# ============================================================
-
-def open_workbook():
-    if EXCEL_FILE.exists():
-        wb = load_workbook(EXCEL_FILE)
-        ws = wb.active
-
-        if ws.max_row == 0:
-            ws.append(COLUMNS)
-        elif [ws.cell(1, i + 1).value for i in range(len(COLUMNS))] != COLUMNS:
-            logging.warning("Заголовки Excel отличаются от ожидаемых.")
-        return wb, ws
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Jmax"
-    ws.append(COLUMNS)
-    ws.freeze_panes = "A2"
-    ws.auto_filter.ref = "A1:E1"
-
-    for col, width in {
-        "A": 16, "B": 65, "C": 16, "D": 22, "E": 90
-    }.items():
-        ws.column_dimensions[col].width = width
-
-    return wb, ws
-
-
-def existing_urls(ws):
-    result = set()
-    for row in ws.iter_rows(min_row=2, min_col=5, max_col=5, values_only=True):
-        if row and row[0]:
-            result.add(canonical_product_url(str(row[0])))
-    return result
-
-
-def save_workbook(wb):
-    tmp = EXCEL_FILE.with_name(EXCEL_FILE.stem + ".tmp.xlsx")
-    wb.save(tmp)
-    os.replace(tmp, EXCEL_FILE)
+    return False
 
 
 # ============================================================
 # CATEGORY DISCOVERY
 # ============================================================
 
-def looks_like_product_link(anchor):
-    classes = " ".join(anchor.get("class", []))
-    parent = anchor.find_parent(class_=re.compile(r"product-thumb"))
-    return (
-        "product-thumb__name" in classes
-        or parent is not None
-        or anchor.find_parent(class_="product-layout") is not None
-    )
-
-
-def is_probable_category_url(url):
-    url = normalize_url(url)
-    if not url:
-        return False
-
-    parsed = urlparse(url)
-    path = parsed.path.lower()
-
-    if not path or path == "/":
-        return False
-
-    # Исключаем служебные страницы OpenCart.
-    blocked = (
-        "/index.php", "/account", "/checkout", "/cart",
-        "/search", "/compare", "/wishlist", "/blog",
-        "/manufacturer", "/information", "/login",
-        "/register", "/contact", "/sitemap",
-    )
-    if any(part in path for part in blocked):
-        return False
-
-    return True
-
-
 def get_categories():
-    soup, _ = get_soup(BASE)
-    if soup is None:
+    soup = get_soup(BASE)
+
+    if not soup.find_all(True):
+        print("❌ Главная страница не загрузилась")
         return []
 
     found = {}
-    # Сначала меню: обычные ссылки и data-href.
-    for element in soup.select("a[href], [data-href]"):
-        if looks_like_product_link(element):
-            continue
 
+    # Ищем ссылки именно в меню, а не по всей странице:
+    # иначе ссылки на товары попадут в список категорий.
+    menu_selectors = [
+        "nav a[href]",
+        "nav [data-href]",
+        ".menu a[href]",
+        ".menu [data-href]",
+        ".jm-menu a[href]",
+        ".jm-menu [data-href]",
+        ".dropdown-menu a[href]",
+        ".dropdown-menu [data-href]",
+        ".header a[href]",
+        ".header [data-href]",
+        "header a[href]",
+        "header [data-href]",
+    ]
+
+    elements = []
+
+    for selector in menu_selectors:
+        elements.extend(soup.select(selector))
+
+    # Резервный вариант для меню, построенного на других классах.
+    if not elements:
+        elements = soup.select(
+            "[class*='menu'] a[href], [class*='menu'] [data-href]"
+        )
+
+    blocked = (
+        "account", "checkout", "route=checkout", "route=account",
+        "route=product/product", "cart", "wishlist", "compare",
+        "search", "login", "register", "contact", "logout",
+        "manufacturer", "information",
+    )
+
+    for element in elements:
         href = element.get("href") or element.get("data-href")
         url = normalize_url(href)
 
-        if not is_probable_category_url(url):
+        if not url:
             continue
 
-        label = element.get_text(" ", strip=True)
+        if any(term in url.lower() for term in blocked):
+            continue
+
+        parsed = urlparse(url)
+
+        if parsed.path in ("", "/"):
+            continue
+
+        # Не включаем карточки товаров.
+        if (
+            element.select_one(".product-thumb__price")
+            or element.find_parent(class_="product-thumb")
+            or "product-thumb__name" in element.get("class", [])
+        ):
+            continue
+
+        # Удаляем page из URL, чтобы категория не дублировалась.
+        query = parse_qs(parsed.query, keep_blank_values=True)
+        query.pop("page", None)
+
+        url = urlunparse((
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            urlencode(query, doseq=True),
+            "",
+        ))
+
+        label = clean(element.get_text(" ", strip=True))
+
         if not label:
-            label = element.get("title", "").strip()
+            label = clean(element.get("title", ""))
 
         if not label:
             continue
 
-        path = urlparse(url).path.lower()
-        if path in ("/", ""):
+        # Не добавляем служебные ссылки.
+        if label.lower() in (
+            "главная", "главная страница", "home",
+            "войти", "регистрация", "корзина",
+        ):
             continue
 
-        found[url] = label
+        found.setdefault(url, label)
 
-    # Добавляем URL корневых категорий, если меню помечено классами.
-    for element in soup.select(
-        ".menu a[href], .category-menu a[href], "
-        ".jm-menu a[href], .dropdown-menu a[href], "
-        ".menu [data-href], .category-menu [data-href]"
-    ):
-        if looks_like_product_link(element):
-            continue
+    categories = list(found.items())
 
-        href = element.get("href") or element.get("data-href")
-        url = normalize_url(href)
-        if url and is_probable_category_url(url):
-            found.setdefault(
-                url, element.get_text(" ", strip=True) or url
-            )
+    if CATEGORY_LIMIT:
+        categories = categories[:CATEGORY_LIMIT]
 
-    # Главная категория может не попадать в меню из-за JS-разметки.
-    # Её можно указать явно через переменную окружения.
-    extra = os.getenv("JMAX_EXTRA_CATEGORIES", "")
-    for raw in extra.split(";"):
-        raw = raw.strip()
-        if not raw:
-            continue
-        url = normalize_url(raw)
-        if url:
-            found.setdefault(url, url)
+    print(f"📂 Categories: {len(categories)}")
 
-    categories = list(found.items())[:MAX_CATEGORIES]
-    logging.info("Найдено URL-кандидатов категорий: %s", len(categories))
-    return categories
+    for url, label in categories[:10]:
+        print(f"   • {label}: {url}")
+
+    return [url for url, _ in categories]
 
 
 # ============================================================
-# CATEGORY PAGES AND PRODUCT LINKS
+# PRODUCT LINKS
 # ============================================================
 
-def extract_page_count(soup):
-    """
-    Например: 'Страница 2 из 5'.
-    Возвращает число страниц, если оно найдено.
-    """
-    for element in soup.select(
-        "#jm-inf-more small, .jm-inf__more small, "
-        "button.jm-inf__more small"
-    ):
-        text = element.get_text(" ", strip=True)
-        match = re.search(r"страница\s+\d+\s+из\s+(\d+)", text, re.I)
-        if match:
-            return min(int(match.group(1)), MAX_PAGES_PER_CATEGORY)
+def get_product_links(soup):
+    products = {}
 
-    # Иногда пагинация представлена обычными ссылками.
-    numbers = []
-    for anchor in soup.select("ul.pagination a[href], .pagination a[href]"):
-        href = anchor.get("href", "")
-        parsed = urlparse(href)
-        query = parse_qs(parsed.query)
-        for value in query.get("page", []):
-            if value.isdigit():
-                numbers.append(int(value))
+    if not soup:
+        return products
 
-    if numbers:
-        return min(max(numbers), MAX_PAGES_PER_CATEGORY)
-
-    return None
-
-
-def extract_product_links(soup):
-    links = {}
-
+    # Новый формат Jmax: SEO URL и product-thumb__name.
     for anchor in soup.select("a.product-thumb__name[href]"):
-        url = canonical_product_url(anchor.get("href"))
-        title = anchor.get_text(" ", strip=True)
+        url = canonical_url(anchor.get("href"))
+        title = clean(anchor.get_text(" ", strip=True))
 
         if url and title:
-            links[url] = title
+            products[url] = title
 
-    # Резервный селектор для возможного изменения названия класса.
-    if not links:
+    # Резервный селектор по карточкам каталога.
+    if not products:
         for card in soup.select(".product-thumb, .uni-item"):
-            anchor = card.select_one("a[href][title], a[href]")
+            anchor = card.select_one(
+                "a.product-thumb__name[href], a[href][title]"
+            )
+
             if not anchor:
                 continue
 
-            url = canonical_product_url(anchor.get("href"))
-            title = anchor.get_text(" ", strip=True) or anchor.get("title", "")
+            url = canonical_url(anchor.get("href"))
+            title = clean(
+                anchor.get_text(" ", strip=True)
+                or anchor.get("title", "")
+            )
 
             if url and title:
-                links[url] = title.strip()
+                products[url] = title
 
-    return links
+    return products
 
 
-def make_page_url(category_url, page):
+# ============================================================
+# PAGINATION
+# ============================================================
+
+def get_last_page(soup):
+    if not soup:
+        return 1
+
+    text = clean(soup.get_text(" ", strip=True))
+
+    # Новая кнопка: "Страница 2 из 5".
+    match = re.search(
+        r"Страница\s+\d+\s+из\s+(\d+)",
+        text,
+        re.I,
+    )
+
+    if match:
+        return min(int(match.group(1)), MAX_PAGES)
+
+    pages = [1]
+
+    for anchor in soup.select(
+        "ul.pagination a[href], .pagination a[href]"
+    ):
+        query = parse_qs(urlparse(anchor["href"]).query)
+
+        for value in query.get("page", []):
+            if value.isdigit():
+                pages.append(int(value))
+
+    return min(max(pages), MAX_PAGES)
+
+
+def page_url(category_url, page):
     parsed = urlparse(category_url)
     query = parse_qs(parsed.query, keep_blank_values=True)
 
-    if page <= 1:
+    if page == 1:
         query.pop("page", None)
     else:
         query["page"] = [str(page)]
@@ -505,286 +505,344 @@ def make_page_url(category_url, page):
     ))
 
 
-def collect_category_products(category_url):
-    """
-    Собирает ссылки со страниц ?page=1, ?page=2 ...
-    Останавливается, когда товары перестают появляться.
-    """
-    products = {}
-    soup1, _ = get_soup(make_page_url(category_url, 1))
+def parse_category(cat_url):
+    all_products = {}
 
-    if soup1 is None:
-        return products
+    first_page = get_soup(page_url(cat_url, 1))
 
-    products.update(extract_product_links(soup1))
-    page_count = extract_page_count(soup1)
+    if not first_page.find_all(True):
+        return all_products
 
-    if page_count:
-        pages_to_check = page_count
+    first_products = get_product_links(first_page)
+    all_products.update(first_products)
+
+    last_page = get_last_page(first_page)
+
+    # Если число страниц не отображается в HTML,
+    # перебираем страницы до первой пустой.
+    known_page_count = last_page > 1
+
+    if known_page_count:
+        pages = range(2, last_page + 1)
     else:
-        # Если счётчик страниц не удалось прочитать,
-        # продолжаем до первой пустой страницы.
-        pages_to_check = MAX_PAGES_PER_CATEGORY
+        pages = range(2, MAX_PAGES + 1)
 
-    for page in range(2, pages_to_check + 1):
-        page_url = make_page_url(category_url, page)
-        soup, final_url = get_soup(page_url)
+    for page in pages:
+        soup = get_soup(page_url(cat_url, page))
 
-        if soup is None:
-            logging.warning("Не удалось загрузить страницу %s", page_url)
-            if page_count is None:
-                break
-            continue
-
-        page_products = extract_product_links(soup)
-
-        if not page_products:
-            if page_count is None:
-                break
-            continue
-
-        before = len(products)
-        products.update(page_products)
-
-        if len(products) == before and page_count is None:
+        if not soup.find_all(True):
             break
 
-    return products
+        products = get_product_links(soup)
+
+        if not products:
+            break
+
+        before = len(all_products)
+        all_products.update(products)
+
+        if not known_page_count and len(all_products) == before:
+            break
+
+    return all_products
+
+
+# ============================================================
+# SITEMAP — SEO URL
+# ============================================================
+
+def get_sitemap_urls():
+    candidates = [
+        BASE + "/sitemap.xml",
+        BASE + "/sitemap_index.xml",
+        BASE + "/index.php?route=feed/google_sitemap",
+        BASE + "/index.php?route=extension/feed/google_sitemap",
+    ]
+
+    result = set()
+    visited_sitemaps = set()
+
+    def read_sitemap(sitemap_url, depth=0):
+        if depth > 2 or sitemap_url in visited_sitemaps:
+            return
+
+        visited_sitemaps.add(sitemap_url)
+
+        soup = get_soup(sitemap_url)
+
+        if not soup.find_all(True):
+            return
+
+        # Поддержка sitemap index и обычного sitemap.
+        for loc in soup.find_all("loc"):
+            url = normalize_url(loc.get_text(strip=True))
+
+            if not url:
+                continue
+
+            path = urlparse(url).path.lower()
+
+            if path.endswith(".xml") or "sitemap" in path:
+                read_sitemap(url, depth + 1)
+            else:
+                result.add(canonical_url(url))
+
+    for candidate in candidates:
+        read_sitemap(candidate)
+
+    print(f"🗺 Sitemap URL: {len(result)}")
+
+    return sorted(result)
 
 
 # ============================================================
 # PRODUCT DETAILS
 # ============================================================
 
-def clean_text(element):
-    return element.get_text(" ", strip=True) if element else ""
-
-
-def extract_value(text, pattern):
-    match = re.search(pattern, text, re.I)
-    return match.group(1).strip() if match else ""
-
-
 def parse_product(url, listing_title=""):
-    soup, final_url = get_soup(url)
-    if soup is None:
+    soup = get_soup(url)
+
+    if not soup.find_all(True):
         return None
 
-    title = clean_text(
-        soup.select_one("h1.jm-pp__title")
-        or soup.select_one("h1")
-    ) or listing_title
+    # Проверяем, что это именно товарная карточка.
+    price_tag = soup.select_one(
+        ".product-page__price, .jm-pp__price"
+    )
 
-    # SKU — код товара, не product_id/data-pid.
+    product_id = soup.select_one(
+        'input[name="product_id"]'
+    )
+
+    if not price_tag and not product_id:
+        return None
+
+    h1 = soup.select_one("h1.jm-pp__title") or soup.select_one("h1")
+
+    title = clean(h1.get_text(" ", strip=True)) if h1 else listing_title
+
+    if not title:
+        return None
+
+    # Артикул — именно код товара, не data-pid/product_id.
     sku = ""
+
     model = soup.select_one(".product-data__item.model")
+
     if model:
-        model_text = clean_text(model)
-        sku = extract_value(
+        model_text = clean(model.get_text(" ", strip=True))
+
+        match = re.search(
+            r"(?:Код\s*товара|Артикул|SKU|Модель|Model|Код)"
+            r"\s*[:№#-]?\s*([A-ZА-ЯЁ0-9._/-]+)",
             model_text,
-            r"(?:код\s*товара|артикул|модель|код)\s*[:№#]?\s*([A-ZА-ЯЁ0-9._/-]+)"
+            re.I,
         )
 
-        if not sku:
-            sku = re.sub(
-                r"^(?:код\s*товара|артикул|модель|код)\s*[:№#]?\s*",
-                "",
-                model_text,
-                flags=re.I,
-            ).strip()
+        if match:
+            sku = match.group(1).strip()
 
-    # Дополнительные селекторы на случай вариаций карточки.
     if not sku:
-        for selector in (
-            "[itemprop='sku']",
-            ".product-model",
-            ".product-info .model",
-            ".product-data__item",
-        ):
-            for element in soup.select(selector):
-                text = clean_text(element)
-                value = extract_value(
-                    text,
-                    r"(?:код\s*товара|артикул|модель|код)\s*[:№#]?\s*([A-ZА-ЯЁ0-9._/-]+)"
-                )
-                if value:
-                    sku = value
-                    break
-            if sku:
-                break
+        page_text = clean(soup.get_text(" ", strip=True))
 
-    price_element = (
-        soup.select_one(".product-page__price")
-        or soup.select_one(".jm-pp__price")
-        or soup.select_one("[itemprop='price']")
-        or soup.select_one(".price")
-    )
-
-    price = ""
-    if price_element:
-        price = clean_text(price_element)
-
-        # Если цена хранится только в атрибуте.
-        if not price:
-            price = (
-                price_element.get("content")
-                or price_element.get("data-price")
-                or ""
-            )
-
-    stock_element = (
-        soup.select_one(".jm-buy__stock")
-        or soup.select_one(".product-data__item.stock")
-        or soup.select_one(".stock")
-    )
-    status = clean_text(stock_element)
-
-    if not status:
-        page_text = soup.get_text(" ", strip=True)
         match = re.search(
-            r"(В наличии\s*:?\s*\d*\s*шт\.?|Нет в наличии|Под заказ|"
-            r"Закончился|Немає в наявності)",
+            r"(?:Код\s*товара|Артикул|SKU|Модель|Model)"
+            r"\s*[:№#-]?\s*([A-ZА-ЯЁ0-9._/-]+)",
             page_text,
             re.I,
         )
-        status = match.group(1).strip() if match else ""
+
+        if match:
+            sku = match.group(1).strip()
+
+    # Цена сохраняется в отображаемом виде, например $4.00.
+    price = clean(price_tag.get_text(" ", strip=True)) if price_tag else ""
+
+    if not price and price_tag:
+        price = (
+            price_tag.get("content")
+            or price_tag.get("data-price")
+            or ""
+        )
+
+    # Новый селектор наличия.
+    stock_tag = (
+        soup.select_one(".jm-buy__stock")
+        or soup.select_one(".product-data__item.stock")
+    )
+
+    status = clean(stock_tag.get_text(" ", strip=True)) if stock_tag else ""
+
+    if not status:
+        cart_button = soup.select_one("#button-cart span")
+
+        if cart_button:
+            status = clean(cart_button.get_text(" ", strip=True))
 
     return [
         sku,
         title,
         price,
         status,
-        canonical_product_url(final_url or url),
+        canonical_url(url),
     ]
 
 
 # ============================================================
-# RUN
+# MAIN
 # ============================================================
 
 def run_parser():
-    if not acquire_lock():
+    if is_locked():
+        print("⚠️ Парсер уже запущен.")
         return
 
-    wb = None
+    set_lock(True)
 
     try:
-        save_status("running", "Подготовка парсера")
-        login()
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-        wb, ws = open_workbook()
-        known = existing_urls(ws)
+        save_status(True, 0, USER, FILE_PATH)
 
+        if not login():
+            print("❌ Не удалось авторизоваться")
+            save_status(False, 0, USER, FILE_PATH)
+            return
+
+        wb = Workbook()
+        ws = wb.active
+
+        ws.title = "Jmax"
+        ws.append(["SKU", "TITLE", "PRICE", "STATUS", "URL"])
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = "A1:E1"
+
+        for column, width in {
+            "A": 16,
+            "B": 65,
+            "C": 16,
+            "D": 24,
+            "E": 90,
+        }.items():
+            ws.column_dimensions[column].width = width
+
+        product_map = {}
+
+        # 1. Сбор товаров по категориям.
         categories = get_categories()
 
-        # Если меню не удалось распознать, можно задать стартовую категорию
-        # переменной JMAX_EXTRA_CATEGORIES.
         if not categories:
-            save_status(
-                "error",
-                "Не найдены категории. Проверь меню сайта или JMAX_EXTRA_CATEGORIES.",
+            print(
+                "❌ Категории не найдены. "
+                "Проверь селекторы меню Jmax."
             )
+            save_status(False, 0, USER, FILE_PATH)
             return
 
-        all_products = {}
-
-        for index, (category_url, category_name) in enumerate(categories, 1):
-            save_status(
-                "running",
-                f"Сбор ссылок: {category_name}",
-                index,
-                len(categories),
-                category_url=category_url,
-            )
-            logging.info(
-                "[Категория %s/%s] %s",
-                index, len(categories), category_url,
+        for index, category in enumerate(categories, 1):
+            print(
+                f"📂 Категория {index}/{len(categories)}: {category}"
             )
 
             try:
-                links = collect_category_products(category_url)
-                all_products.update(links)
-                logging.info("Ссылок в категории: %s", len(links))
-            except Exception:
-                logging.exception("Ошибка категории: %s", category_url)
+                links = parse_category(category)
+                product_map.update(links)
 
-        # Сохраняем найденные ссылки без дубликатов.
-        urls = list(all_products.items())
-        total = len(urls)
-        logging.info("Всего уникальных товаров: %s", total)
+                print(f"   📦 Товаров найдено: {len(links)}")
 
-        if total == 0:
-            save_status(
-                "error",
-                "Товары не найдены. Возможно, сайт изменил HTML или требует входа.",
-                0,
-                0,
-            )
+            except Exception as exc:
+                logging.exception(
+                    "Ошибка категории %s: %s",
+                    category,
+                    exc,
+                )
+
+        print(f"📦 Товаров из категорий: {len(product_map)}")
+
+        # 2. Sitemap: SEO URL вместо старого route=product/product.
+        for sitemap_url in get_sitemap_urls():
+            product_map.setdefault(sitemap_url, "")
+
+        product_urls = list(product_map.items())
+        total = len(product_urls)
+
+        print(f"📦 Всего URL для проверки: {total}")
+
+        if not total:
+            print("❌ Не найдено ни одного товара.")
+            save_status(False, 0, USER, FILE_PATH)
             return
 
-        processed = 0
-        added = 0
+        # 3. Парсинг карточек.
         errors = 0
+        written = 0
 
-        for url, listing_title in urls:
-            processed += 1
-
-            if url in known:
-                continue
+        for index, (url, listing_title) in enumerate(product_urls, 1):
+            progress = int(index / total * 100)
 
             save_status(
-                "running",
-                f"Обработка товара {processed} из {total}",
-                processed,
-                total,
-                added=added,
-                errors=errors,
-                url=url,
+                True,
+                progress,
+                USER,
+                FILE_PATH,
             )
 
             try:
-                row = parse_product(url, listing_title)
-                if row and row[1]:
-                    ws.append(row)
-                    known.add(url)
-                    added += 1
+                item = parse_product(url, listing_title)
 
-                    # Сохраняем прогресс, чтобы не потерять результат.
-                    if added % 10 == 0:
-                        save_workbook(wb)
+                # Страницы категорий и служебные URL пропускаются.
+                if not item:
+                    continue
 
-                else:
-                    errors += 1
+                sku, title, price, status, final_url = item
 
-            except Exception:
+                if not title:
+                    continue
+
+                ws.append([
+                    sku,
+                    title,
+                    price,
+                    status,
+                    final_url,
+                ])
+
+                written += 1
+
+                # Периодическое сохранение, чтобы не терять прогресс.
+                if written % 50 == 0:
+                    tmp = FILE_PATH + ".tmp.xlsx"
+                    wb.save(tmp)
+                    os.replace(tmp, FILE_PATH)
+
+                if written % 100 == 0:
+                    print(
+                        f"   📊 Обработано: {index}/{total}; "
+                        f"товаров: {written}"
+                    )
+
+            except Exception as exc:
                 errors += 1
-                logging.exception("Ошибка карточки: %s", url)
+                logging.warning("Ошибка товара %s: %s", url, exc)
 
-        save_workbook(wb)
+        # 4. Финальное сохранение.
+        tmp = FILE_PATH + ".tmp.xlsx"
+        wb.save(tmp)
+        os.replace(tmp, FILE_PATH)
 
-        save_status(
-            "completed",
-            "Парсер завершил работу",
-            total,
-            total,
-            added=added,
-            errors=errors,
-            excel=str(EXCEL_FILE),
-        )
+        save_status(False, 100, USER, FILE_PATH)
 
-        logging.info(
-            "Готово. Новых товаров: %s; ошибок: %s; файл: %s",
-            added, errors, EXCEL_FILE,
-        )
+        print(f"✅ Готово. Сохранено товаров: {written}")
+        print(f"⚠️ Ошибок карточек: {errors}")
+        print(f"📄 Excel: {FILE_PATH}")
 
     except Exception as exc:
-        logging.exception("Критическая ошибка парсера")
-        save_status("error", str(exc))
+        logging.exception("Критическая ошибка парсера: %s", exc)
+        save_status(False, 0, USER, FILE_PATH)
 
     finally:
-        release_lock()
+        set_lock(False)
 
 
 if __name__ == "__main__":
     run_parser()
-
