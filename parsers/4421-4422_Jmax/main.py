@@ -1,6 +1,3 @@
-
-# -*- coding: utf-8 -*-
-
 import os
 import sys
 import re
@@ -181,6 +178,7 @@ def canonical_url(url):
     ))
 
 
+
 def get_soup(url):
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -193,24 +191,55 @@ def get_soup(url):
             if response.status_code == 429:
                 wait = min(60 * attempt, 300)
                 print(f"⚠️ Jmax 429. Ждём {wait} сек.")
+
                 if attempt < MAX_RETRIES:
                     time.sleep(wait)
                     continue
+
                 break
 
             response.raise_for_status()
 
-            if not response.encoding or response.encoding.lower() == "iso-8859-1":
-                response.encoding = response.apparent_encoding or "utf-8"
+            if (
+                not response.encoding
+                or response.encoding.lower() == "iso-8859-1"
+            ):
+                response.encoding = (
+                    response.apparent_encoding or "utf-8"
+                )
+
+            content = response.text
+            content_type = response.headers.get(
+                "Content-Type", ""
+            ).lower()
+
+            # XML разбираем XML-парсером, HTML — HTML-парсером.
+            is_xml = (
+                "xml" in content_type
+                or urlparse(response.url).path.lower().endswith(".xml")
+                or content.lstrip().startswith("<?xml")
+            )
 
             time.sleep(REQUEST_DELAY)
-            return BeautifulSoup(response.text, "html.parser")
+
+            if is_xml:
+                return BeautifulSoup(content, "xml")
+
+            return BeautifulSoup(content, "html.parser")
 
         except requests.RequestException as exc:
-            logging.warning("Ошибка GET %s: %s", url, exc)
+            logging.warning(
+                "Ошибка GET %s: %s", url, exc
+            )
 
             if attempt < MAX_RETRIES:
                 time.sleep(attempt * 2)
+
+        except Exception as exc:
+            logging.warning(
+                "Ошибка обработки %s: %s", url, exc
+            )
+            break
 
     return BeautifulSoup("", "html.parser")
 
