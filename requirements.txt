@@ -5,4 +5,4 @@ openpyxl
 pytz
 playwright
 psutil
-
+lxml
