@@ -21,6 +21,9 @@ print("🔥 Харьковская 4421-4422 Jmax")
 
 BASE = "https://www.jmaxtvshop.com.ua"
 
+EMAIL = "angelinatitor@gmail.com"
+PASSWORD = "18022021"
+
 CATEGORY_LIMIT = 1
 #CATEGORY_LIMIT = None
 
